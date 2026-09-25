@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  LEAD
+  PROPOSAL
+  PLANNING
+  IN_PROGRESS
+  WAITING_CLIENT
+  DELIVERED
+  PAUSED
+  CANCELLED
+}
+
+enum ChargeStatus {
+  DRAFT
+  PENDING
+  PAID
+  OVERDUE
+  REFUNDED
+  CANCELLED
+}
+
+enum MonitoringStatus {
+  OPERATIONAL
+  DEGRADED
+  DOWN
+  UNKNOWN
+}
+
+enum MonitoringEventType {
+  UPTIME
+  DEPLOYMENT
+  SECURITY
+  LOG
+}
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  SIGNED
+  EXPIRED
+}
+
+model Client {
+  id             String          @id @default(cuid())
+  name           String
+  email          String?
+  document       String?
+  phone          String?
+  company        String?
+  asaasCustomerId String?        @unique
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  projects       Project[]
+  charges        Charge[]
+  quotes         Quote[]
+  contracts      Contract[]
+
+  @@index([name])
+  @@index([email])
+}
+
+model Project {
+  id             String        @id @default(cuid())
+  clientId       String
+  name           String
+  description    String?
+  status         ProjectStatus @default(LEAD)
+  budgetCents    Int?
+  startedAt      DateTime?
+  deliveryAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  monitoredApps  MonitoredApp[]
+  charges        Charge[]
+  quotes         Quote[]
+  contracts      Contract[]
+
+  @@index([clientId, status])
+  @@index([deliveryAt])
+}
+
+model Charge {
+  id             String       @id @default(cuid())
+  clientId       String
+  projectId      String?
+  description    String
+  amountCents    Int
+  dueDate        DateTime
+  paidAt         DateTime?
+  status         ChargeStatus @default(DRAFT)
+  paymentMethod  String?
+  asaasPaymentId String?      @unique
+  invoiceUrl     String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([status, dueDate])
+  @@index([clientId, dueDate])
+}
+
+model Quote {
+  id              String         @id @default(cuid())
+  clientId        String?
+  projectId       String?
+  code            String         @unique
+  title           String
+  scope           String
+  estimatedHours  Int
+  estimatedDays   Int
+  amountCents     Int
+  costCents       Int?
+  validUntil      DateTime?
+  status          DocumentStatus @default(DRAFT)
+  aiAnalysis      Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  client          Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([status, validUntil])
+}
+
+model Contract {
+  id              String         @id @default(cuid())
+  clientId        String
+  projectId       String?
+  code            String         @unique
+  title           String
+  terms           String
+  deliveryDate    DateTime?
+  amountCents     Int?
+  status          DocumentStatus @default(DRAFT)
+  signedAt        DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  client          Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+model MonitoredApp {
+  id                String           @id @default(cuid())
+  projectId         String?
+  name              String
+  url               String?
+  healthEndpoint    String?
+  logsEndpoint      String?
+  environment       String           @default("production")
+  status            MonitoringStatus @default(UNKNOWN)
+  lastCheckedAt     DateTime?
+  lastResponseMs    Int?
+  lastIncidentAt    DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  project           Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  events            MonitoringEvent[]
+
+  @@index([status, lastCheckedAt])
+}
+
+model MonitoringEvent {
+  id             String              @id @default(cuid())
+  monitoredAppId String
+  type           MonitoringEventType
+  severity       String              @default("info")
+  title          String
+  details        String?
+  metadata       Json?
+  occurredAt     DateTime            @default(now())
+  resolvedAt     DateTime?
+  monitoredApp   MonitoredApp        @relation(fields: [monitoredAppId], references: [id], onDelete: Cascade)
+
+  @@index([monitoredAppId, occurredAt])
+  @@index([type, severity])
+}
+
+model PaymentIntegration {
+  id                    String   @id @default(cuid())
+  provider              String   @unique
+  isActive              Boolean  @default(false)
+  environment           String   @default("sandbox")
+  apiKeyEncrypted       String?
+  webhookTokenHash      String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model GatewayEvent {
+  id                String   @id @default(cuid())
+  provider          String
+  eventKey          String   @unique
+  eventName         String
+  providerPaymentId String?
+  amountCents       Int?
+  occurredAt        DateTime?
+  processedAt       DateTime?
+  error             String?
+  receivedAt        DateTime @default(now())
+
+  @@index([provider, receivedAt])
+  @@index([providerPaymentId])
+}
