@@ -1,0 +1,15 @@
+import Link from "next/link";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarToggle } from "@/components/sidebar-toggle";
+import { ClientQuotePicker } from "@/features/quotes/components/client-quote-picker";
+import { findClientsForQuote } from "@/features/quotes/queries/quote-queries";
+import { getClientForDirectSale } from "@/features/sales/queries/sale-queries";
+import { createDirectSaleAction } from "@/features/sales/services/sale-actions";
+
+export const dynamic = "force-dynamic";
+
+export default async function NewDirectSalePage({ searchParams }: { searchParams: Promise<{ clientId?: string; clientQuery?: string; error?: string }> }) {
+  const { clientId, clientQuery, error } = await searchParams;
+  const [clients, selected] = await Promise.all([findClientsForQuote(clientQuery), clientId ? getClientForDirectSale(clientId) : null]);
+  return <main className="app-shell"><AppSidebar current="sales" /><div className="workspace"><section className="directory-page form-page"><header className="directory-header"><div><p className="eyebrow">VENDAS / REGISTRO DIRETO</p><h1>Nova venda direta.</h1><p>Registre uma venda que não depende de orçamento, sempre vinculada a um cliente cadastrado.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href="/vendas">VOLTAR PARA VENDAS</Link></div></header>{!selected ? <section className="client-form quote-client-picker"><p className="eyebrow">01 / SELECIONE O CLIENTE</p><ClientQuotePicker clients={clients} query={clientQuery} basePath="/vendas/nova" /></section> : <form className="client-form direct-sale-form" action={createDirectSaleAction}><input type="hidden" name="clientId" value={selected.id} />{error ? <p className="form-error">{error}</p> : null}<section className="quote-client-selected"><span>CLIENTE SELECIONADO</span><b>{selected.name}</b><small>{selected.company ?? selected.email ?? "Perfil de cliente"}</small><Link className="text-link" href={`/vendas/nova?clientQuery=${encodeURIComponent(clientQuery ?? "")}`}>ALTERAR</Link></section><section><p className="eyebrow">02 / DADOS DA VENDA</p><div className="form-grid"><label className="form-wide">Título da venda<input name="title" required maxLength={180} placeholder="Ex.: Implantação de infraestrutura cloud" /></label><label>Valor da venda<input name="amount" required min="0.01" step="0.01" type="number" inputMode="decimal" placeholder="0,00" /></label><label>Status inicial<select name="status" defaultValue="CONFIRMED"><option value="CONFIRMED">Confirmada</option><option value="PENDING">Pendente</option><option value="PAID">Paga</option></select></label><label className="form-wide">Descrição ou contexto<textarea name="description" maxLength={4000} placeholder="Registre o que foi vendido, condições e observações relevantes." /></label></div></section><div className="form-actions"><Link className="text-link" href="/vendas">CANCELAR</Link><button className="primary-action" type="submit">REGISTRAR VENDA</button></div></form>}</section></div></main>;
+}

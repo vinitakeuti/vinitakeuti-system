@@ -49,12 +49,51 @@ enum DocumentStatus {
   EXPIRED
 }
 
+enum QuotePricingMethod {
+  FIXED
+  HOURLY
+  DAILY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELLED
+}
+
+enum ServiceBillingType {
+  ONE_TIME
+  RECURRING
+}
+
+enum ServicePricingMethod {
+  FIXED
+  HOURLY
+  DAILY
+  CUSTOM
+}
+
+enum SaleOrigin {
+  QUOTE
+  DIRECT
+}
+
+enum SaleStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  CANCELLED
+}
+
 model Client {
   id             String          @id @default(cuid())
   name           String
   email          String?
   document       String?
   phone          String?
+  address        String?
+  city           String?
   company        String?
   asaasCustomerId String?        @unique
   notes          String?
@@ -63,10 +102,78 @@ model Client {
   projects       Project[]
   charges        Charge[]
   quotes         Quote[]
+  sales          Sale[]
   contracts      Contract[]
+  subscriptions  Subscription[]
 
   @@index([name])
   @@index([email])
+}
+
+model PricingProfile {
+  id String @id @default("default")
+  internalHourlyCostCents Int @default(6000)
+  targetMarginBps Int @default(4000)
+  taxBps Int @default(600)
+  riskReserveBps Int @default(1500)
+  weeklyCapacityHours Int @default(30)
+  minimumProjectCents Int @default(300000)
+  updatedAt DateTime @updatedAt
+}
+
+model QuoteTextTemplate {
+  id        String   @id @default("default")
+  content   String   @default("")
+  updatedAt DateTime @updatedAt
+}
+
+model ProfessionalProfile {
+  id                 String   @id @default("default")
+  name               String   @default("Vinicius Riudi")
+  professionalTitle  String?
+  email              String?
+  phone              String?
+  document           String?
+  address            String?
+  city               String?
+  state              String?
+  website            String?
+  updatedAt          DateTime @updatedAt
+}
+
+model ServiceCategory {
+  id        String               @id @default(cuid())
+  name      String               @unique
+  description String?
+  sortOrder Int                  @default(0)
+  isActive  Boolean              @default(true)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  services  ServiceCatalogItem[]
+
+  @@index([isActive, sortOrder, name])
+}
+
+model ServiceCatalogItem {
+  id                 String             @id @default(cuid())
+  categoryId         String
+  name               String
+  description        String?
+  proposalText       String?
+  billingType        ServiceBillingType
+  pricingMethod      ServicePricingMethod @default(FIXED)
+  defaultAmountCents Int                @default(0)
+  estimatedHours     Int?
+  billingCycle       String?
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  category           ServiceCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  subscriptions      Subscription[]
+  quoteItems         QuoteServiceItem[]
+
+  @@index([categoryId, isActive, createdAt])
+  @@index([isActive, createdAt])
 }
 
 model Project {
@@ -113,24 +220,99 @@ model Charge {
 
 model Quote {
   id              String         @id @default(cuid())
-  clientId        String?
+  clientId        String
   projectId       String?
   code            String         @unique
   title           String
   scope           String
   estimatedHours  Int
   estimatedDays   Int
+  pricingMethod   QuotePricingMethod @default(FIXED)
+  pricingRateCents Int?
   amountCents     Int
+  discountCents   Int            @default(0)
   costCents       Int?
+  documentContent Json?
+  terms           String?
   validUntil      DateTime?
   status          DocumentStatus @default(DRAFT)
   aiAnalysis      Json?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
-  client          Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  client          Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  items           QuoteServiceItem[]
+  sale            Sale?
 
   @@index([status, validUntil])
+  @@index([status, createdAt, id])
+  @@index([clientId, createdAt])
+}
+
+model Sale {
+  id          String     @id @default(cuid())
+  clientId    String
+  quoteId     String?    @unique
+  code        String     @unique
+  title       String
+  description String?
+  amountCents Int
+  origin      SaleOrigin
+  status      SaleStatus @default(PENDING)
+  confirmedAt DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  client      Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  quote       Quote?     @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([createdAt, id])
+  @@index([clientId, createdAt])
+}
+
+model QuoteServiceItem {
+  id                   String             @id @default(cuid())
+  quoteId              String
+  serviceCatalogItemId String?
+  name                 String
+  categoryName         String
+  proposalText         String?
+  billingType          ServiceBillingType
+  pricingMethod        ServicePricingMethod @default(FIXED)
+  billingCycle         String?
+  quantity             Int                @default(1)
+  pricingRateCents     Int?
+  unitAmountCents      Int
+  totalAmountCents     Int
+  estimatedHours       Int?
+  createdAt            DateTime           @default(now())
+  quote                Quote              @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  serviceCatalogItem   ServiceCatalogItem? @relation(fields: [serviceCatalogItemId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId, createdAt])
+  @@index([serviceCatalogItemId])
+}
+
+model Subscription {
+  id            String             @id @default(cuid())
+  clientId      String
+  serviceCatalogItemId String?
+  name          String
+  amountCents   Int
+  billingCycle  String             @default("MONTHLY")
+  status        SubscriptionStatus @default(ACTIVE)
+  nextPaymentAt DateTime?
+  startedAt     DateTime           @default(now())
+  cancelledAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  client        Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  serviceCatalogItem ServiceCatalogItem? @relation(fields: [serviceCatalogItemId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, status])
+  @@index([status, nextPaymentAt])
+  @@index([serviceCatalogItemId, status])
 }
 
 model Contract {

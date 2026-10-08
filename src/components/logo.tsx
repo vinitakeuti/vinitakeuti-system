@@ -1,8 +1,8 @@
 export function Logo() {
   return (
-    <div className="brand" aria-label="VR Gestão">
-      <span className="brand-mark" aria-hidden="true">VR</span>
-      <span className="brand-name">gestão</span>
+    <div className="brand" aria-label="Vinicius Riudi">
+      <img className="brand-mark" src="/assets/images/logo-vr.svg" alt="" aria-hidden="true" />
+      <span className="brand-name">VINICIUS<br />RIUDI</span>
     </div>
   );
 }
