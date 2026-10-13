@@ -1,7 +1,7 @@
-import { parseRichText, type RichTextRun } from "@/lib/rich-text";
+import { parseRichText, RICH_TEXT_BASE_SIZE, richTextLineHeight, type RichTextRun } from "@/lib/rich-text";
 
 function InlineRuns({ runs }: { runs: RichTextRun[] }) {
-  return <>{runs.map((run, index) => <span key={`${index}-${run.text.slice(0, 12)}`} style={{ fontWeight: run.bold ? 700 : undefined, fontStyle: run.italic ? "italic" : undefined, textDecoration: run.underline ? "underline" : undefined }}>{run.text}</span>)}</>;
+  return <>{runs.map((run, index) => <span key={`${index}-${run.text.slice(0, 12)}`} style={{ fontWeight: run.bold ? 700 : undefined, fontStyle: run.italic ? "italic" : undefined, textDecoration: run.underline ? "underline" : undefined, ...(run.size ? { fontSize: `${run.size / RICH_TEXT_BASE_SIZE}em`, lineHeight: richTextLineHeight(run.size) } : {}) }}>{run.text}</span>)}</>;
 }
 
 /** Renders only the application's structured rich text; it never injects stored HTML. */

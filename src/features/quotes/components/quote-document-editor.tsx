@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SidebarToggle } from "@/components/sidebar-toggle";
-import { InlineRichTextEditor, type RichTextEditorCommand } from "@/features/services/components/service-proposal-editor";
+import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest } from "@/features/services/components/service-proposal-editor";
 import { QuoteClosingPreview, QuoteCoverPreview, type QuotePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { updateQuoteDocumentAction } from "@/features/quotes/services/quote-actions";
 import { QUOTE_INTRO_BLOCK_ID, quoteDocumentBlockRole, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentBlockType, type QuoteDocumentContent, type QuoteDocumentFontSize } from "@/features/quotes/types/document-content";
-import { parseRichText, richTextPlainText, serializeRichText, type RichTextBlock, type RichTextRun } from "@/lib/rich-text";
+import { parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextPlainText, serializeRichText, type RichTextBlock, type RichTextRun } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
   name: string;
@@ -195,8 +195,51 @@ function paginateDocument(blocks: QuoteDocumentBlock[], layout: PageLayout | nul
   return pages;
 }
 
-function EditableBlock({ block, onActivate, onInput, onCommit, onRemove, command }: { block: DocumentDisplayBlock; onActivate: () => void; onInput: (text: string) => void; onCommit: () => void; onRemove: () => void; command?: { id: number; value: RichTextEditorCommand } | null }) {
-  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text" data-block-id={block.id}><InlineRichTextEditor initialValue={block.text} ariaLabel={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Apresentação da proposta" : "Texto da proposta"} placeholder={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Escreva aqui a apresentação da proposta, o contexto do projeto ou qualquer texto que deve vir antes dos serviços." : undefined} className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
+/** Tamanho do texto: diminuir, escolher na lista ou aumentar. Os botões não tiram o foco do texto em edição. */
+function FontSizeControl({ size, onStep, onSelect }: { size: number; onStep: (direction: 1 | -1) => void; onSelect: (size: number) => void }) {
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!menuPosition) return;
+    const close = (event: Event) => {
+      if (event instanceof KeyboardEvent && event.key !== "Escape") return;
+      if (event.type === "pointerdown" && (event.target as Element | null)?.closest(".quote-docs-size-menu, .quote-docs-size-current")) return;
+      setMenuPosition(null);
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", close);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", close);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [menuPosition]);
+
+  function toggleMenu() {
+    if (menuPosition) {
+      setMenuPosition(null);
+      return;
+    }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) setMenuPosition({ top: rect.bottom + 4, left: Math.max(8, Math.min(rect.left, window.innerWidth - 136)) });
+  }
+
+  return <div className="quote-docs-size" role="group" aria-label="Tamanho da fonte">
+    <button type="button" className="quote-docs-size-step" aria-label="Diminuir fonte" title="Diminuir fonte" disabled={size <= RICH_TEXT_SIZES[0]} onMouseDown={(event) => event.preventDefault()} onClick={() => onStep(-1)}>A<small>-</small></button>
+    <button type="button" ref={triggerRef} className="quote-docs-size-current" aria-haspopup="listbox" aria-expanded={menuPosition !== null} aria-label={`Tamanho da fonte: ${size} pontos`} onMouseDown={(event) => event.preventDefault()} onClick={toggleMenu}>{size}<small>PT</small></button>
+    <button type="button" className="quote-docs-size-step is-increase" aria-label="Aumentar fonte" title="Aumentar fonte" disabled={size >= RICH_TEXT_SIZES.at(-1)!} onMouseDown={(event) => event.preventDefault()} onClick={() => onStep(1)}>A<small>+</small></button>
+    {menuPosition ? <div className="quote-docs-size-menu" role="listbox" aria-label="Tamanhos disponíveis" style={{ top: menuPosition.top, left: menuPosition.left }}>
+      {RICH_TEXT_SIZES.map((option) => <button type="button" role="option" aria-selected={option === size} key={option} className={option === size ? "is-active" : ""} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option); setMenuPosition(null); }}><span style={{ fontSize: `${Math.min(option, 20) / RICH_TEXT_BASE_SIZE * 0.8}rem` }}>{option}</span>{option === RICH_TEXT_BASE_SIZE ? <small>NORMAL</small> : null}</button>)}
+    </div> : null}
+  </div>;
+}
+
+function EditableBlock({ block, onActivate, onInput, onCommit, onRemove, command, onSelectionSize }: { block: DocumentDisplayBlock; onActivate: () => void; onInput: (text: string) => void; onCommit: () => void; onRemove: () => void; command?: RichTextEditorCommandRequest | null; onSelectionSize?: (size: number) => void }) {
+  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text" data-block-id={block.id}><InlineRichTextEditor initialValue={block.text} onSelectionSize={onSelectionSize} ariaLabel={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Apresentação da proposta" : "Texto da proposta"} placeholder={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Escreva aqui a apresentação da proposta, o contexto do projeto ou qualquer texto que deve vir antes dos serviços." : undefined} className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
   const role = quoteDocumentBlockRole(block);
   return <div data-block-id={block.id} className={`quote-editor-document-block quote-editor-document-${block.type} quote-editor-document-${block.fontSize}${role ? ` quote-editor-document-role-${role}` : ""}${block.text ? "" : " is-empty"}`}>
     <div className="quote-editor-document-content" role="textbox" aria-multiline="true" aria-label={block.type === "heading" ? "Título do documento" : "Texto do documento"} contentEditable suppressContentEditableWarning onFocus={onActivate} onBlur={onCommit} onKeyDown={(event) => { if ((event.key === "Backspace" || event.key === "Delete") && !event.currentTarget.innerText.trim()) { event.preventDefault(); onRemove(); } }} onInput={(event) => onInput(event.currentTarget.innerText.slice(0, 4_000))} style={{ textAlign: block.align, fontWeight: block.bold ? 700 : 400, fontStyle: block.italic ? "italic" : "normal", textDecoration: block.underline ? "underline" : "none" }}>{block.text}</div>
@@ -208,7 +251,8 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   const contentRef = useRef<QuoteDocumentContent>(initialContent);
   const documentContentFieldRef = useRef<HTMLInputElement>(null);
   const [activeBlockId, setActiveBlockId] = useState(initialContent.blocks.find((block) => block.id !== "intro-title")?.id ?? "");
-  const [richTextCommand, setRichTextCommand] = useState<{ id: number; value: RichTextEditorCommand } | null>(null);
+  const [richTextCommand, setRichTextCommand] = useState<RichTextEditorCommandRequest | null>(null);
+  const [richTextSize, setRichTextSize] = useState(RICH_TEXT_BASE_SIZE);
   const blocks = content.blocks;
   const editableBlocks = blocks.filter((block) => block.id !== "intro-title");
   const activeBlock = editableBlocks.find((block) => block.id === activeBlockId) ?? (activeBlockId.includes("-part-") ? { id: activeBlockId, type: "rich-text" as const, text: "", fontSize: "medium" as const, bold: false, italic: false, underline: false, align: "left" as const } : editableBlocks[0]);
@@ -316,8 +360,8 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     commitDocument();
   }
 
-  function applyRichTextCommand(value: RichTextEditorCommand) {
-    setRichTextCommand((current) => ({ id: (current?.id ?? 0) + 1, value }));
+  function applyRichTextCommand(value: RichTextEditorCommand, size?: number) {
+    setRichTextCommand((current) => ({ id: (current?.id ?? 0) + 1, value, size }));
   }
 
   return <form className="quote-document-editor quote-docs-editor" action={updateQuoteDocumentAction}>
@@ -331,6 +375,8 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
           <button type="button" aria-label="Negrito" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("bold")}><strong>N</strong></button>
           <button type="button" aria-label="Itálico" className="quote-docs-italic" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("italic")}><em>I</em></button>
           <button type="button" aria-label="Sublinhado" className="quote-docs-underline" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("underline")}><u>S</u></button>
+          <span className="quote-docs-divider" />
+          <FontSizeControl size={richTextSize} onStep={(direction) => applyRichTextCommand(direction > 0 ? "increaseFontSize" : "decreaseFontSize")} onSelect={(size) => applyRichTextCommand("fontSize", size)} />
           <span className="quote-docs-divider" />
           <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("insertUnorderedList")}>LISTA</button>
           <button type="button" aria-label="Lista numerada" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("insertOrderedList")}>1.</button>
@@ -355,7 +401,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
         {pages.map((page, pageIndex) => <article className="quote-docs-page quote-docs-editable-page" key={`page-${pageIndex}`}>
           {pageHeader}
           <div className="quote-docs-page-content">
-            {page.blocks.map((block) => <EditableBlock key={block.type === "rich-text" ? `${block.id}:${textSignature(block.text)}` : block.id} block={block} onActivate={() => { setActiveBlockId(block.id); setPinnedBlockId(block.id); }} onInput={(text) => { updateDisplayBlockText(block, text); scheduleMeasure(); }} onCommit={() => commitBlock(block)} onRemove={() => removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} />)}
+            {page.blocks.map((block) => <EditableBlock key={block.type === "rich-text" ? `${block.id}:${textSignature(block.text)}` : block.id} block={block} onActivate={() => { setActiveBlockId(block.id); setPinnedBlockId(block.id); }} onInput={(text) => { updateDisplayBlockText(block, text); scheduleMeasure(); }} onCommit={() => commitBlock(block)} onRemove={() => removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} onSelectionSize={setRichTextSize} />)}
           </div>
           <footer><span />{pageIndex + 2} / {totalPages}</footer>
         </article>)}

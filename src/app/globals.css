@@ -614,3 +614,20 @@ body.sidebar-collapsed .quote-summary-panel { right:calc(max(0px, (100vw - 1640p
 .quote-closing-summary .is-balance span { color:var(--accent); font-family:var(--mono); font-size:1.18cqw; letter-spacing:.17cqw; }
 .quote-closing-summary .is-balance strong { color:var(--black); font-size:1.85cqw; }
 .quote-closing-summary-note { margin:.5cqw 0 0; color:var(--muted); font-size:1.31cqw; line-height:1.45; white-space:pre-wrap; }
+
+/* Tamanho da fonte no texto rico: os trechos dimensionados usam a base do editor para não acumular quando aninhados */
+.quote-editor-document-rich-content { --rich-text-base:.98rem; }
+.service-proposal-content { --rich-text-base:.88rem; }
+.quote-docs-size { display:flex; flex:0 0 auto; align-items:stretch; }
+.quote-docs-toolbar-tools .quote-docs-size button { min-height:32px; display:inline-flex; align-items:baseline; justify-content:center; gap:1px; padding:0 8px; line-height:30px; }
+.quote-docs-toolbar-tools .quote-docs-size button + button { margin-left:-1px; }
+.quote-docs-toolbar-tools .quote-docs-size-step { min-width:34px; font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.74rem; font-weight:700; }
+.quote-docs-toolbar-tools .quote-docs-size-step.is-increase { font-size:.9rem; }
+.quote-docs-size-step small { font-size:.62rem; font-weight:700; }
+.quote-docs-toolbar-tools .quote-docs-size-current { position:relative; z-index:1; min-width:52px; font-size:.68rem; }
+.quote-docs-size-current small { color:var(--muted); font-size:.5rem; }
+.quote-docs-toolbar-tools .quote-docs-size button:hover:not(:disabled) { position:relative; z-index:2; }
+.quote-docs-size-menu { position:fixed; z-index:40; width:128px; max-height:min(360px, calc(100vh - 24px)); overflow-y:auto; padding:4px 0; border:1px solid var(--line); background:var(--white); box-shadow:0 6px 16px rgba(17,27,20,.12); }
+.quote-docs-size-menu button { width:100%; display:flex; align-items:baseline; justify-content:space-between; gap:8px; min-height:30px; padding:4px 12px; border:0; background:transparent; color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; line-height:1.2; text-align:left; cursor:pointer; }
+.quote-docs-size-menu button small { color:var(--muted); font-family:var(--mono); font-size:.5rem; letter-spacing:.05em; }
+.quote-docs-size-menu button:hover,.quote-docs-size-menu button.is-active { background:var(--accent-surface); color:var(--accent); }

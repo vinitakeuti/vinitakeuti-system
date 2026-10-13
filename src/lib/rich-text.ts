@@ -2,7 +2,26 @@ export type RichTextMark = {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  /** Tamanho em pontos no PDF; ausente quando é o tamanho normal do texto. */
+  size?: number;
 };
+
+/** Tamanhos oferecidos no editor, em pontos do PDF. O texto normal usa RICH_TEXT_BASE_SIZE. */
+export const RICH_TEXT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32] as const;
+export const RICH_TEXT_BASE_SIZE = 10;
+
+/** Aproxima qualquer valor para o tamanho permitido mais próximo; o tamanho normal é representado por undefined. */
+export function normalizedRichTextSize(value: unknown): number | undefined {
+  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(numeric) || numeric <= 0) return undefined;
+  const nearest = RICH_TEXT_SIZES.reduce((best, size) => Math.abs(size - numeric) < Math.abs(best - numeric) ? size : best, RICH_TEXT_BASE_SIZE as number);
+  return nearest === RICH_TEXT_BASE_SIZE ? undefined : nearest;
+}
+
+/** Títulos ficam com entrelinha mais justa que o texto corrido. */
+export function richTextLineHeight(size?: number) {
+  return (size ?? RICH_TEXT_BASE_SIZE) >= 16 ? 1.25 : 1.65;
+}
 
 export type RichTextRun = RichTextMark & {
   text: string;
@@ -41,14 +60,16 @@ function normalizedRuns(value: unknown): RichTextRun[] {
     const source = candidate as Record<string, unknown>;
     const text = normalizedText(source.text);
     if (!text) continue;
+    const size = normalizedRichTextSize(source.size);
     const run: RichTextRun = {
       text,
       ...(source.bold === true ? { bold: true } : {}),
       ...(source.italic === true ? { italic: true } : {}),
       ...(source.underline === true ? { underline: true } : {}),
+      ...(size ? { size } : {}),
     };
     const previous = runs.at(-1);
-    if (previous && previous.bold === run.bold && previous.italic === run.italic && previous.underline === run.underline) {
+    if (previous && previous.bold === run.bold && previous.italic === run.italic && previous.underline === run.underline && previous.size === run.size) {
       previous.text += run.text;
     } else {
       runs.push(run);

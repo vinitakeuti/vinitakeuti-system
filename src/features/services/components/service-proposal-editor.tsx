@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { parseRichText, serializeRichText, type RichTextDocument, type RichTextMark, type RichTextRun } from "@/lib/rich-text";
+import { normalizedRichTextSize, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, serializeRichText, type RichTextDocument, type RichTextMark, type RichTextRun } from "@/lib/rich-text";
 
 type Props = {
   name?: string;
@@ -9,14 +9,17 @@ type Props = {
   onChange?: (value: string | null) => void;
 };
 
-export type RichTextEditorCommand = "bold" | "italic" | "underline" | "insertUnorderedList" | "insertOrderedList" | "removeFormat";
+export type RichTextEditorCommand = "bold" | "italic" | "underline" | "insertUnorderedList" | "insertOrderedList" | "removeFormat" | "increaseFontSize" | "decreaseFontSize" | "fontSize";
+export type RichTextEditorCommandRequest = { id: number; value: RichTextEditorCommand; size?: number };
 
 type InlineEditorProps = {
   initialValue?: string | null;
   onChange: (value: string | null) => void;
   onFocus?: () => void;
   onBlur?: () => void;
-  command?: { id: number; value: RichTextEditorCommand } | null;
+  command?: RichTextEditorCommandRequest | null;
+  /** Informa o tamanho do texto onde está o cursor, para a barra de ferramentas exibi-lo. */
+  onSelectionSize?: (size: number) => void;
   ariaLabel: string;
   className?: string;
   placeholder?: string;
@@ -26,12 +29,18 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
+/** Tamanho relativo à base do editor (--rich-text-base), para não acumular quando há elementos aninhados. */
+function sizeStyle(size: number) {
+  return `font-size:calc(var(--rich-text-base, 1em) * ${size / RICH_TEXT_BASE_SIZE});line-height:${richTextLineHeight(size)}`;
+}
+
 function runsToHtml(runs: RichTextRun[]) {
   return runs.map((run) => {
     let value = escapeHtml(run.text).replace(/\n/g, "<br>");
     if (run.underline) value = `<u>${value}</u>`;
     if (run.italic) value = `<em>${value}</em>`;
     if (run.bold) value = `<strong>${value}</strong>`;
+    if (run.size) value = `<span data-size="${run.size}" style="${sizeStyle(run.size)}">${value}</span>`;
     return value;
   }).join("");
 }
@@ -45,7 +54,18 @@ function documentToHtml(document: RichTextDocument) {
 }
 
 function sameMarks(left: RichTextMark, right: RichTextMark) {
-  return left.bold === right.bold && left.italic === right.italic && left.underline === right.underline;
+  return left.bold === right.bold && left.italic === right.italic && left.underline === right.underline && left.size === right.size;
+}
+
+/**
+ * Tamanho declarado por um elemento. O editor grava data-size; estilos de fonte que o navegador
+ * copia sozinho ao juntar linhas são convertidos pelo tamanho calculado em relação à base do editor.
+ */
+function elementSize(node: HTMLElement, basePixels: number, inherited?: number) {
+  if (!node.style.fontSize) return inherited;
+  if (node.dataset.size) return normalizedRichTextSize(node.dataset.size);
+  if (!basePixels) return inherited;
+  return normalizedRichTextSize(parseFloat(getComputedStyle(node).fontSize) / basePixels * RICH_TEXT_BASE_SIZE);
 }
 
 function addRun(runs: RichTextRun[], text: string, marks: RichTextMark) {
@@ -58,7 +78,7 @@ function addRun(runs: RichTextRun[], text: string, marks: RichTextMark) {
   runs.push({ text, ...marks });
 }
 
-function runsFromNodes(nodes: NodeListOf<ChildNode> | ChildNode[], marks: RichTextMark = {}) {
+function runsFromNodes(nodes: NodeListOf<ChildNode> | ChildNode[], basePixels: number, marks: RichTextMark = {}) {
   const runs: RichTextRun[] = [];
   for (const node of Array.from(nodes)) {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -75,18 +95,20 @@ function runsFromNodes(nodes: NodeListOf<ChildNode> | ChildNode[], marks: RichTe
       bold: marks.bold || node.tagName === "B" || node.tagName === "STRONG" || Number(style.fontWeight) >= 600,
       italic: marks.italic || node.tagName === "I" || node.tagName === "EM" || style.fontStyle === "italic",
       underline: marks.underline || node.tagName === "U" || style.textDecoration.includes("underline"),
+      size: elementSize(node, basePixels, marks.size),
     };
-    const nested = runsFromNodes(node.childNodes, nextMarks);
+    const nested = runsFromNodes(node.childNodes, basePixels, nextMarks);
     for (const run of nested) addRun(runs, run.text, run);
   }
   return runs;
 }
 
 function documentFromEditor(root: HTMLElement): RichTextDocument {
+  const basePixels = parseFloat(getComputedStyle(root).fontSize) || 0;
   const blocks: RichTextDocument["blocks"] = [];
   const inlineNodes: ChildNode[] = [];
   const appendInlineParagraph = () => {
-    const runs = runsFromNodes(inlineNodes);
+    const runs = runsFromNodes(inlineNodes, basePixels);
     inlineNodes.length = 0;
     if (runs.length) blocks.push({ type: "paragraph", runs });
   };
@@ -101,20 +123,144 @@ function documentFromEditor(root: HTMLElement): RichTextDocument {
     if (node.tagName === "UL" || node.tagName === "OL") {
       const items = Array.from(node.children)
         .filter((item) => item.tagName === "LI")
-        .map((item) => runsFromNodes(item.childNodes))
+        .map((item) => runsFromNodes(item.childNodes, basePixels))
         .filter((item) => item.length);
       if (items.length) blocks.push({ type: node.tagName === "UL" ? "bullet-list" : "ordered-list", items });
       continue;
     }
-    const runs = runsFromNodes(node.childNodes);
+    const runs = runsFromNodes(node.childNodes, basePixels);
     if (runs.length) blocks.push({ type: "paragraph", runs });
   }
   appendInlineParagraph();
   return { version: 1, blocks };
 }
 
-export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, ariaLabel, className, placeholder }: InlineEditorProps) {
+function elementFromNode(node: Node | null) {
+  return node instanceof HTMLElement ? node : node?.parentElement ?? null;
+}
+
+/** Tamanho em pontos no início da seleção (o trecho dimensionado mais interno vence). */
+function selectionSize(editor: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return null;
+  const range = selection.getRangeAt(0);
+  let node: Node = range.startContainer;
+  if (node.nodeType !== Node.TEXT_NODE) {
+    node = node.childNodes[range.startOffset] ?? node;
+    while (node.firstChild && node.nodeType !== Node.TEXT_NODE) node = node.firstChild;
+  }
+  let element = elementFromNode(node);
+  if (!element || !editor.contains(element)) return null;
+  while (element && element !== editor) {
+    if (element.dataset.size && element.style.fontSize) return normalizedRichTextSize(element.dataset.size) ?? RICH_TEXT_BASE_SIZE;
+    element = element.parentElement;
+  }
+  return RICH_TEXT_BASE_SIZE;
+}
+
+function steppedSize(current: number, direction: 1 | -1) {
+  const sizes = direction > 0 ? RICH_TEXT_SIZES : [...RICH_TEXT_SIZES].reverse();
+  return sizes.find((size) => direction > 0 ? size > current : size < current) ?? current;
+}
+
+function markSizedElement(element: HTMLElement, size: number) {
+  element.dataset.size = String(size);
+  element.setAttribute("style", sizeStyle(size));
+}
+
+/** Remove tamanhos internos para que o novo tamanho valha para todo o trecho. */
+function clearNestedSizes(element: HTMLElement) {
+  element.querySelectorAll<HTMLElement>("[data-size], [style]").forEach((inner) => {
+    inner.removeAttribute("data-size");
+    inner.style.removeProperty("font-size");
+    inner.style.removeProperty("line-height");
+    if (!inner.getAttribute("style")?.trim()) inner.removeAttribute("style");
+    if ((inner.tagName === "SPAN" || inner.tagName === "FONT") && !inner.attributes.length) inner.replaceWith(...Array.from(inner.childNodes));
+  });
+}
+
+/**
+ * Ao aplicar um tamanho dentro de um trecho já dimensionado, o navegador retira o font-size do trecho
+ * externo mas mantém os demais atributos. Esses restos deixam de declarar tamanho. Nenhum nó é movido,
+ * para o cursor continuar onde está.
+ */
+function dropStaleSizes(editor: HTMLElement) {
+  editor.querySelectorAll<HTMLElement>("[data-size]").forEach((element) => {
+    if (element.style.fontSize) return;
+    element.removeAttribute("data-size");
+    element.style.removeProperty("line-height");
+    if (!element.getAttribute("style")?.trim()) element.removeAttribute("style");
+  });
+}
+
+/** Troca as marcações <font size="7"> criadas pelo navegador por trechos com o tamanho do documento. */
+function convertFontMarkers(editor: HTMLElement, size: number) {
+  const created: HTMLElement[] = [];
+  editor.querySelectorAll<HTMLElement>("font[size='7']").forEach((font) => {
+    const span = document.createElement("span");
+    markSizedElement(span, size);
+    span.append(...Array.from(font.childNodes));
+    font.replaceWith(span);
+    clearNestedSizes(span);
+    created.push(span);
+  });
+  dropStaleSizes(editor);
+  return created;
+}
+
+/** Linha (parágrafo ou item de lista) onde está o cursor. */
+function currentLine(editor: HTMLElement, node: Node) {
+  let element = elementFromNode(node);
+  while (element && element !== editor) {
+    if (element.tagName === "LI" || element.parentElement === editor && getComputedStyle(element).display !== "inline") return element;
+    element = element.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Aplica o tamanho à seleção. Sem seleção, vale para a linha inteira onde está o cursor (o caminho
+ * mais curto para transformar uma linha em título); numa linha vazia, vale para o que for digitado.
+ * Devolve o tamanho pendente para a digitação, quando houver.
+ */
+function applyFontSize(editor: HTMLElement, size: number) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !editor.contains(selection.getRangeAt(0).startContainer)) return null;
+  if (selection.isCollapsed) {
+    const line = currentLine(editor, selection.getRangeAt(0).startContainer);
+    if (line && line.textContent?.trim()) {
+      const range = document.createRange();
+      range.selectNodeContents(line);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } else if (!line) {
+      try {
+        selection.modify("move", "backward", "paragraphboundary");
+        selection.modify("extend", "forward", "paragraphboundary");
+      } catch {
+        // Navegadores sem Selection.modify aplicam o tamanho apenas ao que for digitado.
+      }
+    }
+  }
+  document.execCommand("styleWithCSS", false, "false");
+  document.execCommand("fontSize", false, "7");
+  if (selection.isCollapsed) return size;
+  const created = convertFontMarkers(editor, size);
+  if (created.length) {
+    const range = document.createRange();
+    range.setStartBefore(created[0]);
+    range.setEndAfter(created.at(-1)!);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+  return null;
+}
+
+export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, onSelectionSize, ariaLabel, className, placeholder }: InlineEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const pendingSizeRef = useRef<number | null>(null);
+  const onSelectionSizeRef = useRef(onSelectionSize);
+  onSelectionSizeRef.current = onSelectionSize;
   const initialDocumentRef = useRef<RichTextDocument | null>(null);
   const lastCommandIdRef = useRef(0);
   if (!initialDocumentRef.current) initialDocumentRef.current = parseRichText(initialValue);
@@ -126,14 +272,44 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
   function syncValue() {
     const editor = editorRef.current;
     if (!editor) return;
+    // O tamanho escolhido numa linha vazia vira <font> só quando o primeiro caractere é digitado.
+    if (pendingSizeRef.current && editor.querySelector("font[size='7']")) {
+      convertFontMarkers(editor, pendingSizeRef.current);
+      pendingSizeRef.current = null;
+    }
+    dropStaleSizes(editor);
     const value = serializeRichText(documentFromEditor(editor));
     onChange(value);
   }
 
+  function reportSelectionSize() {
+    const editor = editorRef.current;
+    if (!editor || document.activeElement !== editor) return;
+    const selection = window.getSelection();
+    const line = selection?.rangeCount ? currentLine(editor, selection.getRangeAt(0).startContainer) : null;
+    if (pendingSizeRef.current && line?.textContent?.trim()) pendingSizeRef.current = null;
+    const size = pendingSizeRef.current ?? selectionSize(editor);
+    if (size) onSelectionSizeRef.current?.(size);
+  }
+
   useEffect(() => {
-    if (!command || command.id === lastCommandIdRef.current || document.activeElement !== editorRef.current) return;
+    document.addEventListener("selectionchange", reportSelectionSize);
+    return () => document.removeEventListener("selectionchange", reportSelectionSize);
+  }, []);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || !command || command.id === lastCommandIdRef.current || document.activeElement !== editor) return;
     lastCommandIdRef.current = command.id;
-    document.execCommand(command.value, false);
+    if (command.value === "fontSize" || command.value === "increaseFontSize" || command.value === "decreaseFontSize") {
+      const current = pendingSizeRef.current ?? selectionSize(editor) ?? RICH_TEXT_BASE_SIZE;
+      const size = command.value === "fontSize" ? command.size ?? RICH_TEXT_BASE_SIZE : steppedSize(current, command.value === "increaseFontSize" ? 1 : -1);
+      if (size === current && command.value !== "fontSize") return;
+      pendingSizeRef.current = applyFontSize(editor, size);
+      onSelectionSizeRef.current?.(size);
+    } else {
+      document.execCommand(command.value, false);
+    }
     syncValue();
   }, [command]);
 

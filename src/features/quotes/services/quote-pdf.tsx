@@ -3,7 +3,7 @@ import { BRAND_MARK_PATHS, BRAND_MARK_TRANSFORM, BRAND_MARK_VIEWBOX, COVER_COLOR
 import type { ReactElement } from "react";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { parseRichText, type RichTextRun } from "@/lib/rich-text";
+import { parseRichText, richTextLineHeight, type RichTextRun } from "@/lib/rich-text";
 import { quoteDocumentBlockRole, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
 
 const colors = {
@@ -167,7 +167,7 @@ function websiteForDisplay(value?: string | null) {
 }
 
 function PdfRuns({ runs }: { runs: RichTextRun[] }) {
-  return <>{runs.map((run, index) => <Text key={`${index}-${run.text.slice(0, 12)}`} style={{ fontWeight: run.bold ? 700 : 400, fontStyle: run.italic ? "italic" : "normal", textDecoration: run.underline ? "underline" : "none" }}>{run.text}</Text>)}</>;
+  return <>{runs.map((run, index) => <Text key={`${index}-${run.text.slice(0, 12)}`} style={{ fontWeight: run.bold ? 700 : 400, fontStyle: run.italic ? "italic" : "normal", textDecoration: run.underline ? "underline" : "none", ...(run.size ? { fontSize: run.size, lineHeight: richTextLineHeight(run.size) } : {}) }}>{run.text}</Text>)}</>;
 }
 
 function DocumentRichText({ value }: { value: string }) {
