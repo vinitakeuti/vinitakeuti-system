@@ -1,3 +1,5 @@
+import { richTextHasContent } from "@/lib/rich-text";
+
 export type QuoteDocumentBlockType = "heading" | "paragraph" | "rich-text";
 export type QuoteDocumentFontSize = "small" | "medium" | "large";
 export type QuoteDocumentAlign = "left" | "center" | "right" | "justify";
@@ -17,6 +19,19 @@ export type QuoteDocumentContent = {
   version: 1;
   blocks: QuoteDocumentBlock[];
 };
+
+export type QuoteDocumentBlockRole = "section-label" | "service-title" | "service-category";
+
+/**
+ * Papel visual de um bloco. Editor e PDF usam esta mesma regra: títulos pequenos
+ * viram rótulos de seção e os blocos gerados por serviço recebem estilo próprio.
+ */
+export function quoteDocumentBlockRole(block: Pick<QuoteDocumentBlock, "id" | "type" | "fontSize">): QuoteDocumentBlockRole | null {
+  if (block.id.startsWith("service-title-")) return "service-title";
+  if (block.id.startsWith("service-category-")) return "service-category";
+  if (block.type === "heading" && block.fontSize === "small") return "section-label";
+  return null;
+}
 
 const validTypes = new Set<QuoteDocumentBlockType>(["heading", "paragraph", "rich-text"]);
 const validSizes = new Set<QuoteDocumentFontSize>(["small", "medium", "large"]);
@@ -102,4 +117,20 @@ export function parseQuoteDocumentContent(value: unknown, fallback: { title: str
   });
   const withoutLegacyDefaults = blocks.filter((block) => !(block.id === "intro-title" || (block.id === "intro-client" && block.text === `Olá, ${fallback.clientName}.`) || (block.id === "intro-body" && block.text === "Preparamos esta proposta com os serviços, prazos e investimento apresentados a seguir.")));
   return withoutLegacyDefaults.length ? { version: 1, blocks: withoutLegacyDefaults } : createDefaultQuoteDocument(fallback);
+}
+
+export const QUOTE_INTRO_BLOCK_ID = "intro-text";
+
+/**
+ * Garante um bloco de apresentação editável antes dos serviços. Sem ele, um orçamento criado sem
+ * texto padrão não tinha onde escrever acima de SERVIÇOS INCLUÍDOS. Vazio, o bloco não aparece no PDF.
+ */
+export function withQuoteIntroBlock(content: QuoteDocumentContent): QuoteDocumentContent {
+  if (content.blocks.some((block) => block.id === QUOTE_INTRO_BLOCK_ID)) return content;
+  const serviceStart = content.blocks.findIndex((block) => block.id === "services-label" || block.id.startsWith("service-"));
+  const end = serviceStart === -1 ? content.blocks.length : serviceStart;
+  const hasTextBefore = content.blocks.slice(0, end).some((block) => block.type === "rich-text" ? richTextHasContent(block.text) : block.text.trim().length > 0);
+  if (hasTextBefore) return content;
+  const intro: QuoteDocumentBlock = { id: QUOTE_INTRO_BLOCK_ID, type: "rich-text", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
+  return { version: 1, blocks: [intro, ...content.blocks.slice(end)] };
 }

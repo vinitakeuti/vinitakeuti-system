@@ -11,7 +11,7 @@ function isMobile() {
   return window.matchMedia("(max-width: 640px)").matches;
 }
 
-export function SidebarToggle({ location, hideWhenOpen = false }: SidebarToggleProps) {
+export function SidebarToggle({ location, hideWhenOpen = true }: SidebarToggleProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
 
@@ -26,11 +26,26 @@ export function SidebarToggle({ location, hideWhenOpen = false }: SidebarToggleP
     sync();
     window.addEventListener("vr-sidebar-change", sync);
     window.addEventListener("resize", sync);
+    if (location === "sidebar") {
+      const closeOnNavigation = (event: MouseEvent) => {
+        if (!isMobile()) return;
+        const target = event.target as Element | null;
+        if (!target?.closest(".nav-item, .sidebar-profile-link")) return;
+        document.body.classList.remove("sidebar-open");
+        window.dispatchEvent(new Event("vr-sidebar-change"));
+      };
+      document.addEventListener("click", closeOnNavigation);
+      return () => {
+        window.removeEventListener("vr-sidebar-change", sync);
+        window.removeEventListener("resize", sync);
+        document.removeEventListener("click", closeOnNavigation);
+      };
+    }
     return () => {
       window.removeEventListener("vr-sidebar-change", sync);
       window.removeEventListener("resize", sync);
     };
-  }, []);
+  }, [location]);
 
   function toggle() {
     if (isMobile()) {

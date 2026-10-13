@@ -19,6 +19,7 @@ type InlineEditorProps = {
   command?: { id: number; value: RichTextEditorCommand } | null;
   ariaLabel: string;
   className?: string;
+  placeholder?: string;
 };
 
 function escapeHtml(value: string) {
@@ -112,12 +113,15 @@ function documentFromEditor(root: HTMLElement): RichTextDocument {
   return { version: 1, blocks };
 }
 
-export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, ariaLabel, className }: InlineEditorProps) {
+export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, ariaLabel, className, placeholder }: InlineEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const initialDocumentRef = useRef<RichTextDocument | null>(null);
   const lastCommandIdRef = useRef(0);
   if (!initialDocumentRef.current) initialDocumentRef.current = parseRichText(initialValue);
-  const initialDocument = initialDocumentRef.current;
+  // O React 19 compara dangerouslySetInnerHTML pela identidade do objeto: um objeto novo a cada renderização
+  // reescreve o conteúdo e apaga o que está sendo digitado. O HTML inicial é criado uma única vez.
+  const initialHtmlRef = useRef<{ __html: string } | null>(null);
+  if (!initialHtmlRef.current) initialHtmlRef.current = { __html: documentToHtml(initialDocumentRef.current) };
 
   function syncValue() {
     const editor = editorRef.current;
@@ -133,7 +137,7 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
     syncValue();
   }, [command]);
 
-  return <div ref={editorRef} className={className} role="textbox" aria-multiline="true" aria-label={ariaLabel} contentEditable suppressContentEditableWarning spellCheck onFocus={onFocus} onBlur={onBlur} onInput={syncValue} dangerouslySetInnerHTML={{ __html: documentToHtml(initialDocument) }} />;
+  return <div ref={editorRef} className={className} data-placeholder={placeholder} role="textbox" aria-multiline="true" aria-label={ariaLabel} contentEditable suppressContentEditableWarning spellCheck onFocus={onFocus} onBlur={onBlur} onInput={syncValue} dangerouslySetInnerHTML={initialHtmlRef.current} />;
 }
 
 export function ServiceProposalEditor({ name, initialValue, onChange }: Props) {

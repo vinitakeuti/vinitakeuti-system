@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
-const prismaSchemaVersion = "20260930-professional-profile";
+const prismaSchemaVersion = "20261010-quote-discount-percent";
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient; prismaSchemaVersion?: string };
 
 export const prisma = globalForPrisma.prismaSchemaVersion === prismaSchemaVersion && globalForPrisma.prisma

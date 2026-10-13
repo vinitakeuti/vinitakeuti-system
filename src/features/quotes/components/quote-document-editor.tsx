@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { InlineRichTextEditor, type RichTextEditorCommand } from "@/features/services/components/service-proposal-editor";
+import { QuoteClosingPreview, QuoteCoverPreview, type QuotePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { updateQuoteDocumentAction } from "@/features/quotes/services/quote-actions";
-import type { QuoteDocumentAlign, QuoteDocumentBlock, QuoteDocumentBlockType, QuoteDocumentContent, QuoteDocumentFontSize } from "@/features/quotes/types/document-content";
+import { QUOTE_INTRO_BLOCK_ID, quoteDocumentBlockRole, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentBlockType, type QuoteDocumentContent, type QuoteDocumentFontSize } from "@/features/quotes/types/document-content";
 import { parseRichText, richTextPlainText, serializeRichText, type RichTextBlock, type RichTextRun } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
@@ -30,6 +31,9 @@ type Props = {
   backHref: string;
   initialContent: QuoteDocumentContent;
   professional: ProfessionalProfile;
+  isCompleted: boolean;
+  justSaved?: boolean;
+  preview: QuotePreviewData;
 };
 
 const sizeLabels: Record<QuoteDocumentFontSize, string> = { small: "Pequeno", medium: "Normal", large: "Grande" };
@@ -37,7 +41,11 @@ const alignLabels: Record<QuoteDocumentAlign, string> = { left: "À esquerda", c
 
 function estimatedBlockHeight(block: DocumentDisplayBlock) {
   const source = block.type === "rich-text" ? richTextPlainText(block.text) : block.text;
-  if (!source) return block.type === "rich-text" ? 24 : 24;
+  if (!source) return 24;
+  const role = quoteDocumentBlockRole(block);
+  if (role === "section-label") return 58;
+  if (role === "service-category") return 26;
+  if (role === "service-title") return 54;
   const charactersPerLine = block.fontSize === "large" ? 48 : block.fontSize === "small" ? 100 : 78;
   const lines = Math.max(1, source.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / charactersPerLine)), 0));
   return lines * (block.fontSize === "large" ? 32 : block.fontSize === "small" ? 20 : 25) + (block.type === "rich-text" ? 12 : 18);
@@ -91,7 +99,10 @@ function splitRunsForPage(runs: RichTextRun[], maxCharacters = 760) {
 
 function richTextParts(block: QuoteDocumentBlock): DocumentDisplayBlock[] {
   const document = parseRichText(block.text);
-  if (!document.blocks.length || !richTextPlainText(block.text).trim()) return [];
+  if (!document.blocks.length || !richTextPlainText(block.text).trim()) {
+    // O bloco de apresentação continua visível mesmo vazio, para que sempre exista onde escrever antes dos serviços.
+    return block.id === QUOTE_INTRO_BLOCK_ID ? [{ ...block, id: `${block.id}-part-0`, text: "", sourceId: block.id, partIndex: 0 }] : [];
+  }
   const atomicBlocks = document.blocks.flatMap((item): RichTextBlock[] => {
     if (item.type === "paragraph") return splitRunsForPage(item.runs).map((runs) => ({ type: "paragraph", runs }));
     return item.items.flatMap((listItem) => splitRunsForPage(listItem).map((runs) => ({ type: item.type, items: [runs] })));
@@ -101,7 +112,7 @@ function richTextParts(block: QuoteDocumentBlock): DocumentDisplayBlock[] {
   let chunkHeight = 0;
   for (const item of atomicBlocks) {
     const height = estimatedRichTextBlockHeight(item);
-    if (chunk.length && chunkHeight + height > 300) {
+    if (chunk.length && chunkHeight + height > 220) {
       chunks.push(chunk);
       chunk = [];
       chunkHeight = 0;
@@ -151,14 +162,30 @@ function paginationGroups(blocks: DocumentDisplayBlock[]) {
   return groups;
 }
 
-function paginateDocument(blocks: QuoteDocumentBlock[]) {
+type PageLayout = { heights: Record<string, number>; capacity: number };
+
+/** Assinatura curta do texto: blocos ricos são editores não controlados e precisam ser recriados quando o conteúdo é redistribuído. */
+function textSignature(text: string) {
+  let hash = 5381;
+  for (let index = 0; index < text.length; index += 1) hash = ((hash << 5) + hash + text.charCodeAt(index)) | 0;
+  return `${text.length}-${(hash >>> 0).toString(36)}`;
+}
+
+/**
+ * Distribui os blocos pelas folhas usando a altura medida na tela (ou uma estimativa antes da primeira medição).
+ * O grupo que contém o bloco em edição nunca é empurrado para a folha seguinte, para o cursor não sair do lugar;
+ * o que vem depois dele é que avança quando a folha enche.
+ */
+function paginateDocument(blocks: QuoteDocumentBlock[], layout: PageLayout | null, pinnedBlockId: string | null) {
   const displayBlocks = expandedBlocks(blocks);
   const pages: DocumentPage[] = [{ blocks: [] }];
-  let usedHeight = 66;
+  const capacity = layout?.capacity ?? 790;
+  let usedHeight = 0;
   for (const group of paginationGroups(displayBlocks)) {
-    const height = group.reduce((total, block) => total + estimatedBlockHeight(block), 0);
+    const height = group.reduce((total, block) => total + (layout?.heights[block.id] ?? estimatedBlockHeight(block)), 0);
     const page = pages.at(-1)!;
-    if (page.blocks.length && usedHeight + height > 790) {
+    const isPinned = pinnedBlockId !== null && group.some((block) => block.id === pinnedBlockId);
+    if (page.blocks.length && usedHeight + height > capacity && !isPinned) {
       pages.push({ blocks: [] });
       usedHeight = 0;
     }
@@ -169,13 +196,14 @@ function paginateDocument(blocks: QuoteDocumentBlock[]) {
 }
 
 function EditableBlock({ block, onActivate, onInput, onCommit, onRemove, command }: { block: DocumentDisplayBlock; onActivate: () => void; onInput: (text: string) => void; onCommit: () => void; onRemove: () => void; command?: { id: number; value: RichTextEditorCommand } | null }) {
-  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text"><InlineRichTextEditor initialValue={block.text} ariaLabel="Texto da proposta" className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
-  return <div className={`quote-editor-document-block quote-editor-document-${block.type} quote-editor-document-${block.fontSize}${block.text ? "" : " is-empty"}`}>
+  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text" data-block-id={block.id}><InlineRichTextEditor initialValue={block.text} ariaLabel={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Apresentação da proposta" : "Texto da proposta"} placeholder={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Escreva aqui a apresentação da proposta, o contexto do projeto ou qualquer texto que deve vir antes dos serviços." : undefined} className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
+  const role = quoteDocumentBlockRole(block);
+  return <div data-block-id={block.id} className={`quote-editor-document-block quote-editor-document-${block.type} quote-editor-document-${block.fontSize}${role ? ` quote-editor-document-role-${role}` : ""}${block.text ? "" : " is-empty"}`}>
     <div className="quote-editor-document-content" role="textbox" aria-multiline="true" aria-label={block.type === "heading" ? "Título do documento" : "Texto do documento"} contentEditable suppressContentEditableWarning onFocus={onActivate} onBlur={onCommit} onKeyDown={(event) => { if ((event.key === "Backspace" || event.key === "Delete") && !event.currentTarget.innerText.trim()) { event.preventDefault(); onRemove(); } }} onInput={(event) => onInput(event.currentTarget.innerText.slice(0, 4_000))} style={{ textAlign: block.align, fontWeight: block.bold ? 700 : 400, fontStyle: block.italic ? "italic" : "normal", textDecoration: block.underline ? "underline" : "none" }}>{block.text}</div>
   </div>;
 }
 
-export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, initialContent, professional }: Props) {
+export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, initialContent, professional, isCompleted, justSaved = false, preview }: Props) {
   const [content, setContent] = useState<QuoteDocumentContent>(initialContent);
   const contentRef = useRef<QuoteDocumentContent>(initialContent);
   const documentContentFieldRef = useRef<HTMLInputElement>(null);
@@ -184,9 +212,59 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   const blocks = content.blocks;
   const editableBlocks = blocks.filter((block) => block.id !== "intro-title");
   const activeBlock = editableBlocks.find((block) => block.id === activeBlockId) ?? (activeBlockId.includes("-part-") ? { id: activeBlockId, type: "rich-text" as const, text: "", fontSize: "medium" as const, bold: false, italic: false, underline: false, align: "left" as const } : editableBlocks[0]);
-  const pages = useMemo(() => paginateDocument(editableBlocks), [editableBlocks]);
-  const headerDetails = [professional.document, professional.phone, professional.email].filter(Boolean);
-  const footerDetails = [professional.document, professional.website?.trim().replace(/^https?:\/\//i, "").replace(/\/$/, "")].filter(Boolean).join(" · ");
+  const canvasRef = useRef<HTMLElement>(null);
+  const measureFrameRef = useRef(0);
+  const [pageLayout, setPageLayout] = useState<PageLayout | null>(null);
+  const [pinnedBlockId, setPinnedBlockId] = useState<string | null>(null);
+  const pages = paginateDocument(editableBlocks, pageLayout, pinnedBlockId);
+
+  /** Mede a área útil de uma folha e a altura real de cada bloco; só atualiza o estado quando algo mudou de fato. */
+  const measureLayout = useCallback(() => {
+    const root = canvasRef.current;
+    const page = root?.querySelector<HTMLElement>(".quote-docs-editable-page");
+    const body = page?.querySelector<HTMLElement>(".quote-docs-page-content");
+    if (!root || !page || !body) return;
+    const pageStyle = getComputedStyle(page);
+    const bodyStyle = getComputedStyle(body);
+    const header = page.querySelector<HTMLElement>(":scope > header")?.offsetHeight ?? 0;
+    const footer = page.querySelector<HTMLElement>(":scope > footer")?.offsetHeight ?? 0;
+    const capacity = Math.floor(parseFloat(pageStyle.minHeight) - parseFloat(pageStyle.paddingTop) - parseFloat(pageStyle.paddingBottom) - header - footer - parseFloat(bodyStyle.paddingTop) - parseFloat(bodyStyle.paddingBottom));
+    if (!Number.isFinite(capacity) || capacity < 200) return;
+    const heights: Record<string, number> = {};
+    root.querySelectorAll<HTMLElement>("[data-block-id]").forEach((element) => {
+      const style = getComputedStyle(element);
+      heights[element.dataset.blockId!] = Math.ceil(element.offsetHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom));
+    });
+    setPageLayout((current) => {
+      if (current && Math.abs(current.capacity - capacity) < 2 && Object.keys(heights).every((id) => Math.abs((current.heights[id] ?? -100) - heights[id]) < 2)) return current;
+      return { capacity, heights: { ...current?.heights, ...heights } };
+    });
+  }, []);
+
+  const scheduleMeasure = useCallback(() => {
+    cancelAnimationFrame(measureFrameRef.current);
+    measureFrameRef.current = requestAnimationFrame(measureLayout);
+  }, [measureLayout]);
+
+  useLayoutEffect(() => { measureLayout(); });
+  useEffect(() => {
+    window.addEventListener("resize", scheduleMeasure);
+    return () => { window.removeEventListener("resize", scheduleMeasure); cancelAnimationFrame(measureFrameRef.current); };
+  }, [scheduleMeasure]);
+  const totalPages = pages.length + 2;
+  const pageHeader = <header className="quote-docs-page-header">
+    <div className="quote-docs-page-header-top">
+      <div className="quote-docs-page-brand">
+        <span className="quote-docs-page-logo"><img src="/assets/images/logo-vr.svg" alt="" /></span>
+        <div className="quote-docs-page-professional">
+          <span>PROPOSTA COMERCIAL</span>
+          <strong>{professional.name}</strong>
+          {professional.professionalTitle ? <small>{professional.professionalTitle}</small> : null}
+        </div>
+      </div>
+      <div className="quote-docs-page-client"><span>CLIENTE</span><strong>{preview.client.name}</strong>{[preview.client.company, preview.client.document].filter(Boolean).map((detail) => <small key={detail}>{detail}</small>)}</div>
+    </div>
+  </header>;
 
   function updateBlock(id: string, patch: Partial<QuoteDocumentBlock>) {
     const next = { ...contentRef.current, blocks: contentRef.current.blocks.map((block) => block.id === id ? { ...block, ...patch } : block) };
@@ -206,11 +284,13 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
       updateBlockText(block.id, text);
       return;
     }
-    const source = contentRef.current.blocks.find((item) => item.id === block.sourceId);
-    if (!source) return;
-    const parts = richTextParts(source);
+    // As partes exibidas vêm do estado confirmado (não do texto em digitação): a parte em edição substitui
+    // exatamente o trecho que ela mostra, sem duplicar o que foi redistribuído para as partes seguintes.
+    const displayedSource = content.blocks.find((item) => item.id === block.sourceId);
+    if (!displayedSource) return;
+    const parts = richTextParts(displayedSource);
     const mergedBlocks = parts.flatMap((part) => parseRichText(part.partIndex === block.partIndex ? text : part.text).blocks);
-    updateBlockText(source.id, serializeRichText({ version: 1, blocks: mergedBlocks }) ?? "");
+    updateBlockText(displayedSource.id, serializeRichText({ version: 1, blocks: mergedBlocks }, 16_000) ?? "");
   }
 
   function commitDocument() {
@@ -226,6 +306,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   }
 
   function commitBlock(block: DocumentDisplayBlock) {
+    setPinnedBlockId(null);
     const sourceId = block.sourceId ?? block.id;
     const source = contentRef.current.blocks.find((item) => item.id === sourceId);
     if (source && source.type !== "rich-text" && !source.text.trim() && contentRef.current.blocks.length > 1) {
@@ -243,7 +324,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     <input type="hidden" name="quoteId" value={quoteId} />
     <input ref={documentContentFieldRef} type="hidden" name="documentContent" defaultValue={JSON.stringify(content)} />
     <section className="quote-docs-toolbar" aria-label="Ferramentas do editor">
-      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>DOCUMENTO</span><strong>{quoteTitle}</strong></div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><Link className="quote-docs-back-link quote-docs-template-link" href="/orcamentos/texto-padrao">TEXTO PADRÃO</Link><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="primary-action quote-docs-save" type="submit">SALVAR</button></div></div>
+      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{quoteCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{quoteTitle}</strong>{justSaved ? <small className="quote-docs-saved" role="status">Alterações salvas. Conclua quando o documento estiver pronto.</small> : null}</div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><Link className="quote-docs-back-link quote-docs-template-link" href="/orcamentos/texto-padrao">TEXTO PADRÃO</Link><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
       <div className="quote-docs-toolbar-tools">
         {activeBlock?.type === "rich-text" ? <>
           <span className="quote-docs-tool-context">FORMATAÇÃO DO TEXTO</span>
@@ -268,29 +349,17 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
         </>}
       </div>
     </section>
-    <section className="quote-docs-canvas" aria-label="Documento editável">
-      <div className="quote-docs-canvas-heading"><span>PÁGINAS DO DOCUMENTO</span><small>{pages.length} {pages.length === 1 ? "página" : "páginas"} organizadas automaticamente</small></div>
+    <section className="quote-docs-canvas" aria-label="Documento editável" ref={canvasRef}>
       <div className="quote-docs-pages">
-        {pages.map((page, pageIndex) => <article className="quote-docs-page" key={`page-${pageIndex}`}>
-          <header className="quote-docs-page-header">
-            <div className="quote-docs-page-header-top">
-              <div className="quote-docs-page-brand">
-                <span className="quote-docs-page-logo"><img src="/assets/images/logo-vr.svg" alt="" /></span>
-                <div className="quote-docs-page-professional">
-                  <span>PROPOSTA COMERCIAL</span>
-                  <strong>{professional.name}</strong>
-                  {professional.professionalTitle ? <small>{professional.professionalTitle}</small> : null}
-                </div>
-              </div>
-              {headerDetails.length ? <div className="quote-docs-page-contact">{headerDetails.map((detail) => <small key={detail}>{detail}</small>)}</div> : null}
-            </div>
-          </header>
+        <QuoteCoverPreview quote={preview} professional={professional} />
+        {pages.map((page, pageIndex) => <article className="quote-docs-page quote-docs-editable-page" key={`page-${pageIndex}`}>
+          {pageHeader}
           <div className="quote-docs-page-content">
-            {pageIndex === 0 ? <h2 className="quote-docs-document-title">{quoteTitle}</h2> : null}
-            {page.blocks.map((block) => <EditableBlock key={block.id} block={block} onActivate={() => setActiveBlockId(block.id)} onInput={(text) => updateDisplayBlockText(block, text)} onCommit={() => commitBlock(block)} onRemove={() => removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} />)}
+            {page.blocks.map((block) => <EditableBlock key={block.type === "rich-text" ? `${block.id}:${textSignature(block.text)}` : block.id} block={block} onActivate={() => { setActiveBlockId(block.id); setPinnedBlockId(block.id); }} onInput={(text) => { updateDisplayBlockText(block, text); scheduleMeasure(); }} onCommit={() => commitBlock(block)} onRemove={() => removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} />)}
           </div>
-          <footer>{pageIndex === pages.length - 1 && footerDetails ? <span className="quote-docs-page-footer-details">{footerDetails}</span> : <span />}{pageIndex + 1} / {pages.length}</footer>
+          <footer><span />{pageIndex + 2} / {totalPages}</footer>
         </article>)}
+        <QuoteClosingPreview quote={preview} professional={professional} pageNumber={totalPages} />
       </div>
     </section>
   </form>;

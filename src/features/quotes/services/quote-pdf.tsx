@@ -1,9 +1,10 @@
-import { Document, Image, Page, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
+import { Document, Font, G, Image, Page, Path, StyleSheet, Svg, Text, View, renderToBuffer } from "@react-pdf/renderer";
+import { BRAND_MARK_PATHS, BRAND_MARK_TRANSFORM, BRAND_MARK_VIEWBOX, COVER_COLORS, coverTitleLayout } from "@/features/quotes/types/brand-mark";
 import type { ReactElement } from "react";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseRichText, type RichTextRun } from "@/lib/rich-text";
-import type { QuoteDocumentContent } from "@/features/quotes/types/document-content";
+import { quoteDocumentBlockRole, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
 
 const colors = {
   black: "#000000",
@@ -15,27 +16,29 @@ const colors = {
   white: "#FFFFFF",
 };
 
+// A hifenização padrão segue regras do inglês e corta palavras em português ("comer-cial"); quebra só entre palavras.
+Font.registerHyphenationCallback((word) => [word]);
+
 const styles = StyleSheet.create({
   page: { backgroundColor: colors.white, color: colors.charcoal, fontFamily: "Helvetica", fontSize: 10, paddingTop: 48, paddingBottom: 46, paddingHorizontal: 52 },
-  cover: { backgroundColor: colors.white, color: colors.charcoal, fontFamily: "Helvetica", paddingTop: 42, paddingBottom: 42, paddingHorizontal: 52 },
-  coverArtwork: { height: 372, objectFit: "contain", position: "absolute", right: -12, top: -24, width: 300 },
-  coverTop: { gap: 14 },
-  coverKicker: { color: colors.accent, fontFamily: "Courier", fontSize: 7.2, letterSpacing: 0.9 },
+  cover: { backgroundColor: COVER_COLORS.background, color: COVER_COLORS.text, fontFamily: "Helvetica", paddingTop: 42, paddingBottom: 42, paddingHorizontal: 52 },
+  coverMark: { height: 202, position: "absolute", right: 44, top: 68, width: 270 },
   coverBrand: { alignItems: "center", flexDirection: "row", gap: 12 },
-  coverLogo: { height: 53, objectFit: "contain", width: 69 },
+  coverLogo: { height: 46, width: 62 },
   coverProfessional: { gap: 3 },
-  coverProfessionalName: { color: colors.black, fontSize: 10.5, fontWeight: 700 },
-  coverProfessionalTitle: { color: colors.charcoal, fontSize: 7.5 },
-  coverTitleCluster: { borderLeftColor: colors.accent, borderLeftWidth: 4, marginTop: 132, paddingLeft: 18, paddingTop: 3 },
-  coverTitle: { color: colors.black, fontSize: 42, fontWeight: 700, letterSpacing: -1.5, lineHeight: 0.96, maxWidth: 360 },
-  coverTitleRule: { backgroundColor: colors.accent, height: 2, marginTop: 22, width: 194 },
-  coverDetails: { backgroundColor: colors.accentSurface, borderRadius: 8, bottom: 192, left: 52, padding: 16, position: "absolute", right: 52 },
+  coverProfessionalName: { color: COVER_COLORS.text, fontSize: 10.5, fontWeight: 700 },
+  coverProfessionalTitle: { color: COVER_COLORS.soft, fontSize: 7.5 },
+  coverHeadline: { left: 52, position: "absolute", right: 52 },
+  coverKicker: { color: COVER_COLORS.muted, fontFamily: "Courier", fontSize: 7, letterSpacing: 0.9 },
+  coverLabel: { color: COVER_COLORS.label, fontSize: 13, fontWeight: 700, letterSpacing: 2, marginTop: 14 },
+  coverTitle: { color: COVER_COLORS.text, fontWeight: 700, letterSpacing: -0.8, lineHeight: 1.08, marginTop: 10 },
+  coverDetails: { backgroundColor: COVER_COLORS.panel, borderRadius: 8, bottom: 150, left: 52, padding: 18, position: "absolute", right: 52 },
   coverDetailsRow: { flexDirection: "row", gap: 14 },
   coverDetail: { flexBasis: 0, flexGrow: 1 },
-  coverDetailLabel: { color: colors.muted, fontFamily: "Courier", fontSize: 6.1, letterSpacing: 0.55, marginBottom: 5 },
-  coverDetailValue: { color: colors.charcoal, fontSize: 8.3, fontWeight: 700, lineHeight: 1.25 },
-  coverFooter: { bottom: 39, color: colors.muted, fontFamily: "Courier", fontSize: 6.2, left: 52, letterSpacing: 0.4, position: "absolute", right: 52 },
-  header: { borderBottomColor: colors.black, borderBottomWidth: 1, paddingBottom: 14 },
+  coverDetailLabel: { color: COVER_COLORS.muted, fontFamily: "Courier", fontSize: 6.1, letterSpacing: 0.55, marginBottom: 5 },
+  coverDetailValue: { color: COVER_COLORS.text, fontSize: 8.5, fontWeight: 700, lineHeight: 1.25 },
+  coverFooter: { bottom: 39, color: COVER_COLORS.muted, fontFamily: "Courier", fontSize: 6.2, left: 52, letterSpacing: 0.4, position: "absolute", right: 52 },
+  header: { borderBottomColor: colors.black, borderBottomWidth: 1, marginBottom: 24, paddingBottom: 14 },
   headerTop: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   professional: { alignItems: "center", flexDirection: "row", flexGrow: 1, flexShrink: 1, gap: 16, marginRight: 16 },
   logoBox: { alignItems: "center", height: 78, justifyContent: "center", width: 104 },
@@ -44,9 +47,11 @@ const styles = StyleSheet.create({
   documentKicker: { color: colors.accent, fontFamily: "Courier", fontSize: 7.3, letterSpacing: 0.9, marginBottom: 4 },
   professionalName: { color: colors.black, fontSize: 13, fontWeight: 700, letterSpacing: -0.25, marginBottom: 3 },
   professionalTitle: { color: colors.charcoal, fontSize: 8.5, lineHeight: 1.3 },
-  professionalInfo: { flexShrink: 1, maxWidth: 190 },
-  professionalInfoLine: { color: colors.charcoal, fontSize: 7.3, lineHeight: 1.38, textAlign: "left" },
-  documentContent: { marginTop: 29 },
+  clientInfo: { alignItems: "flex-end", flexShrink: 1, maxWidth: 200 },
+  clientInfoKicker: { color: colors.accent, fontFamily: "Courier", fontSize: 7, letterSpacing: 0.9, marginBottom: 4 },
+  clientInfoName: { color: colors.black, fontSize: 9.5, fontWeight: 700, marginBottom: 2, textAlign: "right" },
+  clientInfoLine: { color: colors.charcoal, fontSize: 7.3, lineHeight: 1.38, textAlign: "right" },
+  documentContent: { marginTop: 5 },
   editorHeading: { color: colors.black, fontSize: 20, letterSpacing: -0.5, lineHeight: 1.18, marginBottom: 12 },
   editorParagraph: { color: colors.charcoal, fontSize: 10, lineHeight: 1.65, marginBottom: 9 },
   editorSmall: { fontSize: 8.5 },
@@ -69,23 +74,57 @@ const styles = StyleSheet.create({
   serviceDescriptionListItem: { flexDirection: "row", marginTop: 3, paddingLeft: 2 },
   serviceDescriptionBullet: { color: colors.charcoal, fontSize: 9, lineHeight: 1.55, width: 12 },
   serviceDescriptionListText: { color: colors.charcoal, flexGrow: 1, flexShrink: 1, fontSize: 9, lineHeight: 1.55 },
-  sectionLabel: { color: colors.accent, fontFamily: "Courier", fontSize: 8, letterSpacing: 1, marginBottom: 9 },
-  terms: { borderTopColor: colors.line, borderTopWidth: 1, marginTop: 23, paddingTop: 16 },
-  termsText: { color: colors.muted, fontSize: 8.5, lineHeight: 1.55 },
-  closing: { borderTopColor: colors.black, borderTopWidth: 1, marginTop: 30, paddingTop: 2 },
-  closingLabel: { color: colors.accent, fontFamily: "Courier", fontSize: 8, letterSpacing: 1, marginTop: 14 },
-  table: { marginTop: 10 },
-  tableHeader: { color: colors.muted, flexDirection: "row", fontFamily: "Courier", fontSize: 8, letterSpacing: 0.6, paddingVertical: 9 },
-  tableRow: { borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", minHeight: 33, paddingVertical: 10 },
-  description: { flexGrow: 1, flexBasis: 0, paddingRight: 12 },
-  quantity: { textAlign: "right", width: 54 },
-  amount: { textAlign: "right", width: 90 },
-  total: { alignItems: "flex-end", borderTopColor: colors.charcoal, borderTopWidth: 1, marginTop: 4, paddingTop: 13 },
-  totalBreakdown: { color: colors.muted, fontFamily: "Courier", fontSize: 8, letterSpacing: 0.55, marginBottom: 4 },
-  totalLabel: { color: colors.muted, fontFamily: "Courier", fontSize: 8, letterSpacing: 0.8 },
-  totalValue: { color: colors.black, fontSize: 18, fontWeight: 700, marginTop: 4 },
+  sectionHeading: { alignItems: "center", flexDirection: "row", marginBottom: 14, marginTop: 24 },
+  sectionMarker: { backgroundColor: colors.accent, height: 6, marginRight: 8, width: 6 },
+  sectionHeadingText: { color: colors.accent, fontFamily: "Courier", fontSize: 7.6, letterSpacing: 1.3 },
+  sectionRule: { borderBottomColor: colors.line, borderBottomWidth: 1, flexGrow: 1, marginLeft: 10 },
+  serviceTitle: { borderTopColor: colors.line, borderTopWidth: 1, color: colors.black, fontSize: 12, fontWeight: 700, letterSpacing: -0.2, lineHeight: 1.3, marginTop: 16, paddingTop: 14 },
+  serviceTitleFirst: { borderTopWidth: 0, marginTop: 0, paddingTop: 0 },
+  serviceCategory: { color: colors.accent, fontFamily: "Courier", fontSize: 6.8, letterSpacing: 0.7, marginBottom: 9, marginTop: 4 },
   footer: { alignItems: "flex-end", bottom: 24, color: colors.muted, flexDirection: "row", fontFamily: "Courier", fontSize: 7, justifyContent: "space-between", left: 52, position: "absolute", right: 52 },
   footerDetails: { flexGrow: 1, paddingRight: 16 },
+  closingPage: { backgroundColor: colors.white, color: colors.charcoal, fontFamily: "Helvetica", paddingBottom: 56, paddingTop: 42 },
+  closingHeader: { alignItems: "center", borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", marginHorizontal: 52, paddingBottom: 14 },
+  closingBrand: { alignItems: "center", flexDirection: "row", gap: 10 },
+  closingLogo: { height: 22, width: 30 },
+  closingBrandName: { color: colors.black, fontSize: 9, fontWeight: 700 },
+  closingBrandTitle: { color: colors.muted, fontSize: 6.8, marginTop: 2 },
+  closingCode: { color: colors.muted, fontFamily: "Courier", fontSize: 6.8, letterSpacing: 0.8 },
+  closingIntro: { marginHorizontal: 52, marginTop: 26 },
+  closingKicker: { color: colors.accent, fontFamily: "Courier", fontSize: 7, letterSpacing: 1.2 },
+  closingTitle: { color: colors.black, fontSize: 17, fontWeight: 700, letterSpacing: -0.3, lineHeight: 1.2, marginTop: 6 },
+  closingSubline: { color: colors.muted, fontSize: 8.5, marginTop: 4 },
+  closingBody: { flexGrow: 1, paddingHorizontal: 52, paddingTop: 4 },
+  closingTableHead: { borderBottomColor: colors.charcoal, borderBottomWidth: 1, flexDirection: "row", paddingBottom: 7 },
+  closingHeadCell: { color: colors.muted, fontFamily: "Courier", fontSize: 6.5, letterSpacing: 0.8 },
+  closingRow: { alignItems: "center", borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: "row", paddingVertical: 9 },
+  closingItem: { flexBasis: 0, flexGrow: 1, paddingRight: 12 },
+  closingItemName: { color: colors.black, fontSize: 10, fontWeight: 700 },
+  closingItemCategory: { color: colors.muted, fontSize: 7.5, marginTop: 3 },
+  closingItemCalc: { color: colors.muted, fontSize: 8, textAlign: "right", width: 130 },
+  closingItemTotal: { color: colors.black, fontSize: 10, fontWeight: 700, textAlign: "right", width: 92 },
+  closingSummary: { alignSelf: "flex-end", marginTop: 12, width: 250 },
+  closingSummaryLine: { color: colors.muted, flexDirection: "row", fontSize: 8.5, justifyContent: "space-between", marginBottom: 5 },
+  closingSummaryTotal: { alignItems: "baseline", borderTopColor: colors.charcoal, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", marginTop: 3, paddingTop: 8 },
+  closingSummaryTotalLabel: { color: colors.accent, fontFamily: "Courier", fontSize: 7, letterSpacing: 1 },
+  closingSummaryTotalValue: { color: colors.black, fontSize: 13, fontWeight: 700 },
+  closingSummaryPayment: { color: colors.muted, flexDirection: "row", fontSize: 8.5, justifyContent: "space-between", marginTop: 6 },
+  closingSummaryBalance: { alignItems: "baseline", borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", marginTop: 8, paddingTop: 8 },
+  closingSummaryBalanceValue: { color: colors.black, fontSize: 11, fontWeight: 700 },
+  closingSummaryNote: { color: colors.muted, fontSize: 7.8, lineHeight: 1.45, marginTop: 8 },
+  closingTerms: { color: colors.charcoal, fontSize: 9, lineHeight: 1.6 },
+  closingSpacer: { flexGrow: 1, minHeight: 22 },
+  closingAcceptance: { borderTopColor: colors.charcoal, borderTopWidth: 1, paddingTop: 13 },
+  closingAcceptanceTitle: { color: colors.black, fontSize: 11, fontWeight: 700 },
+  closingAcceptanceText: { color: colors.muted, fontSize: 8.5, lineHeight: 1.5, marginTop: 4 },
+  closingPlace: { color: colors.charcoal, fontSize: 8.5, marginTop: 11 },
+  closingSignatures: { flexDirection: "row", gap: 32, marginTop: 34 },
+  closingSignature: { flexBasis: 0, flexGrow: 1 },
+  closingSignatureLine: { borderTopColor: colors.charcoal, borderTopWidth: 1, marginBottom: 7 },
+  closingSignatureName: { color: colors.black, fontSize: 9.5, fontWeight: 700 },
+  closingSignatureDetail: { color: colors.muted, fontSize: 7.8, marginTop: 2 },
+  closingSignatureRole: { color: colors.accent, fontFamily: "Courier", fontSize: 6.5, letterSpacing: 0.9, marginTop: 5 },
+  closingFooter: { bottom: 24, color: colors.muted, flexDirection: "row", fontFamily: "Courier", fontSize: 6.8, justifyContent: "space-between", left: 52, position: "absolute", right: 52 },
 });
 
 export type QuotePdfInput = {
@@ -96,8 +135,11 @@ export type QuotePdfInput = {
   scope: string;
   documentContent?: QuoteDocumentContent;
   discountCents?: number;
+  discountPercentBps?: number | null;
   client: { name: string; company?: string | null; document?: string | null; email?: string | null };
   items: Array<{ description: string; categoryName?: string | null; proposalText?: string | null; quantity: number; unitPriceCents: number }>;
+  payments?: Array<{ amountCents: number; paidAt: Date }>;
+  paymentNotes?: string | null;
   terms?: string | null;
   professional: {
     name: string;
@@ -114,6 +156,7 @@ export type QuotePdfInput = {
 
 const money = new Intl.NumberFormat("pt-BR", { currency: "BRL", style: "currency" });
 const date = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "America/Maceio" });
+const shortDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Maceio" });
 
 function formatMoney(cents: number) {
   return money.format(cents / 100);
@@ -137,33 +180,55 @@ function DocumentRichText({ value }: { value: string }) {
   })}</View>;
 }
 
-function QuotePdfDocument({ quote, logoSvg, coverDesignPng }: { quote: QuotePdfInput; logoSvg: Buffer; coverDesignPng: Buffer }): ReactElement {
+/** Rótulo de seção: marcador, texto espaçado e linha fina até a margem. Não fica órfão no pé da página. */
+function SectionHeading({ children, compact = false }: { children: string; compact?: boolean }) {
+  return <View style={[styles.sectionHeading, compact ? { marginBottom: 10, marginTop: 18 } : {}]} minPresenceAhead={70} wrap={false}><View style={styles.sectionMarker} /><Text style={styles.sectionHeadingText}>{children.toUpperCase()}</Text><View style={styles.sectionRule} /></View>;
+}
+
+function DocumentBlock({ block, previous }: { block: QuoteDocumentBlock; previous?: QuoteDocumentBlock }) {
+  if (block.type === "rich-text") return <DocumentRichText value={block.text} />;
+  const role = quoteDocumentBlockRole(block);
+  const marks = { fontStyle: block.italic ? "italic" as const : "normal" as const, textDecoration: block.underline ? "underline" as const : "none" as const, textAlign: block.align };
+  if (role === "section-label") return <SectionHeading>{block.text}</SectionHeading>;
+  if (role === "service-title") {
+    const first = !previous || quoteDocumentBlockRole(previous) === "section-label";
+    return <Text style={[styles.serviceTitle, first ? styles.serviceTitleFirst : {}, marks]} minPresenceAhead={60}>{block.text}</Text>;
+  }
+  if (role === "service-category") return <Text style={[styles.serviceCategory, { textAlign: block.align }]}>{block.text.toUpperCase()}</Text>;
+  return <Text style={[block.type === "heading" ? styles.editorHeading : styles.editorParagraph, block.fontSize === "small" ? styles.editorSmall : block.fontSize === "large" ? styles.editorLarge : styles.editorMedium, { fontWeight: block.bold ? 700 : 400, ...marks }]}>{block.text}</Text>;
+}
+
+function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: Buffer }): ReactElement {
   const subtotalCents = quote.items.reduce((total, item) => total + item.quantity * item.unitPriceCents, 0);
   const discountCents = Math.max(0, Math.min(quote.discountCents ?? 0, subtotalCents));
   const totalCents = subtotalCents - discountCents;
-  const headerDetails = [quote.professional.document, quote.professional.phone, quote.professional.email].filter(Boolean);
+  const clientDetails = [quote.client.company, quote.client.document].filter(Boolean);
   const website = websiteForDisplay(quote.professional.website);
   const footerDetails = [quote.professional.document, website].filter(Boolean).join(" · ");
   const clientCompany = quote.client.company ?? "Não informado";
   const validity = quote.validUntil ? date.format(quote.validUntil) : "Conforme proposta";
+  const payments = quote.payments ?? [];
+  const paidCents = payments.reduce((total, payment) => total + payment.amountCents, 0);
+  const balanceCents = Math.max(0, totalCents - paidCents);
+  const titleLayout = coverTitleLayout(quote.title);
+  const contentBlocks = quote.documentContent?.blocks.filter((block) => block.id !== "intro-title") ?? [];
+  const signaturePlace = [quote.professional.city, quote.professional.state].filter(Boolean).join(" / ") || "Local";
 
   return (
     <Document title={`Orçamento ${quote.code}`} author={quote.professional.name} subject={quote.title}>
       <Page size="A4" style={styles.cover}>
-        <Image src={coverDesignPng} style={styles.coverArtwork} />
-        <View style={styles.coverTop}>
-          <Text style={styles.coverKicker}>PROPOSTA COMERCIAL / {quote.issuedAt.getFullYear()}</Text>
-          <View style={styles.coverBrand}>
-            <Image src={logoSvg} style={styles.coverLogo} />
-            <View style={styles.coverProfessional}>
-              <Text style={styles.coverProfessionalName}>{quote.professional.name}</Text>
-              {quote.professional.professionalTitle ? <Text style={styles.coverProfessionalTitle}>{quote.professional.professionalTitle}</Text> : null}
-            </View>
+        <Svg viewBox={BRAND_MARK_VIEWBOX} style={styles.coverMark}><G transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => <Path key={d} d={d} fill={COVER_COLORS.mark} />)}</G></Svg>
+        <View style={styles.coverBrand}>
+          <Svg viewBox={BRAND_MARK_VIEWBOX} style={styles.coverLogo}><G transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => <Path key={d} d={d} fill={COVER_COLORS.text} />)}</G></Svg>
+          <View style={styles.coverProfessional}>
+            <Text style={styles.coverProfessionalName}>{quote.professional.name}</Text>
+            {quote.professional.professionalTitle ? <Text style={styles.coverProfessionalTitle}>{quote.professional.professionalTitle}</Text> : null}
           </View>
         </View>
-        <View style={styles.coverTitleCluster}>
-          <Text style={styles.coverTitle}>PROPOSTA{`\n`}COMERCIAL</Text>
-          <View style={styles.coverTitleRule} />
+        <View style={[styles.coverHeadline, { top: titleLayout.top }]}>
+          <Text style={styles.coverKicker}>{quote.code} / {quote.issuedAt.getFullYear()}</Text>
+          <Text style={styles.coverLabel}>PROPOSTA COMERCIAL</Text>
+          <Text style={[styles.coverTitle, { fontSize: titleLayout.fontSize, maxWidth: titleLayout.maxWidth }]}>{quote.title}</Text>
         </View>
         <View style={styles.coverDetails}>
           <View style={styles.coverDetailsRow}>
@@ -188,29 +253,66 @@ function QuotePdfDocument({ quote, logoSvg, coverDesignPng }: { quote: QuotePdfI
                 {quote.professional.professionalTitle ? <Text style={styles.professionalTitle}>{quote.professional.professionalTitle}</Text> : null}
               </View>
             </View>
-            {headerDetails.length ? <View style={styles.professionalInfo}>{headerDetails.map((detail) => <Text key={detail} style={styles.professionalInfoLine}>{detail}</Text>)}</View> : null}
+            <View style={styles.clientInfo}><Text style={styles.clientInfoKicker}>CLIENTE</Text><Text style={styles.clientInfoName}>{quote.client.name}</Text>{clientDetails.map((detail) => <Text key={detail} style={styles.clientInfoLine}>{detail}</Text>)}</View>
           </View>
         </View>
 
         <View style={styles.documentContent}>
-          {quote.documentContent?.blocks.filter((block) => block.id !== "intro-title").map((block) => block.type === "rich-text" ? <DocumentRichText key={block.id} value={block.text} /> : <Text key={block.id} style={[block.type === "heading" ? styles.editorHeading : styles.editorParagraph, block.fontSize === "small" ? styles.editorSmall : block.fontSize === "large" ? styles.editorLarge : styles.editorMedium, { fontWeight: block.bold ? 700 : 400, fontStyle: block.italic ? "italic" : "normal", textDecoration: block.underline ? "underline" : "none", textAlign: block.align }]}>{block.text}</Text>)}
+          {contentBlocks.map((block, index) => <DocumentBlock key={block.id} block={block} previous={contentBlocks[index - 1]} />)}
         </View>
 
-        {quote.terms ? <View style={styles.terms}><Text style={styles.sectionLabel}>CONDIÇÕES COMERCIAIS</Text><Text style={styles.termsText}>{quote.terms}</Text></View> : null}
+        <View style={styles.footer} fixed><Text style={styles.footerDetails} /><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
+      </Page>
 
-        <View style={styles.closing}>
-          <Text style={styles.closingLabel}>VALOR PARA FECHAMENTO</Text>
-          <View style={styles.table}>
-          <View style={styles.tableHeader} fixed><Text style={styles.description}>ENTREGA</Text><Text style={styles.quantity}>QTD.</Text><Text style={styles.amount}>VALOR</Text></View>
-          {quote.items.map((item, index) => <View style={styles.tableRow} key={`${item.description}-${index}`} wrap={false}><Text style={styles.description}>{item.description}</Text><Text style={styles.quantity}>{item.quantity}</Text><Text style={styles.amount}>{formatMoney(item.quantity * item.unitPriceCents)}</Text></View>)}
+      {/* Folha final própria: investimento em destaque, composição, pagamentos, condições e aceite no pé da página. */}
+      <Page size="A4" style={styles.closingPage}>
+        <View style={styles.closingHeader}>
+          <View style={styles.closingBrand}>
+            <Svg viewBox={BRAND_MARK_VIEWBOX} style={styles.closingLogo}><G transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => <Path key={d} d={d} fill={colors.black} />)}</G></Svg>
+            <View><Text style={styles.closingBrandName}>{quote.professional.name}</Text>{quote.professional.professionalTitle ? <Text style={styles.closingBrandTitle}>{quote.professional.professionalTitle}</Text> : null}</View>
           </View>
-          <View style={styles.total} wrap={false}>
-            {discountCents > 0 ? <><Text style={styles.totalBreakdown}>SUBTOTAL {formatMoney(subtotalCents)}</Text><Text style={styles.totalBreakdown}>DESCONTO −{formatMoney(discountCents)}</Text></> : null}
-            <Text style={styles.totalLabel}>INVESTIMENTO TOTAL</Text><Text style={styles.totalValue}>{formatMoney(totalCents)}</Text>
+          <Text style={styles.closingCode}>{quote.code}</Text>
+        </View>
+        <View style={styles.closingIntro}>
+          <Text style={styles.closingKicker}>INVESTIMENTO</Text>
+          <Text style={styles.closingTitle}>{quote.title}</Text>
+          {quote.validUntil ? <Text style={styles.closingSubline}>Proposta válida até {validity}</Text> : null}
+        </View>
+
+        <View style={styles.closingBody}>
+          <SectionHeading compact>Composição do investimento</SectionHeading>
+          <View style={styles.closingTableHead}><Text style={[styles.closingHeadCell, styles.closingItem]}>SERVIÇO</Text><Text style={[styles.closingHeadCell, { textAlign: "right", width: 130 }]}>QUANTIDADE</Text><Text style={[styles.closingHeadCell, { textAlign: "right", width: 92 }]}>VALOR</Text></View>
+          {quote.items.map((item, index) => <View style={styles.closingRow} key={`${item.description}-${index}`} wrap={false}>
+            <View style={styles.closingItem}><Text style={styles.closingItemName}>{item.description}</Text>{item.categoryName ? <Text style={styles.closingItemCategory}>{item.categoryName}</Text> : null}</View>
+            <Text style={styles.closingItemCalc}>{item.quantity} × {formatMoney(item.unitPriceCents)}</Text>
+            <Text style={styles.closingItemTotal}>{formatMoney(item.quantity * item.unitPriceCents)}</Text>
+          </View>)}
+          <View style={styles.closingSummary} wrap={false}>
+            {discountCents > 0 ? <>
+              <View style={styles.closingSummaryLine}><Text>Subtotal</Text><Text>{formatMoney(subtotalCents)}</Text></View>
+              <View style={styles.closingSummaryLine}><Text>{quote.discountPercentBps ? `Desconto (${(quote.discountPercentBps / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)` : "Desconto"}</Text><Text>- {formatMoney(discountCents)}</Text></View>
+            </> : null}
+            <View style={[styles.closingSummaryTotal, discountCents > 0 ? {} : { borderTopWidth: 0, marginTop: 0, paddingTop: 2 }]}><Text style={styles.closingSummaryTotalLabel}>INVESTIMENTO TOTAL</Text><Text style={styles.closingSummaryTotalValue}>{formatMoney(totalCents)}</Text></View>
+            {payments.map((payment, index) => <View style={styles.closingSummaryPayment} key={`${payment.paidAt.toISOString()}-${index}`}><Text>Pago em {shortDate.format(payment.paidAt)}</Text><Text>- {formatMoney(payment.amountCents)}</Text></View>)}
+            {payments.length ? <View style={styles.closingSummaryBalance}><Text style={styles.closingSummaryTotalLabel}>SALDO A RECEBER</Text><Text style={styles.closingSummaryBalanceValue}>{formatMoney(balanceCents)}</Text></View> : null}
+            {quote.paymentNotes ? <Text style={styles.closingSummaryNote}>{quote.paymentNotes}</Text> : null}
+          </View>
+
+          {quote.terms ? <View><SectionHeading compact>Condições comerciais</SectionHeading><Text style={styles.closingTerms}>{quote.terms}</Text></View> : null}
+
+          <View style={styles.closingSpacer} />
+          <View style={styles.closingAcceptance} wrap={false}>
+            <Text style={styles.closingAcceptanceTitle}>Aceite da proposta</Text>
+            <Text style={styles.closingAcceptanceText}>Ao assinar, as partes declaram estar de acordo com os serviços, valores e condições descritos nesta proposta.</Text>
+            <Text style={styles.closingPlace}>{signaturePlace}, ______ de ____________________ de __________.</Text>
+            <View style={styles.closingSignatures}>
+              <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.professional.name}</Text>{quote.professional.document ? <Text style={styles.closingSignatureDetail}>{quote.professional.document}</Text> : null}<Text style={styles.closingSignatureRole}>PROFISSIONAL RESPONSÁVEL</Text></View>
+              <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>CLIENTE</Text></View>
+            </View>
           </View>
         </View>
 
-        <View style={styles.footer} fixed><Text style={styles.footerDetails} render={({ pageNumber, totalPages }) => pageNumber === totalPages ? footerDetails : ""} /><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
+        <View style={styles.closingFooter} fixed><Text>{[quote.professional.name, footerDetails].filter(Boolean).join(" · ").toUpperCase()}</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
       </Page>
     </Document>
   );
@@ -218,9 +320,6 @@ function QuotePdfDocument({ quote, logoSvg, coverDesignPng }: { quote: QuotePdfI
 
 /** Gera um PDF A4 em memória, pronto para resposta HTTP ou armazenamento de arquivo. */
 export async function generateQuotePdf(quote: QuotePdfInput): Promise<Buffer> {
-  const [logoSvg, coverDesignPng] = await Promise.all([
-    readFile(join(process.cwd(), "public/assets/images/logo-vr.svg")),
-    readFile(join(process.cwd(), "public/assets/images/design-capa.png")),
-  ]);
-  return renderToBuffer(<QuotePdfDocument quote={quote} logoSvg={logoSvg} coverDesignPng={coverDesignPng} />);
+  const logoSvg = await readFile(join(process.cwd(), "public/assets/images/logo-vr.svg"));
+  return renderToBuffer(<QuotePdfDocument quote={quote} logoSvg={logoSvg} />);
 }

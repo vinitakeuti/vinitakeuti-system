@@ -34,7 +34,20 @@ export async function getClientProfile(id: string) {
       id: true, name: true, company: true, email: true, phone: true, document: true, address: true, city: true, notes: true, createdAt: true,
       quotes: { take: 25, orderBy: { createdAt: "desc" }, select: { id: true, code: true, title: true, amountCents: true, status: true, createdAt: true, validUntil: true } },
       projects: { where: { status: { in: [ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS, ProjectStatus.WAITING_CLIENT] } }, take: 25, orderBy: { updatedAt: "desc" }, select: { id: true, name: true, status: true, deliveryAt: true, budgetCents: true } },
+      monitoredApps: { take: 25, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { id: true, name: true, url: true, healthEndpoint: true, environment: true, status: true, lastCheckedAt: true } },
       subscriptions: { take: 25, orderBy: [{ status: "asc" }, { nextPaymentAt: "asc" }], select: { id: true, name: true, status: true, amountCents: true, billingCycle: true, nextPaymentAt: true, serviceCatalogItem: { select: { category: { select: { name: true } } } } } },
     },
+  });
+}
+
+/** Opções compactas para seletores de cliente: recentes sem busca, até 20 resultados com busca. */
+export async function searchClientOptions(query?: string) {
+  const value = query?.trim().slice(0, 100);
+  if (!value) return prisma.client.findMany({ take: 10, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { id: true, name: true, company: true } });
+  return prisma.client.findMany({
+    where: { OR: [{ name: { contains: value, mode: "insensitive" } }, { company: { contains: value, mode: "insensitive" } }, { email: { contains: value, mode: "insensitive" } }] },
+    take: 20,
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: { id: true, name: true, company: true },
   });
 }

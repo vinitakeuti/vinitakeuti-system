@@ -18,6 +18,18 @@ As regras visuais e técnicas são permanentes: sem emojis, sem cards aninhados,
 
 Cadastre as variáveis de `.env.example`. Gere uma senha forte para `POSTGRES_PASSWORD` e uma chave aleatória longa (32+ caracteres) para `INTEGRATION_ENCRYPTION_KEY`.
 
+### Acesso e domínios
+
+O app reconhece três superfícies pelo host configurado:
+
+- `gestao.vinitakeuti.com`: operação interna para profissional, comercial, marketing, afiliado e contador.
+- `clientes.vinitakeuti.com`: portal do cliente, já preparado para pagamentos, serviços e documentos.
+- `vinitakeuti.com`: landing pública.
+
+Defina `MANAGEMENT_HOST` e `CLIENT_PORTAL_HOST` de acordo com os domínios configurados no EasyPanel. `AUTH_SECRET` deve ser uma chave aleatória de pelo menos 32 caracteres; ela assina as sessões e não pode ser trocada sem invalidar os acessos atuais.
+
+Em produção, os usuários são cadastrados diretamente no banco de dados. No ambiente local, o primeiro login cria ou atualiza a conta de teste `teste@vinitakeuti.com` com a senha `Teste@Gestao2026`; essa conta não é criada em produção.
+
 As migrações iniciais já estão versionadas e são aplicadas automaticamente ao iniciar o container. A URL de saúde é `/api/health` e o webhook do Asaas é `/api/webhooks/asaas`.
 
 ## Deploy com Docker no EasyPanel
