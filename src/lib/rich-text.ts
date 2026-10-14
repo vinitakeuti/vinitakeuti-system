@@ -27,10 +27,23 @@ export type RichTextRun = RichTextMark & {
   text: string;
 };
 
+/** Estilo do parágrafo: título, subtítulo ou rótulo de seção (como SERVIÇOS INCLUÍDOS). Ausente = texto. */
+export type RichTextParagraphStyle = "title" | "subtitle" | "section";
+export const RICH_TEXT_PARAGRAPH_STYLES: RichTextParagraphStyle[] = ["title", "subtitle", "section"];
+
 export type RichTextParagraph = {
   type: "paragraph";
   runs: RichTextRun[];
+  style?: RichTextParagraphStyle;
 };
+
+function paragraphStyle(value: unknown): RichTextParagraphStyle | undefined {
+  return RICH_TEXT_PARAGRAPH_STYLES.includes(value as RichTextParagraphStyle) ? value as RichTextParagraphStyle : undefined;
+}
+
+function paragraph(runs: RichTextRun[], style?: RichTextParagraphStyle): RichTextParagraph {
+  return style ? { type: "paragraph", runs, style } : { type: "paragraph", runs };
+}
 
 export type RichTextList = {
   type: "bullet-list" | "ordered-list";
@@ -90,7 +103,7 @@ function normalizeDocument(value: unknown): RichTextDocument {
     const source = candidate as Record<string, unknown>;
     if (source.type === "paragraph") {
       const runs = normalizedRuns(source.runs);
-      if (runs.length) blocks.push({ type: "paragraph", runs });
+      if (runs.length) blocks.push(paragraph(runs, paragraphStyle(source.style)));
       continue;
     }
     if (source.type === "bullet-list" || source.type === "ordered-list") {
@@ -180,7 +193,7 @@ export function serializeRichText(value: unknown, maxCharacters = 4_000): string
     if (remaining.value <= 0) break;
     if (block.type === "paragraph") {
       const runs = truncateRuns(block.runs, remaining);
-      if (runs.length) blocks.push({ type: "paragraph", runs });
+      if (runs.length) blocks.push(paragraph(runs, block.style));
       continue;
     }
     const items = block.items.map((item) => truncateRuns(item, remaining)).filter((item) => item.length);

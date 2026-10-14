@@ -7,7 +7,7 @@ import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCo
 import { QuoteClosingPreview, QuoteCoverPreview, type QuotePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { updateQuoteDocumentAction } from "@/features/quotes/services/quote-actions";
 import { QUOTE_INTRO_BLOCK_ID, quoteDocumentBlockRole, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentBlockType, type QuoteDocumentContent, type QuoteDocumentFontSize } from "@/features/quotes/types/document-content";
-import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, richTextPlainText, serializeRichText, type RichTextBlock, type RichTextRun } from "@/lib/rich-text";
+import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, richTextPlainText, serializeRichText, type RichTextBlock, type RichTextParagraphStyle, type RichTextRun } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
   name: string;
@@ -71,7 +71,7 @@ function atomRuns(atom: RichTextBlock) {
 }
 
 function withAtomRuns(atom: RichTextBlock, runs: RichTextRun[]): RichTextBlock {
-  return atom.type === "paragraph" ? { type: "paragraph", runs } : { type: atom.type, items: [runs] };
+  return atom.type === "paragraph" ? { ...atom, runs } : { type: atom.type, items: [runs] };
 }
 
 function atomTextLength(atom: RichTextBlock) {
@@ -85,9 +85,13 @@ function joinAtoms(first: RichTextBlock, second: RichTextBlock): { atom: RichTex
   return { atom: withAtomRuns(first, [...atomRuns(first), ...atomRuns(second)]), caret: atomTextLength(first) };
 }
 
+const PARAGRAPH_STYLE_SIZES: Record<RichTextParagraphStyle, number> = { title: 18, subtitle: 13, section: 10 };
+
 function estimatedAtomHeight(atom: RichTextBlock) {
   const runs = atomRuns(atom);
-  const size = Math.max(RICH_TEXT_BASE_SIZE, ...runs.map((run) => run.size ?? RICH_TEXT_BASE_SIZE));
+  if (atom.type === "paragraph" && atom.style === "section") return 46;
+  const baseSize = atom.type === "paragraph" && atom.style ? PARAGRAPH_STYLE_SIZES[atom.style] : RICH_TEXT_BASE_SIZE;
+  const size = Math.max(baseSize, ...runs.map((run) => run.size ?? baseSize));
   const scale = size / RICH_TEXT_BASE_SIZE;
   const text = runs.map((run) => run.text).join("");
   const charactersPerLine = (atom.type === "paragraph" ? 74 : 69) / scale;
@@ -277,17 +281,17 @@ function placeCaret(element: HTMLElement, offset: number) {
   selection.addRange(range);
 }
 
-/** Tamanho do texto: diminuir, escolher na lista ou aumentar. Os botões não tiram o foco do texto em edição. */
-function FontSizeControl({ size, onStep, onSelect }: { size: number; onStep: (direction: 1 | -1) => void; onSelect: (size: number) => void }) {
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+/** Menu suspenso da barra: posição fixa (a barra rola na horizontal) e fecha com Esc, clique fora, rolagem ou redimensionamento. */
+function useToolbarMenu(menuClass: string) {
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!menuPosition) return;
+    if (!position) return;
     const close = (event: Event) => {
-      if (event instanceof KeyboardEvent && event.key !== "Escape") return;
-      if (event.type === "pointerdown" && (event.target as Element | null)?.closest(".quote-docs-size-menu, .quote-docs-size-current")) return;
-      setMenuPosition(null);
+      if (event instanceof globalThis.KeyboardEvent && event.key !== "Escape") return;
+      if (event.type === "pointerdown" && ((event.target as Element | null)?.closest(`.${menuClass}`) || triggerRef.current?.contains(event.target as Node))) return;
+      setPosition(null);
     };
     document.addEventListener("pointerdown", close);
     document.addEventListener("keydown", close);
@@ -299,25 +303,50 @@ function FontSizeControl({ size, onStep, onSelect }: { size: number; onStep: (di
       window.removeEventListener("resize", close);
       window.removeEventListener("scroll", close, true);
     };
-  }, [menuPosition]);
+  }, [position, menuClass]);
 
-  function toggleMenu() {
-    if (menuPosition) {
-      setMenuPosition(null);
+  function toggle(width: number) {
+    if (position) {
+      setPosition(null);
       return;
     }
     const rect = triggerRef.current?.getBoundingClientRect();
-    if (rect) setMenuPosition({ top: rect.bottom + 4, left: Math.max(8, Math.min(rect.left, window.innerWidth - 136)) });
+    if (rect) setPosition({ top: rect.bottom + 4, left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) });
   }
 
+  return { position, triggerRef, toggle, close: () => setPosition(null) };
+}
+
+/** Tamanho do texto: diminuir, escolher na lista ou aumentar. Os botões não tiram o foco do texto em edição. */
+function FontSizeControl({ size, onStep, onSelect }: { size: number; onStep: (direction: 1 | -1) => void; onSelect: (size: number) => void }) {
+  const menu = useToolbarMenu("quote-docs-size-menu");
   return <div className="quote-docs-size" role="group" aria-label="Tamanho da fonte">
     <button type="button" className="quote-docs-size-step" aria-label="Diminuir fonte" title="Diminuir fonte" disabled={size <= RICH_TEXT_SIZES[0]} onMouseDown={(event) => event.preventDefault()} onClick={() => onStep(-1)}>A<small>-</small></button>
-    <button type="button" ref={triggerRef} className="quote-docs-size-current" aria-haspopup="listbox" aria-expanded={menuPosition !== null} aria-label={`Tamanho da fonte: ${size} pontos`} onMouseDown={(event) => event.preventDefault()} onClick={toggleMenu}>{size}<small>PT</small></button>
+    <button type="button" ref={menu.triggerRef} className="quote-docs-size-current" aria-haspopup="listbox" aria-expanded={menu.position !== null} aria-label={`Tamanho da fonte: ${size} pontos`} onMouseDown={(event) => event.preventDefault()} onClick={() => menu.toggle(128)}>{size}<small>PT</small></button>
     <button type="button" className="quote-docs-size-step is-increase" aria-label="Aumentar fonte" title="Aumentar fonte" disabled={size >= RICH_TEXT_SIZES.at(-1)!} onMouseDown={(event) => event.preventDefault()} onClick={() => onStep(1)}>A<small>+</small></button>
-    {menuPosition ? <div className="quote-docs-size-menu" role="listbox" aria-label="Tamanhos disponíveis" style={{ top: menuPosition.top, left: menuPosition.left }}>
-      {RICH_TEXT_SIZES.map((option) => <button type="button" role="option" aria-selected={option === size} key={option} className={option === size ? "is-active" : ""} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option); setMenuPosition(null); }}><span style={{ fontSize: `${Math.min(option, 20) / RICH_TEXT_BASE_SIZE * 0.8}rem` }}>{option}</span>{option === RICH_TEXT_BASE_SIZE ? <small>NORMAL</small> : null}</button>)}
+    {menu.position ? <div className="quote-docs-size-menu" role="listbox" aria-label="Tamanhos disponíveis" style={{ top: menu.position.top, left: menu.position.left }}>
+      {RICH_TEXT_SIZES.map((option) => <button type="button" role="option" aria-selected={option === size} key={option} className={option === size ? "is-active" : ""} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option); menu.close(); }}><span style={{ fontSize: `${Math.min(option, 20) / RICH_TEXT_BASE_SIZE * 0.8}rem` }}>{option}</span>{option === RICH_TEXT_BASE_SIZE ? <small>NORMAL</small> : null}</button>)}
     </div> : null}
   </div>;
+}
+
+const paragraphStyleOptions: Array<{ value: RichTextParagraphStyle | null; label: string }> = [
+  { value: null, label: "Texto" },
+  { value: "title", label: "Título" },
+  { value: "subtitle", label: "Subtítulo" },
+  { value: "section", label: "Seção" },
+];
+
+/** Estilo da linha: texto, título, subtítulo ou rótulo de seção (o mesmo visual de SERVIÇOS INCLUÍDOS). */
+function ParagraphStyleControl({ style, onSelect }: { style: RichTextParagraphStyle | null; onSelect: (style: RichTextParagraphStyle | null) => void }) {
+  const menu = useToolbarMenu("quote-docs-style-menu");
+  const current = paragraphStyleOptions.find((option) => option.value === style) ?? paragraphStyleOptions[0];
+  return <>
+    <button type="button" ref={menu.triggerRef} className="quote-docs-style-current" aria-haspopup="listbox" aria-expanded={menu.position !== null} aria-label={`Estilo da linha: ${current.label}`} title="Estilo da linha" onMouseDown={(event) => event.preventDefault()} onClick={() => menu.toggle(220)}>{current.label.toUpperCase()}</button>
+    {menu.position ? <div className="quote-docs-style-menu" role="listbox" aria-label="Estilos de linha" style={{ top: menu.position.top, left: menu.position.left }}>
+      {paragraphStyleOptions.map((option) => <button type="button" role="option" aria-selected={option.value === style} key={option.label} className={`quote-docs-style-option is-${option.value ?? "text"}${option.value === style ? " is-active" : ""}`} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option.value); menu.close(); }}><span>{option.label}</span></button>)}
+    </div> : null}
+  </>;
 }
 
 type PartBoundaryAction = "merge-backward" | "merge-forward" | "focus-previous" | "focus-next";
@@ -333,11 +362,35 @@ function partBoundaryAction(event: KeyboardEvent<HTMLDivElement>, block: Documen
   return null;
 }
 
-function EditableBlock({ block, onActivate, onInput, onCommit, onRemove, onBoundary, command, onSelectionSize }: { block: DocumentDisplayBlock; onActivate: () => void; onInput: (text: string) => void; onCommit: () => void; onRemove: () => void; onBoundary: (action: PartBoundaryAction) => void; command?: RichTextEditorCommandRequest | null; onSelectionSize?: (size: number) => void }) {
-  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text" data-block-id={block.id} data-source-id={block.sourceId} data-atom-start={block.atomStart} data-atom-count={block.atomCount}><InlineRichTextEditor initialValue={block.text} onSelectionSize={onSelectionSize} onKeyDown={(event) => { const action = partBoundaryAction(event, block); if (!action) return; event.preventDefault(); onBoundary(action); }} ariaLabel={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Apresentação da proposta" : "Texto da proposta"} placeholder={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Escreva aqui a apresentação da proposta, o contexto do projeto ou qualquer texto que deve vir antes dos serviços." : undefined} className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
+/** Blocos gerados a partir do orçamento: podem ter o texto ajustado, mas nunca são apagados. */
+function isProtectedBlock(block: QuoteDocumentBlock) {
   const role = quoteDocumentBlockRole(block);
-  return <div data-block-id={block.id} className={`quote-editor-document-block quote-editor-document-${block.type} quote-editor-document-${block.fontSize}${role ? ` quote-editor-document-role-${role}` : ""}${block.text ? "" : " is-empty"}`}>
-    <div className="quote-editor-document-content" role="textbox" aria-multiline="true" aria-label={block.type === "heading" ? "Título do documento" : "Texto do documento"} contentEditable suppressContentEditableWarning onFocus={onActivate} onBlur={onCommit} onKeyDown={(event) => { if ((event.key === "Backspace" || event.key === "Delete") && !event.currentTarget.innerText.trim()) { event.preventDefault(); onRemove(); } }} onInput={(event) => onInput(event.currentTarget.innerText.slice(0, 4_000))} style={{ textAlign: block.align, fontWeight: block.bold ? 700 : 400, fontStyle: block.italic ? "italic" : "normal", textDecoration: block.underline ? "underline" : "none" }}>{block.text}</div>
+  return role === "section-label" || role === "service-title" || role === "service-category";
+}
+
+function caretAtTextStart(element: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !selection.isCollapsed) return false;
+  const probe = document.createRange();
+  probe.selectNodeContents(element);
+  probe.setEnd(selection.getRangeAt(0).startContainer, selection.getRangeAt(0).startOffset);
+  return probe.toString().length === 0;
+}
+
+function EditableBlock({ block, onActivate, onInput, onCommit, onRemove, onBoundary, onPullUp, command, onSelectionSize, onSelectionStyle }: { block: DocumentDisplayBlock; onActivate: () => void; onInput: (text: string) => void; onCommit: () => void; onRemove: () => void; onBoundary: (action: PartBoundaryAction) => void; onPullUp: () => void; command?: RichTextEditorCommandRequest | null; onSelectionSize?: (size: number) => void; onSelectionStyle?: (style: RichTextParagraphStyle | null) => void }) {
+  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text" data-block-id={block.id} data-source-id={block.sourceId} data-atom-start={block.atomStart} data-atom-count={block.atomCount}><InlineRichTextEditor initialValue={block.text} onSelectionSize={onSelectionSize} onSelectionStyle={onSelectionStyle} onKeyDown={(event) => { const action = partBoundaryAction(event, block); if (!action) return; event.preventDefault(); onBoundary(action); }} ariaLabel={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Apresentação da proposta" : "Texto da proposta"} placeholder={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Escreva aqui a apresentação da proposta, o contexto do projeto ou qualquer texto que deve vir antes dos serviços." : undefined} className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
+  const role = quoteDocumentBlockRole(block);
+  const className = `quote-editor-document-block quote-editor-document-${block.type} quote-editor-document-${block.fontSize}${role ? ` quote-editor-document-role-${role}` : ""}${block.text ? "" : " is-empty"}`;
+  // O rótulo da seção de serviços não é editável: o estilo dele precisa ser mantido. Selecionado, o Backspace
+  // apaga as linhas em branco logo acima, trazendo a seção de volta para a folha anterior.
+  if (role === "section-label") return <div data-block-id={block.id} className={className}>
+    <div className="quote-editor-document-content" tabIndex={0} role="heading" aria-level={2} title="Selecione e use Backspace para apagar as linhas em branco acima" onFocus={onActivate} onBlur={onCommit} onKeyDown={(event) => { if (event.key === "Backspace") { event.preventDefault(); onPullUp(); } }}>{block.text}</div>
+  </div>;
+  return <div data-block-id={block.id} className={className}>
+    <div className="quote-editor-document-content" role="textbox" aria-multiline="true" aria-label={block.type === "heading" ? "Título do documento" : "Texto do documento"} contentEditable suppressContentEditableWarning onFocus={onActivate} onBlur={onCommit} onKeyDown={(event) => {
+      if (event.key === "Backspace" && caretAtTextStart(event.currentTarget) && event.currentTarget.innerText.trim()) { event.preventDefault(); onPullUp(); return; }
+      if ((event.key === "Backspace" || event.key === "Delete") && !event.currentTarget.innerText.trim()) { event.preventDefault(); if (!isProtectedBlock(block)) onRemove(); }
+    }} onInput={(event) => onInput(event.currentTarget.innerText.slice(0, 4_000))} style={{ textAlign: block.align, fontWeight: block.bold ? 700 : 400, fontStyle: block.italic ? "italic" : "normal", textDecoration: block.underline ? "underline" : "none" }}>{block.text}</div>
   </div>;
 }
 
@@ -348,11 +401,21 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   const [activeBlockId, setActiveBlockId] = useState(initialContent.blocks.find((block) => block.id !== "intro-title")?.id ?? "");
   const [richTextCommand, setRichTextCommand] = useState<RichTextEditorCommandRequest | null>(null);
   const [richTextSize, setRichTextSize] = useState(RICH_TEXT_BASE_SIZE);
+  const [richTextStyle, setRichTextStyle] = useState<RichTextParagraphStyle | null>(null);
+  const [restoreVersion, setRestoreVersion] = useState(0);
+  // Editores de texto rico são não controlados: o que foi digitado fica no DOM. Ao confirmar ou redistribuir o
+  // texto, a parte editada precisa ser recriada mesmo quando o texto dela volta a ser igual ao anterior
+  // (senão continuaria mostrando um parágrafo que foi para a folha seguinte).
+  const editedPartsRef = useRef(new Set<string>());
+  const [partVersions, setPartVersions] = useState<Record<string, number>>({});
+  const reflowRef = useRef<(wrapper: HTMLElement) => void>(() => undefined);
+  const reflowGuardRef = useRef<{ content: QuoteDocumentContent | null; count: number }>({ content: null, count: 0 });
   const blocks = content.blocks;
   const editableBlocks = blocks.filter((block) => block.id !== "intro-title");
   const activeBlock = editableBlocks.find((block) => block.id === activeBlockId) ?? (activeBlockId.includes("-part-") ? { id: activeBlockId, type: "rich-text" as const, text: "", fontSize: "medium" as const, bold: false, italic: false, underline: false, align: "left" as const } : editableBlocks[0]);
   const canvasRef = useRef<HTMLElement>(null);
   const measureFrameRef = useRef(0);
+  const measureBurstRef = useRef({ since: 0, updates: 0 });
   const [pageLayout, setPageLayout] = useState<PageLayout | null>(null);
   const [pinnedPart, setPinnedPart] = useState<PinnedPart | null>(null);
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
@@ -382,19 +445,27 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
       if (!sourceId || atomStart === undefined || atomCount === undefined || !editor) return;
       const atoms = atomElements(editor);
       if (!atoms.length || atoms.length !== Number(atomCount)) return;
-      let total = 0;
+      // Altura própria + margens do item: não depende da posição dele na folha (o que faria a paginação oscilar).
       atoms.forEach((atom, index) => {
-        const next = atoms[index + 1];
-        const height = Math.max(1, Math.ceil(next ? next.offsetTop - atom.offsetTop : atom.offsetHeight));
-        heights[`${sourceId}#${Number(atomStart) + index}`] = height;
-        total += height;
+        const atomStyle = getComputedStyle(atom);
+        heights[`${sourceId}#${Number(atomStart) + index}`] = Math.max(1, Math.ceil(atom.offsetHeight + parseFloat(atomStyle.marginTop) + parseFloat(atomStyle.marginBottom)));
       });
-      heights[`${sourceId}#overhead`] = Math.max(0, outerHeight - total);
+      heights[`${sourceId}#overhead`] = Math.ceil(parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth) + parseFloat(style.marginTop) + parseFloat(style.marginBottom));
     });
+    // Trava de segurança: se as medidas ficarem mudando sem parar, a paginação congela até o próximo segundo.
+    const now = performance.now();
+    const burst = measureBurstRef.current;
+    if (now - burst.since > 1000) measureBurstRef.current = { since: now, updates: 0 };
     setPageLayout((current) => {
       if (current && Math.abs(current.capacity - capacity) < 2 && Object.keys(heights).every((id) => Math.abs((current.heights[id] ?? -100) - heights[id]) < 2)) return current;
+      if (measureBurstRef.current.updates > 40) return current;
+      measureBurstRef.current.updates += 1;
       return { capacity, heights: { ...current?.heights, ...heights } };
     });
+    // A folha do texto em edição passou do tamanho de uma página: redistribui na hora, sem esperar o usuário sair do texto.
+    const wrapper = document.activeElement instanceof HTMLElement ? document.activeElement.closest<HTMLElement>("[data-source-id]") : null;
+    const activePage = wrapper?.closest<HTMLElement>(".quote-docs-editable-page");
+    if (wrapper && activePage && root.contains(activePage) && activePage.offsetHeight > parseFloat(pageStyle.minHeight) + 2) reflowRef.current(wrapper);
   }, []);
 
   const scheduleMeasure = useCallback(() => {
@@ -422,11 +493,20 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     </div>
   </header>;
 
+  function commitContent(next: QuoteDocumentContent) {
+    if (editedPartsRef.current.size) {
+      const edited = Array.from(editedPartsRef.current);
+      editedPartsRef.current.clear();
+      setPartVersions((current) => ({ ...current, ...Object.fromEntries(edited.map((id) => [id, (current[id] ?? 0) + 1])) }));
+    }
+    setContent(next);
+  }
+
   function updateBlock(id: string, patch: Partial<QuoteDocumentBlock>) {
     const next = { ...contentRef.current, blocks: contentRef.current.blocks.map((block) => block.id === id ? { ...block, ...patch } : block) };
     contentRef.current = next;
     if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
-    setContent(next);
+    commitContent(next);
   }
 
   function updateBlockText(id: string, text: string) {
@@ -468,7 +548,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     }
     setPinnedPart(null);
     setFocusRequest(request);
-    setContent(contentRef.current);
+    commitContent(contentRef.current);
   }
 
   useLayoutEffect(() => {
@@ -484,7 +564,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   }, [focusRequest, pages]);
 
   function commitDocument() {
-    setContent(contentRef.current);
+    commitContent(contentRef.current);
   }
 
   function removeBlock(id: string) {
@@ -492,18 +572,74 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     const next = { ...contentRef.current, blocks: contentRef.current.blocks.filter((block) => block.id !== id) };
     contentRef.current = next;
     if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
-    setContent(next);
+    commitContent(next);
   }
 
   function commitBlock(block: DocumentDisplayBlock) {
     setPinnedPart(null);
     const sourceId = block.sourceId ?? block.id;
     const source = contentRef.current.blocks.find((item) => item.id === sourceId);
-    if (source && source.type !== "rich-text" && !source.text.trim() && contentRef.current.blocks.length > 1) {
-      removeBlock(source.id);
-      return;
+    if (source && source.type !== "rich-text" && !source.text.trim()) {
+      if (isProtectedBlock(source)) {
+        // Título e categoria do serviço não somem: esvaziados, voltam ao texto anterior.
+        const previous = content.blocks.find((item) => item.id === source.id);
+        if (previous?.text.trim()) updateBlockText(source.id, previous.text);
+        setRestoreVersion((version) => version + 1);
+      } else if (contentRef.current.blocks.length > 1) {
+        removeBlock(source.id);
+        return;
+      }
     }
     commitDocument();
+  }
+
+  /**
+   * Redistribui a parte em edição quando ela não cabe mais na folha: o texto é confirmado, a paginação refeita
+   * e o cursor volta ao mesmo parágrafo e posição — na folha seguinte, se for para lá que ele foi.
+   * Limitado a duas tentativas por alteração para nunca entrar em ciclo (um parágrafo maior que a folha, por exemplo).
+   */
+  reflowRef.current = (wrapper: HTMLElement) => {
+    const guard = reflowGuardRef.current;
+    if (guard.content !== contentRef.current) reflowGuardRef.current = { content: contentRef.current, count: 0 };
+    if (reflowGuardRef.current.count >= 2) return;
+    const editor = wrapper.querySelector<HTMLElement>("[contenteditable]");
+    const sourceId = wrapper.dataset.sourceId;
+    const selection = window.getSelection();
+    if (!editor || !sourceId || !selection?.rangeCount || !editor.contains(selection.anchorNode)) return;
+    // Texto solto no início do editor (primeira linha digitada num editor vazio) conta como o primeiro parágrafo.
+    const leadingInline = Array.from(editor.childNodes).findIndex((node) => node instanceof HTMLElement && !["A", "B", "BR", "EM", "FONT", "I", "SPAN", "STRONG", "U"].includes(node.tagName));
+    const inlineNodes = Array.from(editor.childNodes).slice(0, leadingInline === -1 ? editor.childNodes.length : leadingInline);
+    const hasLeadingParagraph = inlineNodes.some((node) => node.textContent?.length || (node instanceof HTMLElement && node.tagName === "BR"));
+    const atoms = atomElements(editor);
+    const anchor = selection.anchorNode!;
+    let index = atoms.findIndex((atom) => atom === anchor || atom.contains(anchor));
+    let container: Node = editor;
+    if (index >= 0) {
+      container = atoms[index];
+      if (hasLeadingParagraph) index += 1;
+    } else if (hasLeadingParagraph && inlineNodes.some((node) => node === anchor || node.contains(anchor))) {
+      index = 0;
+    } else return;
+    const probe = document.createRange();
+    probe.selectNodeContents(container);
+    probe.setEnd(anchor, selection.anchorOffset);
+    reflowGuardRef.current.count += 1;
+    setPinnedPart(null);
+    setFocusRequest({ sourceId, atomIndex: Number(wrapper.dataset.atomStart) + index, offset: probe.toString().length });
+    commitContent(contentRef.current);
+  };
+
+  /** Backspace no início de um bloco fixo: apaga a linha em branco logo acima dele, no texto anterior. */
+  function pullBlockUp(block: DocumentDisplayBlock) {
+    const blocksInOrder = contentRef.current.blocks.filter((item) => item.id !== "intro-title");
+    const position = blocksInOrder.findIndex((item) => item.id === (block.sourceId ?? block.id));
+    const previous = position > 0 ? blocksInOrder[position - 1] : null;
+    if (!previous || previous.type !== "rich-text") return;
+    const atoms = richTextAtoms(previous.text);
+    const last = atoms.at(-1);
+    if (!last || !isBlankRichTextRuns(atomRuns(last))) return;
+    updateBlockText(previous.id, serializeAtoms(atoms.slice(0, -1)));
+    commitContent(contentRef.current);
   }
 
   /** Acrescenta o texto padrão ao fim da apresentação (antes dos serviços). */
@@ -519,11 +655,11 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     contentRef.current = next;
     if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
     setPinnedPart(null);
-    setContent(next);
+    commitContent(next);
   }
 
-  function applyRichTextCommand(value: RichTextEditorCommand, size?: number) {
-    setRichTextCommand((current) => ({ id: (current?.id ?? 0) + 1, value, size }));
+  function applyRichTextCommand(value: RichTextEditorCommand, size?: number, paragraphStyle?: RichTextParagraphStyle | null) {
+    setRichTextCommand((current) => ({ id: (current?.id ?? 0) + 1, value, size, paragraphStyle }));
   }
 
   return <form className="quote-document-editor quote-docs-editor" action={updateQuoteDocumentAction}>
@@ -532,12 +668,13 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     <section className="quote-docs-toolbar" aria-label="Ferramentas do editor">
       <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{quoteCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{quoteTitle}</strong>{justSaved ? <small className="quote-docs-saved" role="status">Alterações salvas. Conclua quando o documento estiver pronto.</small> : null}</div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">TEXTO PADRÃO</button><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
       <div className="quote-docs-toolbar-tools">
-        {activeBlock?.type === "rich-text" ? <>
+        {activeBlock && quoteDocumentBlockRole(activeBlock) === "section-label" ? <span className="quote-docs-tool-context">SEÇÃO FIXA DO ORÇAMENTO · BACKSPACE APAGA AS LINHAS EM BRANCO ACIMA</span> : activeBlock?.type === "rich-text" ? <>
           <span className="quote-docs-tool-context">FORMATAÇÃO DO TEXTO</span>
           <button type="button" aria-label="Negrito" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("bold")}><strong>N</strong></button>
           <button type="button" aria-label="Itálico" className="quote-docs-italic" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("italic")}><em>I</em></button>
           <button type="button" aria-label="Sublinhado" className="quote-docs-underline" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("underline")}><u>S</u></button>
           <span className="quote-docs-divider" />
+          <ParagraphStyleControl style={richTextStyle} onSelect={(style) => applyRichTextCommand("paragraphStyle", undefined, style)} />
           <FontSizeControl size={richTextSize} onStep={(direction) => applyRichTextCommand(direction > 0 ? "increaseFontSize" : "decreaseFontSize")} onSelect={(size) => applyRichTextCommand("fontSize", size)} />
           <span className="quote-docs-divider" />
           <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("insertUnorderedList")}>LISTA</button>
@@ -567,7 +704,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
         {pages.map((page, pageIndex) => <article className="quote-docs-page quote-docs-editable-page" key={`page-${pageIndex}`}>
           {pageHeader}
           <div className="quote-docs-page-content">
-            {page.blocks.map((block) => <EditableBlock key={block.type === "rich-text" ? `${block.id}:${textSignature(block.text)}` : block.id} block={block} onActivate={() => { setActiveBlockId(block.id); setPinnedPart(block.sourceId && block.atomStart !== undefined && block.atomCount !== undefined ? { id: block.id, sourceId: block.sourceId, atomStart: block.atomStart, atomCount: block.atomCount, pageIndex } : { id: block.id, sourceId: block.id, atomStart: -1, atomCount: 0, pageIndex }); }} onBoundary={(action) => handlePartBoundary(block, action)} onInput={(text) => { updateDisplayBlockText(block, text); scheduleMeasure(); }} onCommit={() => commitBlock(block)} onRemove={() => removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} onSelectionSize={setRichTextSize} />)}
+            {page.blocks.map((block) => <EditableBlock key={block.type === "rich-text" ? `${block.id}:${textSignature(block.text)}:${partVersions[block.id] ?? 0}` : `${block.id}:${restoreVersion}`} block={block} onPullUp={() => pullBlockUp(block)} onActivate={() => { setActiveBlockId(block.id); setPinnedPart(block.sourceId && block.atomStart !== undefined && block.atomCount !== undefined ? { id: block.id, sourceId: block.sourceId, atomStart: block.atomStart, atomCount: block.atomCount, pageIndex } : { id: block.id, sourceId: block.id, atomStart: -1, atomCount: 0, pageIndex }); }} onBoundary={(action) => handlePartBoundary(block, action)} onInput={(text) => { if (block.type === "rich-text") editedPartsRef.current.add(block.id); updateDisplayBlockText(block, text); scheduleMeasure(); }} onCommit={() => commitBlock(block)} onRemove={() => removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} onSelectionSize={setRichTextSize} onSelectionStyle={setRichTextStyle} />)}
           </div>
           <footer><span />{pageIndex + 2} / {totalPages}</footer>
         </article>)}

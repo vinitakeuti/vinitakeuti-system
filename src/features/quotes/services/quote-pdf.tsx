@@ -60,6 +60,8 @@ const styles = StyleSheet.create({
   editorRichText: { marginBottom: 9 },
   editorRichTextParagraph: { color: colors.charcoal, fontSize: 10, lineHeight: 1.65, marginBottom: 8 },
   editorRichTextList: { marginBottom: 8 },
+  editorRichTextTitle: { color: colors.black, fontSize: 18, fontWeight: 700, letterSpacing: -0.4, lineHeight: 1.2, marginBottom: 8, marginTop: 10 },
+  editorRichTextSubtitle: { color: colors.black, fontSize: 13, fontWeight: 700, letterSpacing: -0.2, lineHeight: 1.3, marginBottom: 5, marginTop: 6 },
   editorRichTextListItem: { flexDirection: "row", marginTop: 3, paddingLeft: 2 },
   editorRichTextBullet: { color: colors.charcoal, fontSize: 10, lineHeight: 1.65, width: 12 },
   editorRichTextListText: { color: colors.charcoal, flexGrow: 1, flexShrink: 1, fontSize: 10, lineHeight: 1.65 },
@@ -167,7 +169,8 @@ function websiteForDisplay(value?: string | null) {
 }
 
 function PdfRuns({ runs }: { runs: RichTextRun[] }) {
-  return <>{runs.map((run, index) => <Text key={`${index}-${run.text.slice(0, 12)}`} style={{ fontWeight: run.bold ? 700 : 400, fontStyle: run.italic ? "italic" : "normal", textDecoration: run.underline ? "underline" : "none", ...(run.size ? { fontSize: run.size, lineHeight: richTextLineHeight(run.size) } : {}) }}>{run.text}</Text>)}</>;
+  // Sem negrito explícito o trecho herda o peso do parágrafo (títulos já são negritos).
+  return <>{runs.map((run, index) => <Text key={`${index}-${run.text.slice(0, 12)}`} style={{ ...(run.bold ? { fontWeight: 700 } : {}), fontStyle: run.italic ? "italic" : "normal", textDecoration: run.underline ? "underline" : "none", ...(run.size ? { fontSize: run.size, lineHeight: richTextLineHeight(run.size) } : {}) }}>{run.text}</Text>)}</>;
 }
 
 function DocumentRichText({ value }: { value: string }) {
@@ -176,6 +179,8 @@ function DocumentRichText({ value }: { value: string }) {
 
   return <View style={styles.editorRichText}>{mergeAdjacentRichTextLists(document.blocks).map((block, index) => {
     // Linha em branco ocupa uma linha só, na altura do tamanho escolhido, como no editor.
+    if (block.type === "paragraph" && block.style === "section") return <SectionHeading key={`paragraph-${index}`} compact>{block.runs.map((run) => run.text).join("").replace(/\n/g, " ").trim()}</SectionHeading>;
+    if (block.type === "paragraph" && block.style) return <Text key={`paragraph-${index}`} style={[block.style === "title" ? styles.editorRichTextTitle : styles.editorRichTextSubtitle, index === 0 ? { marginTop: 0 } : {}]} minPresenceAhead={40}><PdfRuns runs={block.runs} /></Text>;
     if (block.type === "paragraph" && isBlankRichTextRuns(block.runs)) return <Text key={`paragraph-${index}`} style={styles.editorRichTextParagraph}><PdfRuns runs={[{ ...block.runs[0], text: " " }]} /></Text>;
     if (block.type === "paragraph") return <Text key={`paragraph-${index}`} style={styles.editorRichTextParagraph}><PdfRuns runs={block.runs} /></Text>;
     return <View key={`${block.type}-${index}`} style={styles.editorRichTextList}>{block.items.map((item, itemIndex) => <View key={`${index}-${itemIndex}`} style={styles.editorRichTextListItem}><Text style={styles.editorRichTextBullet}>{block.type === "ordered-list" ? `${itemIndex + 1}.` : "-"}</Text><Text style={styles.editorRichTextListText}><PdfRuns runs={item} /></Text></View>)}</View>;

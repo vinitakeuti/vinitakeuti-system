@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type KeyboardEvent } from "react";
-import { isBlankRichTextRuns, normalizedRichTextSize, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, serializeRichText, type RichTextDocument, type RichTextMark, type RichTextRun } from "@/lib/rich-text";
+import { isBlankRichTextRuns, normalizedRichTextSize, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, serializeRichText, type RichTextDocument, type RichTextMark, type RichTextParagraphStyle, type RichTextRun } from "@/lib/rich-text";
 
 type Props = {
   name?: string;
@@ -9,8 +9,18 @@ type Props = {
   onChange?: (value: string | null) => void;
 };
 
-export type RichTextEditorCommand = "bold" | "italic" | "underline" | "insertUnorderedList" | "insertOrderedList" | "removeFormat" | "increaseFontSize" | "decreaseFontSize" | "fontSize";
-export type RichTextEditorCommandRequest = { id: number; value: RichTextEditorCommand; size?: number };
+export type RichTextEditorCommand = "bold" | "italic" | "underline" | "insertUnorderedList" | "insertOrderedList" | "removeFormat" | "increaseFontSize" | "decreaseFontSize" | "fontSize" | "paragraphStyle";
+export type RichTextEditorCommandRequest = { id: number; value: RichTextEditorCommand; size?: number; paragraphStyle?: RichTextParagraphStyle | null };
+
+/** Cada estilo de parágrafo vira um elemento de bloco próprio no editor. */
+const PARAGRAPH_STYLE_TAGS: Record<RichTextParagraphStyle, string> = { title: "H2", subtitle: "H3", section: "H4" };
+
+function styleFromTag(tagName: string): RichTextParagraphStyle | undefined {
+  if (tagName === "H1" || tagName === "H2") return "title";
+  if (tagName === "H3" || tagName === "H5" || tagName === "H6") return "subtitle";
+  if (tagName === "H4") return "section";
+  return undefined;
+}
 
 type InlineEditorProps = {
   initialValue?: string | null;
@@ -20,6 +30,8 @@ type InlineEditorProps = {
   command?: RichTextEditorCommandRequest | null;
   /** Informa o tamanho do texto onde está o cursor, para a barra de ferramentas exibi-lo. */
   onSelectionSize?: (size: number) => void;
+  /** Informa o estilo do parágrafo onde está o cursor (null = texto). */
+  onSelectionStyle?: (style: RichTextParagraphStyle | null) => void;
   onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
   ariaLabel: string;
   className?: string;
@@ -51,7 +63,8 @@ function documentToHtml(document: RichTextDocument) {
     if (block.type === "paragraph") {
       // Uma quebra no fim do parágrafo só aparece no navegador se houver outra depois dela.
       const text = block.runs.map((run) => run.text).join("");
-      return `<p>${runsToHtml(block.runs)}${text.length > 1 && text.endsWith("\n") ? "<br>" : ""}</p>`;
+      const tag = block.style ? PARAGRAPH_STYLE_TAGS[block.style].toLowerCase() : "p";
+      return `<${tag}>${runsToHtml(block.runs)}${text.length > 1 && text.endsWith("\n") ? "<br>" : ""}</${tag}>`;
     }
     const tag = block.type === "bullet-list" ? "ul" : "ol";
     return `<${tag}>${block.items.map((item) => `<li>${runsToHtml(item)}</li>`).join("")}</${tag}>`;
@@ -149,7 +162,8 @@ function documentFromEditor(root: HTMLElement): RichTextDocument {
       continue;
     }
     const runs = runsFromNodes(node.childNodes, basePixels);
-    blocks.push({ type: "paragraph", runs: runs.length ? blockRuns(runs) : [{ text: "\n" }] });
+    const style = styleFromTag(node.tagName);
+    blocks.push({ type: "paragraph", runs: runs.length ? blockRuns(runs) : [{ text: "\n" }], ...(style ? { style } : {}) });
   }
   appendInlineParagraph();
   // Só linhas em branco equivalem a um texto vazio.
@@ -277,11 +291,33 @@ function applyFontSize(editor: HTMLElement, size: number) {
   return null;
 }
 
-export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, onSelectionSize, onKeyDown, ariaLabel, className, placeholder }: InlineEditorProps) {
+/** Estilo do parágrafo onde está o cursor. */
+function selectionParagraphStyle(editor: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return null;
+  const line = currentLine(editor, selection.getRangeAt(0).startContainer);
+  return line ? styleFromTag(line.tagName) ?? null : null;
+}
+
+/** Transforma as linhas selecionadas em título, subtítulo, seção ou texto. O estilo define o tamanho: tamanhos manuais saem. */
+function applyParagraphStyle(editor: HTMLElement, style: RichTextParagraphStyle | null) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !editor.contains(selection.getRangeAt(0).startContainer)) return;
+  document.execCommand("formatBlock", false, `<${style ? PARAGRAPH_STYLE_TAGS[style].toLowerCase() : "p"}>`);
+  if (!style || !selection.rangeCount) return;
+  const range = selection.getRangeAt(0);
+  editor.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6").forEach((block) => {
+    if (range.intersectsNode(block)) clearNestedSizes(block);
+  });
+}
+
+export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, onSelectionSize, onSelectionStyle, onKeyDown, ariaLabel, className, placeholder }: InlineEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const pendingSizeRef = useRef<number | null>(null);
   const onSelectionSizeRef = useRef(onSelectionSize);
   onSelectionSizeRef.current = onSelectionSize;
+  const onSelectionStyleRef = useRef(onSelectionStyle);
+  onSelectionStyleRef.current = onSelectionStyle;
   const initialDocumentRef = useRef<RichTextDocument | null>(null);
   const lastCommandIdRef = useRef(0);
   if (!initialDocumentRef.current) initialDocumentRef.current = parseRichText(initialValue);
@@ -311,6 +347,7 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
     if (pendingSizeRef.current && line?.textContent?.trim()) pendingSizeRef.current = null;
     const size = pendingSizeRef.current ?? selectionSize(editor);
     if (size) onSelectionSizeRef.current?.(size);
+    onSelectionStyleRef.current?.(selectionParagraphStyle(editor));
   }
 
   useEffect(() => {
@@ -328,6 +365,9 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
       if (size === current && command.value !== "fontSize") return;
       pendingSizeRef.current = applyFontSize(editor, size);
       onSelectionSizeRef.current?.(size);
+    } else if (command.value === "paragraphStyle") {
+      applyParagraphStyle(editor, command.paragraphStyle ?? null);
+      onSelectionStyleRef.current?.(selectionParagraphStyle(editor));
     } else {
       document.execCommand(command.value, false);
     }
