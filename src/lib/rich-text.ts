@@ -129,6 +129,25 @@ export function parseRichText(value?: string | null): RichTextDocument {
   return documentFromLegacyText(source);
 }
 
+/** Linha em branco: parágrafo cujo texto é só a quebra de linha que o representa. */
+export function isBlankRichTextRuns(runs: RichTextRun[]) {
+  return !runs.map((run) => run.text).join("").replace(/\n/g, "").trim();
+}
+
+/** Junta listas consecutivas do mesmo tipo (o editor pagina item a item e as reúne de novo). */
+export function mergeAdjacentRichTextLists(blocks: RichTextBlock[]): RichTextBlock[] {
+  const output: RichTextBlock[] = [];
+  for (const block of blocks) {
+    const previous = output.at(-1);
+    if (block.type !== "paragraph" && previous && previous.type === block.type) {
+      output[output.length - 1] = { type: block.type, items: [...previous.items, ...block.items] };
+      continue;
+    }
+    output.push(block.type === "paragraph" ? block : { type: block.type, items: [...block.items] });
+  }
+  return output;
+}
+
 export function richTextPlainText(value?: string | null) {
   return parseRichText(value).blocks
     .map((block) => block.type === "paragraph" ? block.runs.map((run) => run.text).join("") : block.items.map((item) => item.map((run) => run.text).join("")).join("\n"))

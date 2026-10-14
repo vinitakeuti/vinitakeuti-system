@@ -3,7 +3,7 @@ import { BRAND_MARK_PATHS, BRAND_MARK_TRANSFORM, BRAND_MARK_VIEWBOX, COVER_COLOR
 import type { ReactElement } from "react";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { parseRichText, richTextLineHeight, type RichTextRun } from "@/lib/rich-text";
+import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, richTextLineHeight, type RichTextRun } from "@/lib/rich-text";
 import { quoteDocumentBlockRole, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
 
 const colors = {
@@ -174,7 +174,9 @@ function DocumentRichText({ value }: { value: string }) {
   const document = parseRichText(value);
   if (!document.blocks.length) return null;
 
-  return <View style={styles.editorRichText}>{document.blocks.map((block, index) => {
+  return <View style={styles.editorRichText}>{mergeAdjacentRichTextLists(document.blocks).map((block, index) => {
+    // Linha em branco ocupa uma linha só, na altura do tamanho escolhido, como no editor.
+    if (block.type === "paragraph" && isBlankRichTextRuns(block.runs)) return <Text key={`paragraph-${index}`} style={styles.editorRichTextParagraph}><PdfRuns runs={[{ ...block.runs[0], text: " " }]} /></Text>;
     if (block.type === "paragraph") return <Text key={`paragraph-${index}`} style={styles.editorRichTextParagraph}><PdfRuns runs={block.runs} /></Text>;
     return <View key={`${block.type}-${index}`} style={styles.editorRichTextList}>{block.items.map((item, itemIndex) => <View key={`${index}-${itemIndex}`} style={styles.editorRichTextListItem}><Text style={styles.editorRichTextBullet}>{block.type === "ordered-list" ? `${itemIndex + 1}.` : "-"}</Text><Text style={styles.editorRichTextListText}><PdfRuns runs={item} /></Text></View>)}</View>;
   })}</View>;

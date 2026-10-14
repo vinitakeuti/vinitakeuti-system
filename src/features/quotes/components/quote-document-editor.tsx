@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest } from "@/features/services/components/service-proposal-editor";
 import { QuoteClosingPreview, QuoteCoverPreview, type QuotePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { updateQuoteDocumentAction } from "@/features/quotes/services/quote-actions";
 import { QUOTE_INTRO_BLOCK_ID, quoteDocumentBlockRole, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentBlockType, type QuoteDocumentContent, type QuoteDocumentFontSize } from "@/features/quotes/types/document-content";
-import { parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextPlainText, serializeRichText, type RichTextBlock, type RichTextRun } from "@/lib/rich-text";
+import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, richTextPlainText, serializeRichText, type RichTextBlock, type RichTextRun } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
   name: string;
@@ -21,8 +21,12 @@ type ProfessionalProfile = {
   website?: string | null;
 };
 
-type DocumentDisplayBlock = QuoteDocumentBlock & { sourceId?: string; partIndex?: number };
+/** Parte de um texto rico exibida numa folha: os itens [atomStart, atomStart + atomCount) do texto de origem. */
+type DocumentDisplayBlock = QuoteDocumentBlock & { sourceId?: string; partIndex?: number; atomStart?: number; atomCount?: number; atomTotal?: number };
 type DocumentPage = { blocks: DocumentDisplayBlock[] };
+/** Parte em edição: fica como está enquanto o usuário digita, para o editor não ser recriado sob o cursor. */
+type PinnedPart = { id: string; sourceId: string; atomStart: number; atomCount: number; pageIndex: number };
+type FocusRequest = { sourceId: string; atomIndex: number; offset: number };
 
 type Props = {
   quoteId: string;
@@ -53,112 +57,97 @@ function estimatedBlockHeight(block: DocumentDisplayBlock) {
   return lines * (block.fontSize === "large" ? 32 : block.fontSize === "small" ? 20 : 25) + (block.type === "rich-text" ? 12 : 18);
 }
 
-function estimatedRichTextBlockHeight(block: RichTextBlock) {
-  if (block.type === "paragraph") {
-    const text = block.runs.map((run) => run.text).join("");
-    const lines = Math.max(1, text.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 74)), 0));
-    return lines * 19 + 8;
-  }
-  return block.items.reduce((total, item) => {
-    const text = item.map((run) => run.text).join("");
-    const lines = Math.max(1, text.split("\n").reduce((count, line) => count + Math.max(1, Math.ceil(line.length / 69)), 0));
-    return total + lines * 19 + 5;
-  }, 8);
+/** Itens indivisíveis do texto rico: cada parágrafo e cada item de lista. */
+function richTextAtoms(text: string): RichTextBlock[] {
+  return parseRichText(text).blocks.flatMap((item): RichTextBlock[] => item.type === "paragraph" ? [item] : item.items.map((runs) => ({ type: item.type, items: [runs] })));
 }
 
-function splitRunsForPage(runs: RichTextRun[], maxCharacters = 760) {
-  const parts: RichTextRun[][] = [];
-  let part: RichTextRun[] = [];
-  let used = 0;
-  for (const run of runs) {
-    let remainingText = run.text;
-    while (remainingText) {
-      const capacity = maxCharacters - used;
-      if (capacity <= 0) {
-        if (part.length) parts.push(part);
-        part = [];
-        used = 0;
-        continue;
-      }
-      if (remainingText.length <= capacity) {
-        part.push({ ...run, text: remainingText });
-        used += remainingText.length;
-        remainingText = "";
-        continue;
-      }
-      const preferredBreak = remainingText.lastIndexOf(" ", capacity);
-      const cutAt = preferredBreak > Math.floor(capacity * 0.6) ? preferredBreak + 1 : capacity;
-      part.push({ ...run, text: remainingText.slice(0, cutAt) });
-      parts.push(part);
-      part = [];
-      used = 0;
-      remainingText = remainingText.slice(cutAt);
+function serializeAtoms(atoms: RichTextBlock[]) {
+  return serializeRichText({ version: 1, blocks: mergeAdjacentRichTextLists(atoms) }, 16_000) ?? "";
+}
+
+function atomRuns(atom: RichTextBlock) {
+  return atom.type === "paragraph" ? atom.runs : atom.items[0] ?? [];
+}
+
+function withAtomRuns(atom: RichTextBlock, runs: RichTextRun[]): RichTextBlock {
+  return atom.type === "paragraph" ? { type: "paragraph", runs } : { type: atom.type, items: [runs] };
+}
+
+function atomTextLength(atom: RichTextBlock) {
+  return isBlankRichTextRuns(atomRuns(atom)) ? 0 : atomRuns(atom).reduce((total, run) => total + run.text.length, 0);
+}
+
+/** Une dois itens vizinhos (Backspace no início ou Delete no fim de uma parte). Devolve o item e onde fica o cursor. */
+function joinAtoms(first: RichTextBlock, second: RichTextBlock): { atom: RichTextBlock; caret: number } {
+  if (isBlankRichTextRuns(atomRuns(second))) return { atom: first, caret: atomTextLength(first) };
+  if (isBlankRichTextRuns(atomRuns(first))) return { atom: second, caret: 0 };
+  return { atom: withAtomRuns(first, [...atomRuns(first), ...atomRuns(second)]), caret: atomTextLength(first) };
+}
+
+function estimatedAtomHeight(atom: RichTextBlock) {
+  const runs = atomRuns(atom);
+  const size = Math.max(RICH_TEXT_BASE_SIZE, ...runs.map((run) => run.size ?? RICH_TEXT_BASE_SIZE));
+  const scale = size / RICH_TEXT_BASE_SIZE;
+  const text = runs.map((run) => run.text).join("");
+  const charactersPerLine = (atom.type === "paragraph" ? 74 : 69) / scale;
+  const lines = Math.max(1, text.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / charactersPerLine)), 0));
+  return Math.ceil(lines * 25 * scale * (richTextLineHeight(size) / 1.65)) + (atom.type === "paragraph" ? 8 : 3);
+}
+
+/** Unidade de paginação: um bloco comum, um item de texto rico ou a parte inteira que está sendo editada. */
+type PaginationUnit = { block: QuoteDocumentBlock; atoms?: { start: number; items: RichTextBlock[]; total: number; pinnedId?: string } };
+
+function paginationUnits(blocks: QuoteDocumentBlock[], pinned: PinnedPart | null) {
+  return blocks.flatMap((block): PaginationUnit[] => {
+    if (block.type !== "rich-text") return [{ block }];
+    const atoms = richTextAtoms(block.text);
+    const total = atoms.length;
+    if (!richTextPlainText(block.text).trim()) {
+      // A apresentação continua visível mesmo vazia, para que sempre exista onde escrever antes dos serviços.
+      return block.id === QUOTE_INTRO_BLOCK_ID ? [{ block, atoms: { start: 0, items: atoms, total, pinnedId: pinned?.sourceId === block.id ? pinned.id : undefined } }] : [];
     }
-  }
-  if (part.length) parts.push(part);
-  return parts;
-}
-
-function richTextParts(block: QuoteDocumentBlock): DocumentDisplayBlock[] {
-  const document = parseRichText(block.text);
-  if (!document.blocks.length || !richTextPlainText(block.text).trim()) {
-    // O bloco de apresentação continua visível mesmo vazio, para que sempre exista onde escrever antes dos serviços.
-    return block.id === QUOTE_INTRO_BLOCK_ID ? [{ ...block, id: `${block.id}-part-0`, text: "", sourceId: block.id, partIndex: 0 }] : [];
-  }
-  const atomicBlocks = document.blocks.flatMap((item): RichTextBlock[] => {
-    if (item.type === "paragraph") return splitRunsForPage(item.runs).map((runs) => ({ type: "paragraph", runs }));
-    return item.items.flatMap((listItem) => splitRunsForPage(listItem).map((runs) => ({ type: item.type, items: [runs] })));
+    const pin = pinned?.sourceId === block.id && pinned.atomStart >= 0 && pinned.atomStart + pinned.atomCount <= total ? pinned : null;
+    const units: PaginationUnit[] = [];
+    for (let index = 0; index < total; index += 1) {
+      if (pin && index === pin.atomStart) {
+        units.push({ block, atoms: { start: index, items: atoms.slice(index, index + pin.atomCount), total, pinnedId: pin.id } });
+        index += Math.max(0, pin.atomCount - 1);
+        continue;
+      }
+      units.push({ block, atoms: { start: index, items: [atoms[index]], total } });
+    }
+    return units;
   });
-  const chunks: RichTextBlock[][] = [];
-  let chunk: RichTextBlock[] = [];
-  let chunkHeight = 0;
-  for (const item of atomicBlocks) {
-    const height = estimatedRichTextBlockHeight(item);
-    if (chunk.length && chunkHeight + height > 220) {
-      chunks.push(chunk);
-      chunk = [];
-      chunkHeight = 0;
-    }
-    chunk.push(item);
-    chunkHeight += height;
-  }
-  if (chunk.length) chunks.push(chunk);
-  return chunks.map((items, index) => ({ ...block, id: `${block.id}-part-${index}`, text: serializeRichText({ version: 1, blocks: items }) ?? "", sourceId: block.id, partIndex: index }));
 }
 
-function expandedBlocks(blocks: QuoteDocumentBlock[]) {
-  return blocks.flatMap((block): DocumentDisplayBlock[] => block.type === "rich-text" ? richTextParts(block) : [block]);
-}
-
-function serviceGroup(blocks: DocumentDisplayBlock[], start: number) {
-  const group = [blocks[start]];
-  const suffix = blocks[start].id.slice("service-title-".length);
-  let index = start + 1;
-  while (index < blocks.length && (blocks[index].id === `service-category-${suffix}` || blocks[index].id === `service-description-${suffix}-part-0`)) {
-    group.push(blocks[index]);
-    index += 1;
-  }
-  return { group, nextIndex: index };
-}
-
-function paginationGroups(blocks: DocumentDisplayBlock[]) {
-  const groups: DocumentDisplayBlock[][] = [];
+/** Mantém título do serviço, categoria e o início da descrição juntos; o rótulo de seção acompanha o primeiro serviço. */
+function paginationGroups(units: PaginationUnit[]) {
+  const groups: PaginationUnit[][] = [];
   let index = 0;
-  while (index < blocks.length) {
-    const block = blocks[index];
-    if (block.id === "services-label" && blocks[index + 1]?.id.startsWith("service-title-")) {
-      const service = serviceGroup(blocks, index + 1);
-      groups.push([block, ...service.group]);
-      index = service.nextIndex;
+  const serviceGroup = (start: number) => {
+    const group = [units[start]];
+    const suffix = units[start].block.id.slice("service-title-".length);
+    let next = start + 1;
+    if (units[next]?.block.id === `service-category-${suffix}`) group.push(units[next++]);
+    if (units[next]?.block.id === `service-description-${suffix}`) group.push(units[next++]);
+    return { group, next };
+  };
+  while (index < units.length) {
+    const unit = units[index];
+    if (unit.block.id === "services-label" && units[index + 1]?.block.id.startsWith("service-title-")) {
+      const service = serviceGroup(index + 1);
+      groups.push([unit, ...service.group]);
+      index = service.next;
       continue;
     }
-    if (block.id.startsWith("service-title-")) {
-      const service = serviceGroup(blocks, index);
+    if (unit.block.id.startsWith("service-title-")) {
+      const service = serviceGroup(index);
       groups.push(service.group);
-      index = service.nextIndex;
+      index = service.next;
       continue;
     }
-    groups.push([block]);
+    groups.push([unit]);
     index += 1;
   }
   return groups;
@@ -173,28 +162,119 @@ function textSignature(text: string) {
   return `${text.length}-${(hash >>> 0).toString(36)}`;
 }
 
+function continuesPart(previous: PaginationUnit | undefined, unit: PaginationUnit) {
+  return Boolean(previous?.atoms && unit.atoms && !previous.atoms.pinnedId && !unit.atoms.pinnedId && previous.block.id === unit.block.id && previous.atoms.start + previous.atoms.items.length === unit.atoms.start);
+}
+
+function unitHeight(unit: PaginationUnit, previous: PaginationUnit | undefined, layout: PageLayout | null) {
+  if (!unit.atoms) return layout?.heights[unit.block.id] ?? estimatedBlockHeight(unit.block);
+  const overhead = layout?.heights[`${unit.block.id}#overhead`] ?? 24;
+  if (unit.atoms.pinnedId) return layout?.heights[unit.atoms.pinnedId] ?? unit.atoms.items.reduce((total, atom) => total + estimatedAtomHeight(atom), overhead);
+  // A apresentação vazia é exibida sem itens: ocupa uma linha para o texto de orientação.
+  const atomHeight = unit.atoms.items.length ? layout?.heights[`${unit.block.id}#${unit.atoms.start}`] ?? estimatedAtomHeight(unit.atoms.items[0]) : 26;
+  return atomHeight + (continuesPart(previous, unit) ? 0 : overhead);
+}
+
 /**
- * Distribui os blocos pelas folhas usando a altura medida na tela (ou uma estimativa antes da primeira medição).
- * O grupo que contém o bloco em edição nunca é empurrado para a folha seguinte, para o cursor não sair do lugar;
- * o que vem depois dele é que avança quando a folha enche.
+ * Distribui o documento pelas folhas usando a altura medida na tela (ou uma estimativa antes da primeira medição).
+ * O texto rico é paginado parágrafo a parágrafo e, em cada folha, os parágrafos de um mesmo texto formam um único
+ * editor: dentro da folha é possível apagar, selecionar e formatar livremente. A parte em edição nunca é empurrada
+ * para a folha seguinte, para o cursor não sair do lugar; o que vem depois dela é que avança quando a folha enche.
  */
-function paginateDocument(blocks: QuoteDocumentBlock[], layout: PageLayout | null, pinnedBlockId: string | null) {
-  const displayBlocks = expandedBlocks(blocks);
-  const pages: DocumentPage[] = [{ blocks: [] }];
+function paginateDocument(blocks: QuoteDocumentBlock[], layout: PageLayout | null, pinned: PinnedPart | null) {
   const capacity = layout?.capacity ?? 790;
+  const unitPages: PaginationUnit[][] = [[]];
   let usedHeight = 0;
-  for (const group of paginationGroups(displayBlocks)) {
-    const height = group.reduce((total, block) => total + (layout?.heights[block.id] ?? estimatedBlockHeight(block)), 0);
-    const page = pages.at(-1)!;
-    const isPinned = pinnedBlockId !== null && group.some((block) => block.id === pinnedBlockId);
-    if (page.blocks.length && usedHeight + height > capacity && !isPinned) {
-      pages.push({ blocks: [] });
+  for (const group of paginationGroups(paginationUnits(blocks, pinned))) {
+    const heightOn = (previous: PaginationUnit | undefined) => group.reduce((total, unit, index) => total + unitHeight(unit, index ? group[index - 1] : previous, layout), 0);
+    const isPinned = group.some((unit) => unit.atoms ? Boolean(unit.atoms.pinnedId) : pinned?.id === unit.block.id);
+    // A parte em edição fica na folha em que estava: não avança nem volta para a folha anterior.
+    while (isPinned && pinned && unitPages.length - 1 < pinned.pageIndex) {
+      unitPages.push([]);
       usedHeight = 0;
     }
-    pages.at(-1)!.blocks.push(...group);
+    let height = heightOn(unitPages.at(-1)!.at(-1));
+    if (unitPages.at(-1)!.length && usedHeight + height > capacity && !isPinned) {
+      unitPages.push([]);
+      usedHeight = 0;
+      height = heightOn(undefined);
+    }
+    unitPages.at(-1)!.push(...group);
     usedHeight += height;
   }
-  return pages;
+
+  const partCounters: Record<string, number> = {};
+  return unitPages.map((units): DocumentPage => {
+    const pageBlocks: DocumentDisplayBlock[] = [];
+    const pageItems: RichTextBlock[][] = [];
+    units.forEach((unit, index) => {
+      if (!unit.atoms) {
+        pageBlocks.push(unit.block);
+        pageItems.push([]);
+        return;
+      }
+      if (continuesPart(units[index - 1], unit)) {
+        pageBlocks.at(-1)!.atomCount! += unit.atoms.items.length;
+        pageItems.at(-1)!.push(...unit.atoms.items);
+        return;
+      }
+      const partIndex = partCounters[unit.block.id] ?? 0;
+      partCounters[unit.block.id] = partIndex + 1;
+      let id = unit.atoms.pinnedId ?? `${unit.block.id}-part-${partIndex}`;
+      if (!unit.atoms.pinnedId && pinned && id === pinned.id) id = `${id}-next`;
+      pageBlocks.push({ ...unit.block, id, sourceId: unit.block.id, partIndex, atomStart: unit.atoms.start, atomCount: unit.atoms.items.length, atomTotal: unit.atoms.total });
+      pageItems.push([...unit.atoms.items]);
+    });
+    return { blocks: pageBlocks.map((block, index) => block.sourceId ? { ...block, text: serializeAtoms(pageItems[index]) } : block) };
+  });
+}
+
+/** Elementos que correspondem, em ordem, aos itens de uma parte: parágrafos e itens de lista. */
+function atomElements(editor: Element) {
+  return Array.from(editor.children).flatMap((child) => child.tagName === "UL" || child.tagName === "OL" ? Array.from(child.children).filter((item) => item.tagName === "LI") : [child]) as HTMLElement[];
+}
+
+/** O cursor está no início (ou no fim) do editor, sem texto nem outra linha antes (ou depois) dele. */
+function caretAtEdge(editor: HTMLElement, edge: "start" | "end") {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !selection.isCollapsed) return false;
+  const range = selection.getRangeAt(0);
+  if (!editor.contains(range.startContainer)) return false;
+  const probe = document.createRange();
+  probe.selectNodeContents(editor);
+  if (edge === "start") probe.setEnd(range.startContainer, range.startOffset);
+  else probe.setStart(range.endContainer, range.endOffset);
+  if (probe.toString().length) return false;
+  const fragment = probe.cloneContents();
+  return fragment.querySelectorAll("p, div, li").length <= 1 && fragment.querySelectorAll("br").length <= (edge === "end" ? 1 : 0);
+}
+
+/** Coloca o cursor no caractere `offset` de um elemento (Infinity = fim). */
+function placeCaret(element: HTMLElement, offset: number) {
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  let remaining = offset;
+  let node = walker.nextNode() as Text | null;
+  let last: Text | null = null;
+  while (node) {
+    if (remaining <= node.data.length) {
+      range.setStart(node, remaining);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return;
+    }
+    remaining -= node.data.length;
+    last = node;
+    node = walker.nextNode() as Text | null;
+  }
+  if (last) range.setStart(last, last.data.length);
+  else range.setStart(element, 0);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 /** Tamanho do texto: diminuir, escolher na lista ou aumentar. Os botões não tiram o foco do texto em edição. */
@@ -240,8 +320,21 @@ function FontSizeControl({ size, onStep, onSelect }: { size: number; onStep: (di
   </div>;
 }
 
-function EditableBlock({ block, onActivate, onInput, onCommit, onRemove, command, onSelectionSize }: { block: DocumentDisplayBlock; onActivate: () => void; onInput: (text: string) => void; onCommit: () => void; onRemove: () => void; command?: RichTextEditorCommandRequest | null; onSelectionSize?: (size: number) => void }) {
-  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text" data-block-id={block.id}><InlineRichTextEditor initialValue={block.text} onSelectionSize={onSelectionSize} ariaLabel={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Apresentação da proposta" : "Texto da proposta"} placeholder={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Escreva aqui a apresentação da proposta, o contexto do projeto ou qualquer texto que deve vir antes dos serviços." : undefined} className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
+type PartBoundaryAction = "merge-backward" | "merge-forward" | "focus-previous" | "focus-next";
+
+/** Backspace/Delete e setas na borda de uma parte continuam no texto da folha vizinha. */
+function partBoundaryAction(event: KeyboardEvent<HTMLDivElement>, block: DocumentDisplayBlock): PartBoundaryAction | null {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || block.atomStart === undefined || block.atomCount === undefined || block.atomTotal === undefined) return null;
+  const hasPrevious = block.atomStart > 0;
+  const hasNext = block.atomStart + block.atomCount < block.atomTotal;
+  const editor = event.currentTarget;
+  if ((event.key === "Backspace" || event.key === "ArrowLeft" || event.key === "ArrowUp") && hasPrevious && caretAtEdge(editor, "start")) return event.key === "Backspace" ? "merge-backward" : "focus-previous";
+  if ((event.key === "Delete" || event.key === "ArrowRight" || event.key === "ArrowDown") && hasNext && caretAtEdge(editor, "end")) return event.key === "Delete" ? "merge-forward" : "focus-next";
+  return null;
+}
+
+function EditableBlock({ block, onActivate, onInput, onCommit, onRemove, onBoundary, command, onSelectionSize }: { block: DocumentDisplayBlock; onActivate: () => void; onInput: (text: string) => void; onCommit: () => void; onRemove: () => void; onBoundary: (action: PartBoundaryAction) => void; command?: RichTextEditorCommandRequest | null; onSelectionSize?: (size: number) => void }) {
+  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text" data-block-id={block.id} data-source-id={block.sourceId} data-atom-start={block.atomStart} data-atom-count={block.atomCount}><InlineRichTextEditor initialValue={block.text} onSelectionSize={onSelectionSize} onKeyDown={(event) => { const action = partBoundaryAction(event, block); if (!action) return; event.preventDefault(); onBoundary(action); }} ariaLabel={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Apresentação da proposta" : "Texto da proposta"} placeholder={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Escreva aqui a apresentação da proposta, o contexto do projeto ou qualquer texto que deve vir antes dos serviços." : undefined} className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
   const role = quoteDocumentBlockRole(block);
   return <div data-block-id={block.id} className={`quote-editor-document-block quote-editor-document-${block.type} quote-editor-document-${block.fontSize}${role ? ` quote-editor-document-role-${role}` : ""}${block.text ? "" : " is-empty"}`}>
     <div className="quote-editor-document-content" role="textbox" aria-multiline="true" aria-label={block.type === "heading" ? "Título do documento" : "Texto do documento"} contentEditable suppressContentEditableWarning onFocus={onActivate} onBlur={onCommit} onKeyDown={(event) => { if ((event.key === "Backspace" || event.key === "Delete") && !event.currentTarget.innerText.trim()) { event.preventDefault(); onRemove(); } }} onInput={(event) => onInput(event.currentTarget.innerText.slice(0, 4_000))} style={{ textAlign: block.align, fontWeight: block.bold ? 700 : 400, fontStyle: block.italic ? "italic" : "normal", textDecoration: block.underline ? "underline" : "none" }}>{block.text}</div>
@@ -261,8 +354,9 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   const canvasRef = useRef<HTMLElement>(null);
   const measureFrameRef = useRef(0);
   const [pageLayout, setPageLayout] = useState<PageLayout | null>(null);
-  const [pinnedBlockId, setPinnedBlockId] = useState<string | null>(null);
-  const pages = paginateDocument(editableBlocks, pageLayout, pinnedBlockId);
+  const [pinnedPart, setPinnedPart] = useState<PinnedPart | null>(null);
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
+  const pages = paginateDocument(editableBlocks, pageLayout, pinnedPart);
 
   /** Mede a área útil de uma folha e a altura real de cada bloco; só atualiza o estado quando algo mudou de fato. */
   const measureLayout = useCallback(() => {
@@ -279,7 +373,23 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     const heights: Record<string, number> = {};
     root.querySelectorAll<HTMLElement>("[data-block-id]").forEach((element) => {
       const style = getComputedStyle(element);
-      heights[element.dataset.blockId!] = Math.ceil(element.offsetHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom));
+      const outerHeight = Math.ceil(element.offsetHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom));
+      heights[element.dataset.blockId!] = outerHeight;
+      // Altura de cada parágrafo, para paginar o texto rico parágrafo a parágrafo. Só vale quando a parte
+      // tem exatamente os itens de origem (durante a digitação a contagem muda até o texto ser confirmado).
+      const { sourceId, atomStart, atomCount } = element.dataset;
+      const editor = element.querySelector("[contenteditable]");
+      if (!sourceId || atomStart === undefined || atomCount === undefined || !editor) return;
+      const atoms = atomElements(editor);
+      if (!atoms.length || atoms.length !== Number(atomCount)) return;
+      let total = 0;
+      atoms.forEach((atom, index) => {
+        const next = atoms[index + 1];
+        const height = Math.max(1, Math.ceil(next ? next.offsetTop - atom.offsetTop : atom.offsetHeight));
+        heights[`${sourceId}#${Number(atomStart) + index}`] = height;
+        total += height;
+      });
+      heights[`${sourceId}#overhead`] = Math.max(0, outerHeight - total);
     });
     setPageLayout((current) => {
       if (current && Math.abs(current.capacity - capacity) < 2 && Object.keys(heights).every((id) => Math.abs((current.heights[id] ?? -100) - heights[id]) < 2)) return current;
@@ -331,13 +441,47 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
       return;
     }
     // As partes exibidas vêm do estado confirmado (não do texto em digitação): a parte em edição substitui
-    // exatamente o trecho que ela mostra, sem duplicar o que foi redistribuído para as partes seguintes.
+    // exatamente os itens que ela mostra, sem duplicar o que foi distribuído para as outras folhas.
     const displayedSource = content.blocks.find((item) => item.id === block.sourceId);
-    if (!displayedSource) return;
-    const parts = richTextParts(displayedSource);
-    const mergedBlocks = parts.flatMap((part) => parseRichText(part.partIndex === block.partIndex ? text : part.text).blocks);
-    updateBlockText(displayedSource.id, serializeRichText({ version: 1, blocks: mergedBlocks }, 16_000) ?? "");
+    if (!displayedSource || block.atomStart === undefined || block.atomCount === undefined) return;
+    const atoms = richTextAtoms(displayedSource.text);
+    const merged = [...atoms.slice(0, block.atomStart), ...richTextAtoms(text), ...atoms.slice(block.atomStart + block.atomCount)];
+    updateBlockText(displayedSource.id, serializeAtoms(merged));
   }
+
+  /** Continua a edição na folha vizinha: une os parágrafos da quebra (Backspace/Delete) ou só move o cursor (setas). */
+  function handlePartBoundary(block: DocumentDisplayBlock, action: PartBoundaryAction) {
+    const source = contentRef.current.blocks.find((item) => item.id === block.sourceId);
+    if (!source || block.atomStart === undefined || block.atomCount === undefined || block.atomTotal === undefined) return;
+    const atoms = richTextAtoms(source.text);
+    // Os itens antes e depois da parte não mudam enquanto ela é editada; só a contagem da própria parte pode mudar.
+    const firstAfter = atoms.length - (block.atomTotal - block.atomStart - block.atomCount);
+    let request: FocusRequest;
+    if (action === "focus-previous") request = { sourceId: source.id, atomIndex: block.atomStart - 1, offset: Infinity };
+    else if (action === "focus-next") request = { sourceId: source.id, atomIndex: firstAfter, offset: 0 };
+    else {
+      const boundary = action === "merge-backward" ? block.atomStart : firstAfter;
+      if (boundary <= 0 || boundary >= atoms.length) return;
+      const joined = joinAtoms(atoms[boundary - 1], atoms[boundary]);
+      updateBlockText(source.id, serializeAtoms([...atoms.slice(0, boundary - 1), joined.atom, ...atoms.slice(boundary + 1)]));
+      request = { sourceId: source.id, atomIndex: boundary - 1, offset: joined.caret };
+    }
+    setPinnedPart(null);
+    setFocusRequest(request);
+    setContent(contentRef.current);
+  }
+
+  useLayoutEffect(() => {
+    if (!focusRequest) return;
+    const parts = Array.from(canvasRef.current?.querySelectorAll<HTMLElement>(`[data-source-id="${focusRequest.sourceId}"]`) ?? []);
+    const part = parts.find((element) => Number(element.dataset.atomStart) <= focusRequest.atomIndex && focusRequest.atomIndex < Number(element.dataset.atomStart) + Number(element.dataset.atomCount));
+    const editor = part?.querySelector<HTMLElement>("[contenteditable]");
+    if (!part || !editor) return;
+    setFocusRequest(null);
+    editor.focus();
+    const atom = atomElements(editor)[focusRequest.atomIndex - Number(part.dataset.atomStart)];
+    placeCaret(atom ?? editor, focusRequest.offset);
+  }, [focusRequest, pages]);
 
   function commitDocument() {
     setContent(contentRef.current);
@@ -352,7 +496,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   }
 
   function commitBlock(block: DocumentDisplayBlock) {
-    setPinnedBlockId(null);
+    setPinnedPart(null);
     const sourceId = block.sourceId ?? block.id;
     const source = contentRef.current.blocks.find((item) => item.id === sourceId);
     if (source && source.type !== "rich-text" && !source.text.trim() && contentRef.current.blocks.length > 1) {
@@ -374,7 +518,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     const next = { ...current, blocks };
     contentRef.current = next;
     if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
-    setPinnedBlockId(null);
+    setPinnedPart(null);
     setContent(next);
   }
 
@@ -423,7 +567,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
         {pages.map((page, pageIndex) => <article className="quote-docs-page quote-docs-editable-page" key={`page-${pageIndex}`}>
           {pageHeader}
           <div className="quote-docs-page-content">
-            {page.blocks.map((block) => <EditableBlock key={block.type === "rich-text" ? `${block.id}:${textSignature(block.text)}` : block.id} block={block} onActivate={() => { setActiveBlockId(block.id); setPinnedBlockId(block.id); }} onInput={(text) => { updateDisplayBlockText(block, text); scheduleMeasure(); }} onCommit={() => commitBlock(block)} onRemove={() => removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} onSelectionSize={setRichTextSize} />)}
+            {page.blocks.map((block) => <EditableBlock key={block.type === "rich-text" ? `${block.id}:${textSignature(block.text)}` : block.id} block={block} onActivate={() => { setActiveBlockId(block.id); setPinnedPart(block.sourceId && block.atomStart !== undefined && block.atomCount !== undefined ? { id: block.id, sourceId: block.sourceId, atomStart: block.atomStart, atomCount: block.atomCount, pageIndex } : { id: block.id, sourceId: block.id, atomStart: -1, atomCount: 0, pageIndex }); }} onBoundary={(action) => handlePartBoundary(block, action)} onInput={(text) => { updateDisplayBlockText(block, text); scheduleMeasure(); }} onCommit={() => commitBlock(block)} onRemove={() => removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} onSelectionSize={setRichTextSize} />)}
           </div>
           <footer><span />{pageIndex + 2} / {totalPages}</footer>
         </article>)}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { normalizedRichTextSize, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, serializeRichText, type RichTextDocument, type RichTextMark, type RichTextRun } from "@/lib/rich-text";
+import { useEffect, useRef, type KeyboardEvent } from "react";
+import { isBlankRichTextRuns, normalizedRichTextSize, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, serializeRichText, type RichTextDocument, type RichTextMark, type RichTextRun } from "@/lib/rich-text";
 
 type Props = {
   name?: string;
@@ -20,6 +20,7 @@ type InlineEditorProps = {
   command?: RichTextEditorCommandRequest | null;
   /** Informa o tamanho do texto onde está o cursor, para a barra de ferramentas exibi-lo. */
   onSelectionSize?: (size: number) => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
   ariaLabel: string;
   className?: string;
   placeholder?: string;
@@ -47,7 +48,11 @@ function runsToHtml(runs: RichTextRun[]) {
 
 function documentToHtml(document: RichTextDocument) {
   return document.blocks.map((block) => {
-    if (block.type === "paragraph") return `<p>${runsToHtml(block.runs)}</p>`;
+    if (block.type === "paragraph") {
+      // Uma quebra no fim do parágrafo só aparece no navegador se houver outra depois dela.
+      const text = block.runs.map((run) => run.text).join("");
+      return `<p>${runsToHtml(block.runs)}${text.length > 1 && text.endsWith("\n") ? "<br>" : ""}</p>`;
+    }
     const tag = block.type === "bullet-list" ? "ul" : "ol";
     return `<${tag}>${block.items.map((item) => `<li>${runsToHtml(item)}</li>`).join("")}</${tag}>`;
   }).join("");
@@ -103,6 +108,20 @@ function runsFromNodes(nodes: NodeListOf<ChildNode> | ChildNode[], basePixels: n
   return runs;
 }
 
+const INLINE_TAGS = new Set(["A", "B", "BR", "CODE", "EM", "FONT", "I", "MARK", "S", "SMALL", "SPAN", "STRONG", "SUB", "SUP", "U"]);
+
+/**
+ * A última quebra de um bloco é só o marcador que o navegador usa para a linha existir; não é conteúdo.
+ * Um bloco que fica vazio sem ela é uma linha em branco e continua representado por uma única quebra.
+ */
+function blockRuns(runs: RichTextRun[]) {
+  const last = runs.at(-1);
+  if (!last?.text.endsWith("\n")) return runs;
+  const trimmed = last.text.slice(0, -1);
+  const output = trimmed ? [...runs.slice(0, -1), { ...last, text: trimmed }] : runs.slice(0, -1);
+  return output.length ? output : [{ ...last, text: "\n" }];
+}
+
 function documentFromEditor(root: HTMLElement): RichTextDocument {
   const basePixels = parseFloat(getComputedStyle(root).fontSize) || 0;
   const blocks: RichTextDocument["blocks"] = [];
@@ -110,11 +129,12 @@ function documentFromEditor(root: HTMLElement): RichTextDocument {
   const appendInlineParagraph = () => {
     const runs = runsFromNodes(inlineNodes, basePixels);
     inlineNodes.length = 0;
-    if (runs.length) blocks.push({ type: "paragraph", runs });
+    if (runs.length) blocks.push({ type: "paragraph", runs: blockRuns(runs) });
   };
 
   for (const node of Array.from(root.childNodes)) {
-    if (node.nodeType === Node.TEXT_NODE || (node instanceof HTMLElement && node.tagName === "BR")) {
+    // Texto e marcações soltas na raiz (o negrito aplicado à primeira linha, por exemplo) formam um parágrafo com as próprias marcas.
+    if (node.nodeType === Node.TEXT_NODE || (node instanceof HTMLElement && INLINE_TAGS.has(node.tagName))) {
       inlineNodes.push(node);
       continue;
     }
@@ -123,16 +143,17 @@ function documentFromEditor(root: HTMLElement): RichTextDocument {
     if (node.tagName === "UL" || node.tagName === "OL") {
       const items = Array.from(node.children)
         .filter((item) => item.tagName === "LI")
-        .map((item) => runsFromNodes(item.childNodes, basePixels))
-        .filter((item) => item.length);
+        .map((item) => blockRuns(runsFromNodes(item.childNodes, basePixels)))
+        .filter((item) => item.length && !isBlankRichTextRuns(item));
       if (items.length) blocks.push({ type: node.tagName === "UL" ? "bullet-list" : "ordered-list", items });
       continue;
     }
     const runs = runsFromNodes(node.childNodes, basePixels);
-    if (runs.length) blocks.push({ type: "paragraph", runs });
+    blocks.push({ type: "paragraph", runs: runs.length ? blockRuns(runs) : [{ text: "\n" }] });
   }
   appendInlineParagraph();
-  return { version: 1, blocks };
+  // Só linhas em branco equivalem a um texto vazio.
+  return { version: 1, blocks: blocks.some((block) => block.type !== "paragraph" || !isBlankRichTextRuns(block.runs)) ? blocks : [] };
 }
 
 function elementFromNode(node: Node | null) {
@@ -256,7 +277,7 @@ function applyFontSize(editor: HTMLElement, size: number) {
   return null;
 }
 
-export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, onSelectionSize, ariaLabel, className, placeholder }: InlineEditorProps) {
+export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, onSelectionSize, onKeyDown, ariaLabel, className, placeholder }: InlineEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const pendingSizeRef = useRef<number | null>(null);
   const onSelectionSizeRef = useRef(onSelectionSize);
@@ -313,7 +334,7 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
     syncValue();
   }, [command]);
 
-  return <div ref={editorRef} className={className} data-placeholder={placeholder} role="textbox" aria-multiline="true" aria-label={ariaLabel} contentEditable suppressContentEditableWarning spellCheck onFocus={onFocus} onBlur={onBlur} onInput={syncValue} dangerouslySetInnerHTML={initialHtmlRef.current} />;
+  return <div ref={editorRef} className={className} data-placeholder={placeholder} role="textbox" aria-multiline="true" aria-label={ariaLabel} contentEditable suppressContentEditableWarning spellCheck onFocus={onFocus} onBlur={onBlur} onKeyDown={onKeyDown} onInput={syncValue} dangerouslySetInnerHTML={initialHtmlRef.current} />;
 }
 
 export function ServiceProposalEditor({ name, initialValue, onChange }: Props) {
