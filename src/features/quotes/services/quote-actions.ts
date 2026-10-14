@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createQuote } from "@/features/quotes/services/create-quote";
-import { createDefaultQuoteDocument, parseQuoteDocumentContent, withQuoteServiceBlocks } from "@/features/quotes/types/document-content";
+import { createDefaultQuoteDocument, parseQuoteDocumentContent, quoteDocumentImageIds, withQuoteServiceBlocks } from "@/features/quotes/types/document-content";
+import { deleteUnusedQuoteImages } from "@/features/quotes/services/quote-images";
 import { parseQuotePayments } from "@/features/quotes/schemas/quote-payments";
 
 function text(formData: FormData, name: string, max: number) { const value = formData.get(name); return typeof value === "string" ? value.trim().slice(0, max) : ""; }
@@ -91,6 +92,7 @@ export async function updateQuoteDocumentAction(formData: FormData) {
   if (!quote) redirect("/orcamentos");
   const documentContent = parseQuoteDocumentContent(rawDocument, { title: quote.title, clientName: quote.client.name });
   await prisma.quote.update({ where: { id: quote.id }, data: { documentContent, ...(complete && !quote.completedAt ? { completedAt: new Date() } : {}) } });
+  await deleteUnusedQuoteImages(quote.id, quoteDocumentImageIds(documentContent));
   revalidateQuoteLists(quote.id, quote.clientId);
   revalidatePath(`/orcamentos/${quote.id}/editor`);
   // Ir ao texto padrão a partir do editor salva o documento antes, e a página de destino oferece o retorno ao PDF.

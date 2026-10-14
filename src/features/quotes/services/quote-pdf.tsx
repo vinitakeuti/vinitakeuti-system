@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, richTextLineHeight, type RichTextRun } from "@/lib/rich-text";
-import { quoteDocumentBlockRole, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
+import { QUOTE_PAGE_CONTENT_WIDTH, quoteDocumentBlockRole, quoteImageWidthShare, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
 
 const colors = {
   black: "#000000",
@@ -58,6 +58,7 @@ const styles = StyleSheet.create({
   editorMedium: { fontSize: 10 },
   editorLarge: { fontSize: 15 },
   editorRichText: { marginBottom: 9 },
+  editorImage: { marginBottom: 14, marginTop: 4 },
   editorRichTextParagraph: { color: colors.charcoal, fontSize: 10, lineHeight: 1.65, marginBottom: 8 },
   editorRichTextList: { marginBottom: 8 },
   editorRichTextTitle: { color: colors.black, fontSize: 18, fontWeight: 700, letterSpacing: -0.4, lineHeight: 1.2, marginBottom: 8, marginTop: 10 },
@@ -136,6 +137,8 @@ export type QuotePdfInput = {
   title: string;
   scope: string;
   documentContent?: QuoteDocumentContent;
+  /** Arquivos das imagens do documento, por id. */
+  images?: Record<string, QuotePdfImage>;
   discountCents?: number;
   discountPercentBps?: number | null;
   client: { name: string; company?: string | null; document?: string | null; email?: string | null };
@@ -157,6 +160,8 @@ export type QuotePdfInput = {
     website?: string | null;
   };
 };
+
+type QuotePdfImage = { data: Buffer; format: "png" | "jpg" };
 
 const money = new Intl.NumberFormat("pt-BR", { currency: "BRL", style: "currency" });
 const date = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "America/Maceio" });
@@ -194,7 +199,17 @@ function SectionHeading({ children, compact = false }: { children: string; compa
   return <View style={[styles.sectionHeading, compact ? { marginBottom: 10, marginTop: 18 } : {}]} minPresenceAhead={70} wrap={false}><View style={styles.sectionMarker} /><Text style={styles.sectionHeadingText}>{children.toUpperCase()}</Text><View style={styles.sectionRule} /></View>;
 }
 
-function DocumentBlock({ block, previous }: { block: QuoteDocumentBlock; previous?: QuoteDocumentBlock }) {
+const imageAlignment = { left: "flex-start", center: "center", right: "flex-end", justify: "center" } as const;
+
+/** Imagem na largura escolhida, alinhada à esquerda, ao centro ou à direita. Nunca é dividida entre folhas. */
+function DocumentImage({ block, file }: { block: QuoteDocumentBlock; file?: QuotePdfImage }) {
+  if (!block.image || !file) return null;
+  const width = QUOTE_PAGE_CONTENT_WIDTH * quoteImageWidthShare(block);
+  return <View style={[styles.editorImage, { alignItems: imageAlignment[block.align] }]} wrap={false}><Image src={file} style={{ width, height: (width * block.image.height) / block.image.width }} /></View>;
+}
+
+function DocumentBlock({ block, previous, images }: { block: QuoteDocumentBlock; previous?: QuoteDocumentBlock; images?: Record<string, QuotePdfImage> }) {
+  if (block.type === "image") return <DocumentImage block={block} file={block.image ? images?.[block.image.id] : undefined} />;
   if (block.type === "rich-text") return <DocumentRichText value={block.text} />;
   const role = quoteDocumentBlockRole(block);
   const marks = { fontStyle: block.italic ? "italic" as const : "normal" as const, textDecoration: block.underline ? "underline" as const : "none" as const, textAlign: block.align };
@@ -268,7 +283,7 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
         </View>
 
         <View style={styles.documentContent}>
-          {contentBlocks.map((block, index) => <DocumentBlock key={block.id} block={block} previous={contentBlocks[index - 1]} />)}
+          {contentBlocks.map((block, index) => <DocumentBlock key={block.id} block={block} previous={contentBlocks[index - 1]} images={quote.images} />)}
         </View>
 
         <View style={styles.footer} fixed><Text style={styles.footerDetails} /><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>

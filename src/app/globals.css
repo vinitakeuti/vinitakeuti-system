@@ -659,3 +659,12 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 .quote-docs-style-option.is-section span { color:var(--accent); font-family:var(--mono); font-size:.62rem; letter-spacing:.16em; text-transform:uppercase; }
 .quote-editor-document-role-section-label .quote-editor-document-content[tabindex] { outline:0; cursor:default; }
 .quote-editor-document-role-section-label:focus-within { background:var(--accent-surface); }
+/* Imagens no PDF do orçamento: largura proporcional à folha e posição à esquerda, ao centro ou à direita. */
+.quote-editor-document-block.quote-editor-document-image { display:flex; justify-content:center; margin:4px 0 16px; }
+.quote-editor-document-image.is-left { justify-content:flex-start; }
+.quote-editor-document-image.is-right { justify-content:flex-end; }
+.quote-editor-document-image-frame { min-width:48px; outline:0; cursor:pointer; }
+.quote-editor-document-image-frame img { display:block; width:100%; height:auto; background:#f2f4f1; user-select:none; }
+.quote-editor-document-image-frame:focus { outline:2px solid var(--accent); outline-offset:3px; }
+.quote-docs-toolbar-tools .quote-docs-image-align { display:inline-flex; align-items:center; justify-content:center; min-width:32px; padding:0 8px; }
+.quote-docs-tool-error { color:#783b2a; font-size:.72rem; white-space:nowrap; }

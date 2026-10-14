@@ -6,7 +6,7 @@ import { SidebarToggle } from "@/components/sidebar-toggle";
 import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest } from "@/features/services/components/service-proposal-editor";
 import { QuoteClosingPreview, QuoteCoverPreview, type QuotePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { updateQuoteDocumentAction } from "@/features/quotes/services/quote-actions";
-import { QUOTE_INTRO_BLOCK_ID, quoteDocumentBlockRole, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentBlockType, type QuoteDocumentContent, type QuoteDocumentFontSize } from "@/features/quotes/types/document-content";
+import { QUOTE_INTRO_BLOCK_ID, quoteDocumentBlockRole, quoteImageWidthShare, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentBlockType, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
 import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, richTextPlainText, serializeRichText, type RichTextBlock, type RichTextParagraphStyle, type RichTextRun } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
@@ -27,6 +27,8 @@ type DocumentPage = { blocks: DocumentDisplayBlock[] };
 /** Parte em edição: fica como está enquanto o usuário digita, para o editor não ser recriado sob o cursor. */
 type PinnedPart = { id: string; sourceId: string; atomStart: number; atomCount: number; pageIndex: number };
 type FocusRequest = { sourceId: string; atomIndex: number; offset: number };
+/** Onde as imagens entram: no ponto do cursor dentro de um texto ou logo depois de um bloco selecionado. */
+type InsertionPoint = { kind: "text"; sourceId: string; atomIndex: number; offset: number } | { kind: "block"; blockId: string };
 
 type Props = {
   quoteId: string;
@@ -46,6 +48,7 @@ const sizeLabels: Record<QuoteDocumentFontSize, string> = { small: "Pequeno", me
 const alignLabels: Record<QuoteDocumentAlign, string> = { left: "À esquerda", center: "Centralizado", right: "À direita", justify: "Justificado" };
 
 function estimatedBlockHeight(block: DocumentDisplayBlock) {
+  if (block.type === "image") return Math.ceil(666 * quoteImageWidthShare(block) * (block.image ? block.image.height / block.image.width : 0.6)) + 22;
   const source = block.type === "rich-text" ? richTextPlainText(block.text) : block.text;
   if (!source) return 24;
   const role = quoteDocumentBlockRole(block);
@@ -55,6 +58,18 @@ function estimatedBlockHeight(block: DocumentDisplayBlock) {
   const charactersPerLine = block.fontSize === "large" ? 48 : block.fontSize === "small" ? 100 : 78;
   const lines = Math.max(1, source.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / charactersPerLine)), 0));
   return lines * (block.fontSize === "large" ? 32 : block.fontSize === "small" ? 20 : 25) + (block.type === "rich-text" ? 12 : 18);
+}
+
+/** Texto criado ao inserir imagens: continua o documento depois delas. */
+const CONTINUATION_TEXT_PREFIX = "text-";
+
+/** A apresentação e o texto depois de uma imagem aparecem mesmo vazios, para sempre haver onde escrever. */
+function isWritableWhenEmpty(id: string) {
+  return id === QUOTE_INTRO_BLOCK_ID || id.startsWith(CONTINUATION_TEXT_PREFIX);
+}
+
+function newTextBlock(text: string): QuoteDocumentBlock {
+  return { id: `${CONTINUATION_TEXT_PREFIX}${crypto.randomUUID().slice(0, 8)}`, type: "rich-text", text, fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
 }
 
 /** Itens indivisíveis do texto rico: cada parágrafo e cada item de lista. */
@@ -109,7 +124,7 @@ function paginationUnits(blocks: QuoteDocumentBlock[], pinned: PinnedPart | null
     const total = atoms.length;
     if (!richTextPlainText(block.text).trim()) {
       // A apresentação continua visível mesmo vazia, para que sempre exista onde escrever antes dos serviços.
-      return block.id === QUOTE_INTRO_BLOCK_ID ? [{ block, atoms: { start: 0, items: atoms, total, pinnedId: pinned?.sourceId === block.id ? pinned.id : undefined } }] : [];
+      return isWritableWhenEmpty(block.id) ? [{ block, atoms: { start: 0, items: atoms, total, pinnedId: pinned?.sourceId === block.id ? pinned.id : undefined } }] : [];
     }
     const pin = pinned?.sourceId === block.id && pinned.atomStart >= 0 && pinned.atomStart + pinned.atomCount <= total ? pinned : null;
     const units: PaginationUnit[] = [];
@@ -253,6 +268,72 @@ function caretAtEdge(editor: HTMLElement, edge: "start" | "end") {
   return fragment.querySelectorAll("p, div, li").length <= 1 && fragment.querySelectorAll("br").length <= (edge === "end" ? 1 : 0);
 }
 
+/**
+ * Item do texto (índice na origem) e posição do cursor dentro dele, a partir da seleção atual numa parte.
+ * Texto solto no início do editor (primeira linha digitada num editor vazio) conta como o primeiro parágrafo.
+ */
+function caretAtomPosition(wrapper: HTMLElement): { atomIndex: number; offset: number } | null {
+  const editor = wrapper.querySelector<HTMLElement>("[contenteditable]");
+  const selection = window.getSelection();
+  if (!editor || !selection?.rangeCount || !editor.contains(selection.anchorNode)) return null;
+  const leadingInline = Array.from(editor.childNodes).findIndex((node) => node instanceof HTMLElement && !["A", "B", "BR", "EM", "FONT", "I", "SPAN", "STRONG", "U"].includes(node.tagName));
+  const inlineNodes = Array.from(editor.childNodes).slice(0, leadingInline === -1 ? editor.childNodes.length : leadingInline);
+  const hasLeadingParagraph = inlineNodes.some((node) => node.textContent?.length || (node instanceof HTMLElement && node.tagName === "BR"));
+  const atoms = atomElements(editor);
+  const anchor = selection.anchorNode!;
+  let index = atoms.findIndex((atom) => atom === anchor || atom.contains(anchor));
+  let container: Node = editor;
+  if (index >= 0) {
+    container = atoms[index];
+    if (hasLeadingParagraph) index += 1;
+  } else if (hasLeadingParagraph && inlineNodes.some((node) => node === anchor || node.contains(anchor))) {
+    index = 0;
+  } else return null;
+  const probe = document.createRange();
+  probe.selectNodeContents(container);
+  probe.setEnd(anchor, selection.anchorOffset);
+  return { atomIndex: Number(wrapper.dataset.atomStart ?? 0) + index, offset: probe.toString().length };
+}
+
+/**
+ * Prepara a imagem para o PDF: fotos são reduzidas (lado maior até 2000 px) e regravadas em JPEG, o que também
+ * aplica a rotação da câmera. PNGs pequenos seguem como estão, preservando a nitidez de prints e logos.
+ */
+async function prepareImageFile(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+  if (file.type === "image/png" && scale === 1 && file.size <= 3_500_000) {
+    bitmap.close();
+    return file;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("canvas");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("encode")), "image/jpeg", 0.88));
+}
+
+const imageAlignOptions: Array<{ value: QuoteDocumentAlign; label: string }> = [
+  { value: "left", label: "Alinhar imagem à esquerda" },
+  { value: "center", label: "Centralizar imagem" },
+  { value: "right", label: "Alinhar imagem à direita" },
+];
+const imageSizeOptions: Array<{ value: QuoteDocumentFontSize; label: string }> = [
+  { value: "small", label: "PEQUENA" },
+  { value: "medium", label: "MÉDIA" },
+  { value: "large", label: "LARGURA TOTAL" },
+];
+
+/** Ícone de alinhamento: linhas encostadas à esquerda, ao centro ou à direita. */
+function AlignIcon({ align }: { align: QuoteDocumentAlign }) {
+  return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">{[14, 9, 14, 7].map((width, index) => <rect key={index} x={align === "left" ? 1 : align === "right" ? 15 - width : (16 - width) / 2} y={2 + index * 3.5} width={width} height="1.5" fill="currentColor" />)}</svg>;
+}
+
 /** Coloca o cursor no caractere `offset` de um elemento (Infinity = fim). */
 function placeCaret(element: HTMLElement, offset: number) {
   const selection = window.getSelection();
@@ -377,8 +458,21 @@ function caretAtTextStart(element: HTMLElement) {
   return probe.toString().length === 0;
 }
 
-function EditableBlock({ block, onActivate, onInput, onCommit, onRemove, onBoundary, onPullUp, command, onSelectionSize, onSelectionStyle }: { block: DocumentDisplayBlock; onActivate: () => void; onInput: (text: string) => void; onCommit: () => void; onRemove: () => void; onBoundary: (action: PartBoundaryAction) => void; onPullUp: () => void; command?: RichTextEditorCommandRequest | null; onSelectionSize?: (size: number) => void; onSelectionStyle?: (style: RichTextParagraphStyle | null) => void }) {
-  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text" data-block-id={block.id} data-source-id={block.sourceId} data-atom-start={block.atomStart} data-atom-count={block.atomCount}><InlineRichTextEditor initialValue={block.text} onSelectionSize={onSelectionSize} onSelectionStyle={onSelectionStyle} onKeyDown={(event) => { const action = partBoundaryAction(event, block); if (!action) return; event.preventDefault(); onBoundary(action); }} ariaLabel={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Apresentação da proposta" : "Texto da proposta"} placeholder={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Escreva aqui a apresentação da proposta, o contexto do projeto ou qualquer texto que deve vir antes dos serviços." : undefined} className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
+function EditableBlock({ block, imageSrc, onActivate, onInput, onCommit, onRemove, onBoundary, onPullUp, command, onSelectionSize, onSelectionStyle }: { block: DocumentDisplayBlock; imageSrc?: string; onActivate: () => void; onInput: (text: string) => void; onCommit: () => void; onRemove: () => void; onBoundary: (action: PartBoundaryAction) => void; onPullUp: () => boolean; command?: RichTextEditorCommandRequest | null; onSelectionSize?: (size: number) => void; onSelectionStyle?: (style: RichTextParagraphStyle | null) => void }) {
+  // Imagem: selecionada com um clique; Backspace ou Delete a remove. Largura e posição vêm da barra de ferramentas.
+  if (block.type === "image" && block.image) return <div data-block-id={block.id} className={`quote-editor-document-block quote-editor-document-image is-${block.align}`}>
+    <div className="quote-editor-document-image-frame" tabIndex={0} role="img" aria-label="Imagem do documento. Backspace ou Delete remove a imagem." title="Clique para alinhar, redimensionar ou remover" style={{ width: `${quoteImageWidthShare(block) * 100}%` }} onFocus={onActivate} onBlur={onCommit} onKeyDown={(event) => { if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); onRemove(); } }}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- arquivo servido pela API do orçamento, já reduzido no envio */}
+      <img src={imageSrc} alt="" draggable={false} style={{ aspectRatio: `${block.image.width} / ${block.image.height}` }} />
+    </div>
+  </div>;
+  const continuation = Boolean(block.sourceId?.startsWith(CONTINUATION_TEXT_PREFIX));
+  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text" data-block-id={block.id} data-source-id={block.sourceId} data-atom-start={block.atomStart} data-atom-count={block.atomCount}><InlineRichTextEditor initialValue={block.text} onSelectionSize={onSelectionSize} onSelectionStyle={onSelectionStyle} onKeyDown={(event) => {
+    const action = partBoundaryAction(event, block);
+    if (action) { event.preventDefault(); onBoundary(action); return; }
+    // Backspace no início do texto logo abaixo de uma imagem seleciona a imagem (um segundo Backspace a remove).
+    if (event.key === "Backspace" && !event.shiftKey && block.atomStart === 0 && caretAtEdge(event.currentTarget, "start") && onPullUp()) event.preventDefault();
+  }} ariaLabel={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Apresentação da proposta" : "Texto da proposta"} placeholder={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Escreva aqui a apresentação da proposta, o contexto do projeto ou qualquer texto que deve vir antes dos serviços." : continuation ? "Continue o texto aqui." : undefined} className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
   const role = quoteDocumentBlockRole(block);
   const className = `quote-editor-document-block quote-editor-document-${block.type} quote-editor-document-${block.fontSize}${role ? ` quote-editor-document-role-${role}` : ""}${block.text ? "" : " is-empty"}`;
   // O rótulo da seção de serviços não é editável: o estilo dele precisa ser mantido. Selecionado, o Backspace
@@ -579,7 +673,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     setPinnedPart(null);
     const sourceId = block.sourceId ?? block.id;
     const source = contentRef.current.blocks.find((item) => item.id === sourceId);
-    if (source && source.type !== "rich-text" && !source.text.trim()) {
+    if (source && source.type !== "rich-text" && source.type !== "image" && !source.text.trim()) {
       if (isProtectedBlock(source)) {
         // Título e categoria do serviço não somem: esvaziados, voltam ao texto anterior.
         const previous = content.blocks.find((item) => item.id === source.id);
@@ -602,44 +696,144 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     const guard = reflowGuardRef.current;
     if (guard.content !== contentRef.current) reflowGuardRef.current = { content: contentRef.current, count: 0 };
     if (reflowGuardRef.current.count >= 2) return;
-    const editor = wrapper.querySelector<HTMLElement>("[contenteditable]");
     const sourceId = wrapper.dataset.sourceId;
-    const selection = window.getSelection();
-    if (!editor || !sourceId || !selection?.rangeCount || !editor.contains(selection.anchorNode)) return;
-    // Texto solto no início do editor (primeira linha digitada num editor vazio) conta como o primeiro parágrafo.
-    const leadingInline = Array.from(editor.childNodes).findIndex((node) => node instanceof HTMLElement && !["A", "B", "BR", "EM", "FONT", "I", "SPAN", "STRONG", "U"].includes(node.tagName));
-    const inlineNodes = Array.from(editor.childNodes).slice(0, leadingInline === -1 ? editor.childNodes.length : leadingInline);
-    const hasLeadingParagraph = inlineNodes.some((node) => node.textContent?.length || (node instanceof HTMLElement && node.tagName === "BR"));
-    const atoms = atomElements(editor);
-    const anchor = selection.anchorNode!;
-    let index = atoms.findIndex((atom) => atom === anchor || atom.contains(anchor));
-    let container: Node = editor;
-    if (index >= 0) {
-      container = atoms[index];
-      if (hasLeadingParagraph) index += 1;
-    } else if (hasLeadingParagraph && inlineNodes.some((node) => node === anchor || node.contains(anchor))) {
-      index = 0;
-    } else return;
-    const probe = document.createRange();
-    probe.selectNodeContents(container);
-    probe.setEnd(anchor, selection.anchorOffset);
+    const position = caretAtomPosition(wrapper);
+    if (!sourceId || !position) return;
     reflowGuardRef.current.count += 1;
     setPinnedPart(null);
-    setFocusRequest({ sourceId, atomIndex: Number(wrapper.dataset.atomStart) + index, offset: probe.toString().length });
+    setFocusRequest({ sourceId, ...position });
     commitContent(contentRef.current);
   };
 
-  /** Backspace no início de um bloco fixo: apaga a linha em branco logo acima dele, no texto anterior. */
+  /**
+   * Backspace no início de um bloco: com uma imagem logo acima, seleciona a imagem; antes de um bloco fixo,
+   * apaga a linha em branco logo acima dele, no texto anterior. Devolve se algo foi feito.
+   */
   function pullBlockUp(block: DocumentDisplayBlock) {
     const blocksInOrder = contentRef.current.blocks.filter((item) => item.id !== "intro-title");
     const position = blocksInOrder.findIndex((item) => item.id === (block.sourceId ?? block.id));
     const previous = position > 0 ? blocksInOrder[position - 1] : null;
-    if (!previous || previous.type !== "rich-text") return;
+    if (previous?.type === "image") {
+      const frame = canvasRef.current?.querySelector<HTMLElement>(`[data-block-id="${previous.id}"] [tabindex]`);
+      frame?.focus();
+      return Boolean(frame);
+    }
+    if (block.type === "rich-text" || !previous || previous.type !== "rich-text") return false;
     const atoms = richTextAtoms(previous.text);
     const last = atoms.at(-1);
-    if (!last || !isBlankRichTextRuns(atomRuns(last))) return;
+    if (!last || !isBlankRichTextRuns(atomRuns(last))) return false;
     updateBlockText(previous.id, serializeAtoms(atoms.slice(0, -1)));
     commitContent(contentRef.current);
+    return true;
+  }
+
+  function replaceBlocks(blocks: QuoteDocumentBlock[]) {
+    const next = { ...contentRef.current, blocks };
+    contentRef.current = next;
+    if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
+    setPinnedPart(null);
+    commitContent(next);
+  }
+
+  /** Ponto de inserção a partir do foco atual: o cursor num texto ou o bloco selecionado. */
+  function currentInsertionPoint(): InsertionPoint | null {
+    const focused = document.activeElement instanceof HTMLElement ? document.activeElement.closest<HTMLElement>("[data-block-id]") : null;
+    if (!focused || !canvasRef.current?.contains(focused)) return null;
+    const sourceId = focused.dataset.sourceId;
+    if (sourceId) {
+      const position = caretAtomPosition(focused);
+      return { kind: "text", sourceId, ...(position ?? { atomIndex: Number(focused.dataset.atomStart ?? 0) + Number(focused.dataset.atomCount ?? 1) - 1, offset: Infinity }) };
+    }
+    return { kind: "block", blockId: focused.dataset.blockId! };
+  }
+
+  /**
+   * Insere as imagens enviadas. Dentro de um texto, ele é dividido no parágrafo do cursor: o que vem antes fica
+   * acima das imagens e o restante continua logo abaixo delas. Sem cursor, entram ao fim da apresentação.
+   */
+  function insertImages(point: InsertionPoint | null, images: QuoteDocumentImage[]) {
+    const blocks = [...contentRef.current.blocks];
+    const imageBlocks: QuoteDocumentBlock[] = images.map((image) => ({ id: `image-${image.id}`, type: "image", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "center", image }));
+    const trailingText = (index: number) => blocks[index]?.type === "rich-text" ? [] : [newTextBlock("")];
+    const target = point ? blocks.findIndex((block) => block.id === (point.kind === "text" ? point.sourceId : point.blockId)) : -1;
+    if (point?.kind === "text" && target >= 0) {
+      const source = blocks[target];
+      const atoms = richTextAtoms(source.text);
+      const at = Math.min(Math.max(0, point.atomIndex), atoms.length - 1);
+      const caretAtom = atoms[at];
+      // Numa linha em branco a imagem ocupa o lugar dela; no início de um parágrafo, entra antes dele.
+      let split = caretAtom ? at + 1 : atoms.length;
+      let skip = 0;
+      if (caretAtom && isBlankRichTextRuns(atomRuns(caretAtom))) { split = at; skip = 1; }
+      else if (caretAtom && point.offset === 0) split = at;
+      const before = atoms.slice(0, split);
+      const after = atoms.slice(split + skip);
+      if (!before.length) {
+        blocks[target] = { ...source, text: serializeAtoms(after) };
+        blocks.splice(target, 0, ...imageBlocks);
+      } else {
+        blocks[target] = { ...source, text: serializeAtoms(before) };
+        blocks.splice(target + 1, 0, ...imageBlocks, ...(after.length ? [newTextBlock(serializeAtoms(after))] : trailingText(target + 1)));
+      }
+      replaceBlocks(blocks);
+      return;
+    }
+    let index = target;
+    const role = index >= 0 ? quoteDocumentBlockRole(blocks[index]) : null;
+    if (role === "service-title" || role === "service-category") {
+      // Título e categoria ficam junto da descrição do serviço: a imagem entra depois dela.
+      const description = blocks.findIndex((block) => block.id === `service-description-${blocks[index].id.replace(/^service-(title|category)-/, "")}`);
+      if (description >= 0) index = description;
+    } else if (role === "section-label") index -= 1;
+    if (index < 0 && target < 0) {
+      const servicesStart = blocks.findIndex((block) => block.id === "services-label" || block.id.startsWith("service-"));
+      index = (servicesStart === -1 ? blocks.length : servicesStart) - 1;
+    }
+    blocks.splice(index + 1, 0, ...imageBlocks, ...trailingText(index + 1));
+    replaceBlocks(blocks);
+  }
+
+  /** Remove a imagem e reúne o texto que tinha sido dividido por ela. */
+  function removeImageBlock(id: string) {
+    const blocks = contentRef.current.blocks.filter((block) => block.id !== id);
+    const index = contentRef.current.blocks.findIndex((block) => block.id === id);
+    if (index < 0) return;
+    const previous = blocks[index - 1];
+    const next = blocks[index];
+    if (previous?.type === "rich-text" && next?.type === "rich-text" && next.id.startsWith(CONTINUATION_TEXT_PREFIX)) {
+      blocks[index - 1] = { ...previous, text: serializeAtoms([...richTextAtoms(previous.text), ...richTextAtoms(next.text)]) };
+      blocks.splice(index, 1);
+    }
+    setActiveBlockId(previous?.id ?? "");
+    replaceBlocks(blocks);
+  }
+
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const insertionPointRef = useRef<InsertionPoint | null | undefined>(undefined);
+  const [imageUpload, setImageUpload] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+
+  async function uploadImages(files: File[]) {
+    const point = insertionPointRef.current === undefined ? null : insertionPointRef.current;
+    insertionPointRef.current = undefined;
+    if (!files.length) return;
+    setImageUpload({ busy: true, error: null });
+    const uploaded: QuoteDocumentImage[] = [];
+    let error: string | null = null;
+    for (const file of files.slice(0, 20)) {
+      try {
+        const body = new FormData();
+        body.append("file", await prepareImageFile(file), "imagem");
+        const response = await fetch(`/api/orcamentos/${quoteId}/imagens`, { method: "POST", body });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) { error = result.error ?? "Não foi possível enviar a imagem."; break; }
+        uploaded.push(result as QuoteDocumentImage);
+      } catch {
+        error = `Não foi possível ler "${file.name}". Use PNG, JPEG ou WEBP.`;
+        break;
+      }
+    }
+    if (uploaded.length) insertImages(point, uploaded);
+    setImageUpload({ busy: false, error });
   }
 
   /** Acrescenta o texto padrão ao fim da apresentação (antes dos serviços). */
@@ -668,7 +862,14 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     <section className="quote-docs-toolbar" aria-label="Ferramentas do editor">
       <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{quoteCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{quoteTitle}</strong>{justSaved ? <small className="quote-docs-saved" role="status">Alterações salvas. Conclua quando o documento estiver pronto.</small> : null}</div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">TEXTO PADRÃO</button><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
       <div className="quote-docs-toolbar-tools">
-        {activeBlock && quoteDocumentBlockRole(activeBlock) === "section-label" ? <span className="quote-docs-tool-context">SEÇÃO FIXA DO ORÇAMENTO · BACKSPACE APAGA AS LINHAS EM BRANCO ACIMA</span> : activeBlock?.type === "rich-text" ? <>
+        {activeBlock?.type === "image" ? <>
+          <span className="quote-docs-tool-context">IMAGEM</span>
+          {imageAlignOptions.map((option) => <button type="button" key={option.value} aria-label={option.label} title={option.label} aria-pressed={activeBlock.align === option.value} className={`quote-docs-image-align${activeBlock.align === option.value ? " is-active" : ""}`} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { align: option.value })}><AlignIcon align={option.value} /></button>)}
+          <span className="quote-docs-divider" />
+          {imageSizeOptions.map((option) => <button type="button" key={option.value} aria-pressed={activeBlock.fontSize === option.value} className={`quote-docs-image-size${activeBlock.fontSize === option.value ? " is-active" : ""}`} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { fontSize: option.value })}>{option.label}</button>)}
+          <span className="quote-docs-divider" />
+          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeImageBlock(activeBlock.id)}>REMOVER IMAGEM</button>
+        </> : activeBlock && quoteDocumentBlockRole(activeBlock) === "section-label" ? <span className="quote-docs-tool-context">SEÇÃO FIXA DO ORÇAMENTO · BACKSPACE APAGA AS LINHAS EM BRANCO ACIMA</span> : activeBlock?.type === "rich-text" ? <>
           <span className="quote-docs-tool-context">FORMATAÇÃO DO TEXTO</span>
           <button type="button" aria-label="Negrito" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("bold")}><strong>N</strong></button>
           <button type="button" aria-label="Itálico" className="quote-docs-italic" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("italic")}><em>I</em></button>
@@ -692,6 +893,10 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
         <span className="quote-docs-divider" />
         <button type="button" disabled={!activeBlock} onClick={() => activeBlock && updateBlock(activeBlock.id, { bold: false, italic: false, underline: false, fontSize: activeBlock.type === "heading" ? "large" : "medium", align: "left" })}>LIMPAR FORMATAÇÃO</button>
         </>}
+        <span className="quote-docs-divider" />
+        <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; void uploadImages(files); }} />
+        <button type="button" disabled={imageUpload.busy} title="Insere uma ou mais imagens no ponto do cursor" onMouseDown={(event) => { event.preventDefault(); insertionPointRef.current = currentInsertionPoint(); }} onClick={() => { if (insertionPointRef.current === undefined) insertionPointRef.current = currentInsertionPoint(); imageInputRef.current?.click(); }}>{imageUpload.busy ? "ENVIANDO IMAGENS..." : "INSERIR IMAGENS"}</button>
+        {imageUpload.error ? <span className="quote-docs-tool-error" role="alert">{imageUpload.error}</span> : null}
         {templateText ? <>
           <span className="quote-docs-divider" />
           <button type="button" title="Acrescenta o texto padrão à apresentação, antes dos serviços" onMouseDown={(event) => event.preventDefault()} onClick={insertTemplateText}>INSERIR TEXTO PADRÃO</button>
@@ -704,7 +909,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
         {pages.map((page, pageIndex) => <article className="quote-docs-page quote-docs-editable-page" key={`page-${pageIndex}`}>
           {pageHeader}
           <div className="quote-docs-page-content">
-            {page.blocks.map((block) => <EditableBlock key={block.type === "rich-text" ? `${block.id}:${textSignature(block.text)}:${partVersions[block.id] ?? 0}` : `${block.id}:${restoreVersion}`} block={block} onPullUp={() => pullBlockUp(block)} onActivate={() => { setActiveBlockId(block.id); setPinnedPart(block.sourceId && block.atomStart !== undefined && block.atomCount !== undefined ? { id: block.id, sourceId: block.sourceId, atomStart: block.atomStart, atomCount: block.atomCount, pageIndex } : { id: block.id, sourceId: block.id, atomStart: -1, atomCount: 0, pageIndex }); }} onBoundary={(action) => handlePartBoundary(block, action)} onInput={(text) => { if (block.type === "rich-text") editedPartsRef.current.add(block.id); updateDisplayBlockText(block, text); scheduleMeasure(); }} onCommit={() => commitBlock(block)} onRemove={() => removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} onSelectionSize={setRichTextSize} onSelectionStyle={setRichTextStyle} />)}
+            {page.blocks.map((block) => <EditableBlock key={block.type === "rich-text" ? `${block.id}:${textSignature(block.text)}:${partVersions[block.id] ?? 0}` : `${block.id}:${restoreVersion}`} block={block} imageSrc={block.image ? `/api/orcamentos/${quoteId}/imagens/${block.image.id}` : undefined} onPullUp={() => pullBlockUp(block)} onActivate={() => { setActiveBlockId(block.id); setPinnedPart(block.sourceId && block.atomStart !== undefined && block.atomCount !== undefined ? { id: block.id, sourceId: block.sourceId, atomStart: block.atomStart, atomCount: block.atomCount, pageIndex } : { id: block.id, sourceId: block.id, atomStart: -1, atomCount: 0, pageIndex }); }} onBoundary={(action) => handlePartBoundary(block, action)} onInput={(text) => { if (block.type === "rich-text") editedPartsRef.current.add(block.id); updateDisplayBlockText(block, text); scheduleMeasure(); }} onCommit={() => commitBlock(block)} onRemove={() => block.type === "image" ? removeImageBlock(block.id) : removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} onSelectionSize={setRichTextSize} onSelectionStyle={setRichTextStyle} />)}
           </div>
           <footer><span />{pageIndex + 2} / {totalPages}</footer>
         </article>)}
