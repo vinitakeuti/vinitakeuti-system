@@ -143,6 +143,8 @@ export type QuotePdfInput = {
   payments?: Array<{ amountCents: number; paidAt: Date }>;
   paymentNotes?: string | null;
   terms?: string | null;
+  /** Data da conclusão; o aceite usa essa data (ou a de hoje, enquanto o orçamento estiver pendente). */
+  completedAt?: Date | null;
   professional: {
     name: string;
     professionalTitle?: string | null;
@@ -219,7 +221,8 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
   const balanceCents = Math.max(0, totalCents - paidCents);
   const titleLayout = coverTitleLayout(quote.title);
   const contentBlocks = quote.documentContent?.blocks.filter((block) => block.id !== "intro-title") ?? [];
-  const signaturePlace = [quote.professional.city, quote.professional.state].filter(Boolean).join(" / ") || "Local";
+  const signaturePlace = [quote.professional.city, quote.professional.state].filter(Boolean).join(" / ");
+  const signatureLine = `${signaturePlace ? `${signaturePlace}, ` : ""}${date.format(quote.completedAt ?? new Date())}.`;
 
   return (
     <Document title={`Orçamento ${quote.code}`} author={quote.professional.name} subject={quote.title}>
@@ -311,7 +314,7 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
           <View style={styles.closingAcceptance} wrap={false}>
             <Text style={styles.closingAcceptanceTitle}>Aceite da proposta</Text>
             <Text style={styles.closingAcceptanceText}>Ao assinar, as partes declaram estar de acordo com os serviços, valores e condições descritos nesta proposta.</Text>
-            <Text style={styles.closingPlace}>{signaturePlace}, ______ de ____________________ de __________.</Text>
+            <Text style={styles.closingPlace}>{signatureLine}</Text>
             <View style={styles.closingSignatures}>
               <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.professional.name}</Text>{quote.professional.document ? <Text style={styles.closingSignatureDetail}>{quote.professional.document}</Text> : null}<Text style={styles.closingSignatureRole}>PROFISSIONAL RESPONSÁVEL</Text></View>
               <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>CLIENTE</Text></View>

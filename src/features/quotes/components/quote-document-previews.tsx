@@ -28,6 +28,7 @@ export type QuotePreviewData = {
   payments: Array<{ id: string; amountCents: number; paidAt: string }>;
   paymentNotes: string | null;
   terms: string | null;
+  signatureDate: string;
 };
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -80,7 +81,7 @@ export function QuoteClosingPreview({ quote, professional, pageNumber }: { quote
   const discountCents = Math.max(0, Math.min(quote.discountCents, subtotalCents));
   const totalCents = subtotalCents - discountCents;
   const paidCents = quote.payments.reduce((total, payment) => total + payment.amountCents, 0);
-  const place = [professional.city, professional.state].filter(Boolean).join(" / ") || "Local";
+  const place = [professional.city, professional.state].filter(Boolean).join(" / ");
   const footer = [professional.name, professional.document, websiteForDisplay(professional.website)].filter(Boolean).join(" · ").toUpperCase();
   const clientDetail = [quote.client.company, quote.client.document].filter(Boolean).join(" · ");
 
@@ -118,7 +119,7 @@ export function QuoteClosingPreview({ quote, professional, pageNumber }: { quote
           <div className="quote-closing-acceptance">
             <strong>Aceite da proposta</strong>
             <p>Ao assinar, as partes declaram estar de acordo com os serviços, valores e condições descritos nesta proposta.</p>
-            <p className="quote-closing-place">{place}, ______ de ____________________ de __________.</p>
+            <p className="quote-closing-place">{place ? `${place}, ` : ""}{longDate.format(new Date(quote.signatureDate))}.</p>
             <div className="quote-closing-signatures">
               <div><i aria-hidden="true" /><b>{professional.name}</b>{professional.document ? <small>{professional.document}</small> : null}<span>PROFISSIONAL RESPONSÁVEL</span></div>
               <div><i aria-hidden="true" /><b>{quote.client.name}</b>{clientDetail ? <small>{clientDetail}</small> : null}<span>CLIENTE</span></div>
