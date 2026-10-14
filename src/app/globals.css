@@ -631,3 +631,7 @@ body.sidebar-collapsed .quote-summary-panel { right:calc(max(0px, (100vw - 1640p
 .quote-docs-size-menu button { width:100%; display:flex; align-items:baseline; justify-content:space-between; gap:8px; min-height:30px; padding:4px 12px; border:0; background:transparent; color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; line-height:1.2; text-align:left; cursor:pointer; }
 .quote-docs-size-menu button small { color:var(--muted); font-family:var(--mono); font-size:.5rem; letter-spacing:.05em; }
 .quote-docs-size-menu button:hover,.quote-docs-size-menu button.is-active { background:var(--accent-surface); color:var(--accent); }
+
+/* Texto padrão no editor é um botão de envio (salva o PDF antes de sair), com a aparência dos links da barra */
+button.quote-docs-back-link { min-height:0; padding:0; border:0; background:transparent; cursor:pointer; }
+button.quote-docs-back-link:hover { text-decoration:underline; }

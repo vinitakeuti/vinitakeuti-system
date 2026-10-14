@@ -19,5 +19,7 @@ export async function saveQuoteTextTemplateAction(formData: FormData) {
   });
   revalidatePath("/orcamentos/texto-padrao");
   revalidatePath("/orcamentos/novo");
-  redirect("/orcamentos/texto-padrao?updated=1");
+  const returnQuoteId = formData.get("returnQuoteId");
+  const returnQuery = typeof returnQuoteId === "string" && /^[a-z0-9]{1,50}$/i.test(returnQuoteId) ? `&orcamento=${returnQuoteId}` : "";
+  redirect(`/orcamentos/texto-padrao?updated=1${returnQuery}`);
 }

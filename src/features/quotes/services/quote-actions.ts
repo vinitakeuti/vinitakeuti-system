@@ -88,13 +88,16 @@ export async function updateQuoteDocumentAction(formData: FormData) {
   } catch {
     redirect(`/orcamentos/${quoteId}/editor?error=O%20conte%C3%BAdo%20do%20documento%20n%C3%A3o%20%C3%A9%20v%C3%A1lido.`);
   }
-  const complete = text(formData, "intent", 20) === "complete";
+  const intent = text(formData, "intent", 20);
+  const complete = intent === "complete";
   const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, clientId: true, completedAt: true, client: { select: { name: true } }, title: true } });
   if (!quote) redirect("/orcamentos");
   const documentContent = parseQuoteDocumentContent(rawDocument, { title: quote.title, clientName: quote.client.name });
   await prisma.quote.update({ where: { id: quote.id }, data: { documentContent, ...(complete && !quote.completedAt ? { completedAt: new Date() } : {}) } });
   revalidateQuoteLists(quote.id, quote.clientId);
   revalidatePath(`/orcamentos/${quote.id}/editor`);
+  // Ir ao texto padrão a partir do editor salva o documento antes, e a página de destino oferece o retorno ao PDF.
+  if (intent === "template") redirect(`/orcamentos/texto-padrao?orcamento=${quote.id}`);
   redirect(complete ? `/orcamentos/${quote.id}?concluido=1` : `/orcamentos/${quote.id}/editor?salvo=1`);
 }
 
