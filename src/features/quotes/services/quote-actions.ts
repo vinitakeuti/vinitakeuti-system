@@ -68,12 +68,9 @@ export async function createQuoteAction(formData: FormData) {
   if (!paymentResult.ok) redirect(withError(`/orcamentos/novo?clientId=${encodeURIComponent(clientId)}`, paymentResult.error));
   const { payments, paymentNotes } = paymentResult;
   const validUntilRaw = text(formData, "validUntil", 10);
-  const [client, template] = await Promise.all([
-    prisma.client.findUnique({ where: { id: clientId }, select: { name: true } }),
-    prisma.quoteTextTemplate.findUnique({ where: { id: "default" }, select: { content: true } }),
-  ]);
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
   if (!client) redirect("/orcamentos/novo?error=Cliente%20n%C3%A3o%20encontrado.");
-  const quote = await createQuote({ clientId, code: `ORC-${new Date().toISOString().slice(2, 10).replace(/-/g, "")}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`, title, scope: "Conteúdo da proposta definido no editor de PDF.", estimatedHours: 0, estimatedDays: 0, pricingMethod: "FIXED", pricingRateCents: null, amountCents, discountCents, discountPercentBps, items, documentContent: withQuoteServiceBlocks(createDefaultQuoteDocument({ title, clientName: client.name, templateText: template?.content }), items), terms: text(formData, "terms", 4_000) || null, validUntil: validUntilRaw ? new Date(`${validUntilRaw}T12:00:00.000Z`) : null, payments, paymentNotes });
+  const quote = await createQuote({ clientId, code: `ORC-${new Date().toISOString().slice(2, 10).replace(/-/g, "")}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`, title, scope: "Conteúdo da proposta definido no editor de PDF.", estimatedHours: 0, estimatedDays: 0, pricingMethod: "FIXED", pricingRateCents: null, amountCents, discountCents, discountPercentBps, items, documentContent: withQuoteServiceBlocks(createDefaultQuoteDocument({ title, clientName: client.name }), items), terms: text(formData, "terms", 4_000) || null, validUntil: validUntilRaw ? new Date(`${validUntilRaw}T12:00:00.000Z`) : null, payments, paymentNotes });
   revalidateQuoteLists(quote.id, clientId);
   redirect(`/orcamentos/${quote.id}/editor`);
 }

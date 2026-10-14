@@ -37,38 +37,13 @@ const validTypes = new Set<QuoteDocumentBlockType>(["heading", "paragraph", "ric
 const validSizes = new Set<QuoteDocumentFontSize>(["small", "medium", "large"]);
 const validAlignments = new Set<QuoteDocumentAlign>(["left", "center", "right", "justify"]);
 
-function blocksFromTemplate(text?: string | null): QuoteDocumentBlock[] {
-  const paragraphs = (text ?? "")
-    .replace(/\r\n?/g, "\n")
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
-  const chunks: string[] = [];
-  for (const paragraph of paragraphs) {
-    let remaining = paragraph;
-    while (remaining && chunks.length < 200) {
-      if (remaining.length <= 4_000) {
-        chunks.push(remaining);
-        break;
-      }
-      const breakAt = remaining.lastIndexOf(" ", 4_000);
-      const cutAt = breakAt > 2_400 ? breakAt + 1 : 4_000;
-      chunks.push(remaining.slice(0, cutAt).trim());
-      remaining = remaining.slice(cutAt).trim();
-    }
-    if (chunks.length === 200) break;
-  }
-
-  return chunks.map((text, index) => ({ id: `template-${index + 1}`, type: "paragraph" as const, text, fontSize: "medium" as const, bold: false, italic: false, underline: false, align: "left" as const }));
-}
-
-export function createDefaultQuoteDocument(input: { title: string; clientName: string; templateText?: string | null }): QuoteDocumentContent {
+/** Documento inicial vazio. O texto padrão nunca entra sozinho: é inserido pelo editor quando o usuário pede. */
+export function createDefaultQuoteDocument(input: { title: string; clientName: string }): QuoteDocumentContent {
   void input.title;
   void input.clientName;
-  const templateBlocks = blocksFromTemplate(input.templateText);
   return {
     version: 1,
-    blocks: templateBlocks.length ? templateBlocks : [
+    blocks: [
       { id: "body-1", type: "paragraph", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" },
     ],
   };

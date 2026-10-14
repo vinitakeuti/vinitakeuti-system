@@ -34,6 +34,8 @@ type Props = {
   isCompleted: boolean;
   justSaved?: boolean;
   preview: QuotePreviewData;
+  /** Texto padrão em rich text; só entra no documento quando o usuário clica em INSERIR TEXTO PADRÃO. */
+  templateText?: string | null;
 };
 
 const sizeLabels: Record<QuoteDocumentFontSize, string> = { small: "Pequeno", medium: "Normal", large: "Grande" };
@@ -246,7 +248,7 @@ function EditableBlock({ block, onActivate, onInput, onCommit, onRemove, command
   </div>;
 }
 
-export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, initialContent, professional, isCompleted, justSaved = false, preview }: Props) {
+export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, initialContent, professional, isCompleted, justSaved = false, preview, templateText }: Props) {
   const [content, setContent] = useState<QuoteDocumentContent>(initialContent);
   const contentRef = useRef<QuoteDocumentContent>(initialContent);
   const documentContentFieldRef = useRef<HTMLInputElement>(null);
@@ -360,6 +362,22 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     commitDocument();
   }
 
+  /** Acrescenta o texto padrão ao fim da apresentação (antes dos serviços). */
+  function insertTemplateText() {
+    if (!templateText) return;
+    const current = contentRef.current;
+    const merge = (existing: string) => serializeRichText({ version: 1, blocks: [...parseRichText(existing).blocks, ...parseRichText(templateText).blocks] }, 16_000) ?? "";
+    const intro = current.blocks.find((block) => block.id === QUOTE_INTRO_BLOCK_ID);
+    const blocks: QuoteDocumentBlock[] = intro
+      ? current.blocks.map((block) => block.id === intro.id ? { ...block, text: merge(block.text) } : block)
+      : [{ id: QUOTE_INTRO_BLOCK_ID, type: "rich-text", text: merge(""), fontSize: "medium", bold: false, italic: false, underline: false, align: "left" }, ...current.blocks];
+    const next = { ...current, blocks };
+    contentRef.current = next;
+    if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
+    setPinnedBlockId(null);
+    setContent(next);
+  }
+
   function applyRichTextCommand(value: RichTextEditorCommand, size?: number) {
     setRichTextCommand((current) => ({ id: (current?.id ?? 0) + 1, value, size }));
   }
@@ -393,6 +411,10 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
         <span className="quote-docs-divider" />
         <button type="button" disabled={!activeBlock} onClick={() => activeBlock && updateBlock(activeBlock.id, { bold: false, italic: false, underline: false, fontSize: activeBlock.type === "heading" ? "large" : "medium", align: "left" })}>LIMPAR FORMATAÇÃO</button>
         </>}
+        {templateText ? <>
+          <span className="quote-docs-divider" />
+          <button type="button" title="Acrescenta o texto padrão à apresentação, antes dos serviços" onMouseDown={(event) => event.preventDefault()} onClick={insertTemplateText}>INSERIR TEXTO PADRÃO</button>
+        </> : null}
       </div>
     </section>
     <section className="quote-docs-canvas" aria-label="Documento editável" ref={canvasRef}>
