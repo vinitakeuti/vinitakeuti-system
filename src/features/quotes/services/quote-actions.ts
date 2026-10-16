@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createQuote } from "@/features/quotes/services/create-quote";
-import { createDefaultQuoteDocument, parseQuoteDocumentContent, quoteDocumentImageIds } from "@/features/quotes/types/document-content";
-import { deleteUnusedQuoteImages } from "@/features/quotes/services/quote-images";
+import { createDefaultQuoteDocument, QUOTE_DOCUMENT_MAX_JSON_LENGTH } from "@/features/quotes/types/document-content";
+import { saveQuoteDocument } from "@/features/quotes/services/quote-document-service";
 import { parseQuotePayments } from "@/features/quotes/schemas/quote-payments";
 
 function text(formData: FormData, name: string, max: number) { const value = formData.get(name); return typeof value === "string" ? value.trim().slice(0, max) : ""; }
@@ -78,8 +78,11 @@ export async function createQuoteAction(formData: FormData) {
 
 export async function updateQuoteDocumentAction(formData: FormData) {
   const quoteId = text(formData, "quoteId", 50);
-  const serializedDocument = text(formData, "documentContent", 500_000);
+  // O documento é lido inteiro: cortar o JSON no meio o tornaria inválido e o conteúdo seria perdido.
+  const rawField = formData.get("documentContent");
+  const serializedDocument = typeof rawField === "string" ? rawField : "";
   if (!quoteId || !serializedDocument) redirect("/orcamentos");
+  if (serializedDocument.length > QUOTE_DOCUMENT_MAX_JSON_LENGTH) redirect(`/orcamentos/${quoteId}/editor?error=${encodeURIComponent("O documento ficou grande demais para salvar.")}`);
   let rawDocument: unknown;
   try {
     rawDocument = JSON.parse(serializedDocument);
@@ -88,11 +91,9 @@ export async function updateQuoteDocumentAction(formData: FormData) {
   }
   const intent = text(formData, "intent", 20);
   const complete = intent === "complete";
-  const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, clientId: true, completedAt: true, client: { select: { name: true } }, title: true } });
-  if (!quote) redirect("/orcamentos");
-  const documentContent = parseQuoteDocumentContent(rawDocument, { title: quote.title, clientName: quote.client.name });
-  await prisma.quote.update({ where: { id: quote.id }, data: { documentContent, ...(complete && !quote.completedAt ? { completedAt: new Date() } : {}) } });
-  await deleteUnusedQuoteImages(quote.id, quoteDocumentImageIds(documentContent));
+  const result = await saveQuoteDocument(quoteId, rawDocument, { complete, cleanImages: true });
+  if (!result.ok) redirect("/orcamentos");
+  const quote = result.quote;
   revalidateQuoteLists(quote.id, quote.clientId);
   revalidatePath(`/orcamentos/${quote.id}/editor`);
   // Ir ao texto padrão a partir do editor salva o documento antes, e a página de destino oferece o retorno ao PDF.

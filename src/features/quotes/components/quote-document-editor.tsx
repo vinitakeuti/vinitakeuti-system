@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest } from "@/features/services/components/service-proposal-editor";
 import { QuoteClosingPreview, QuoteCoverPreview, type QuotePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { updateQuoteDocumentAction } from "@/features/quotes/services/quote-actions";
-import { hasQuoteServicesComponent, QUOTE_INTRO_BLOCK_ID, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
+import { hasQuoteServicesComponent, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
 import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, serializeRichText, type RichTextBlock, type RichTextParagraphStyle } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
@@ -37,7 +38,14 @@ type Props = {
   templateText?: string | null;
   /** Serviços do orçamento, para o componente Serviços incluídos. */
   services: ServiceSource[];
+  /** Data da última gravação do documento (ISO), para detectar uma versão desatualizada na tela. */
+  savedAt: string;
 };
+
+type SaveState = "saved" | "pending" | "saving" | "error";
+const AUTOSAVE_DELAY = 1_500;
+const AUTOSAVE_MAX_WAIT = 10_000;
+const timeFormat = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Maceio" });
 
 /** Onde um componente entra: no ponto do cursor dentro de um texto ou logo depois de um bloco selecionado. */
 type InsertionPoint = { kind: "text"; blockId: string; atomIndex: number; offset: number } | { kind: "block"; blockId: string };
@@ -72,7 +80,7 @@ function richTextAtoms(text: string): RichTextBlock[] {
 }
 
 function serializeAtoms(atoms: RichTextBlock[]) {
-  return serializeRichText({ version: 1, blocks: mergeAdjacentRichTextLists(atoms) }, 16_000) ?? "";
+  return serializeRichText({ version: 1, blocks: mergeAdjacentRichTextLists(atoms) }, QUOTE_TEXT_MAX_CHARACTERS) ?? "";
 }
 
 function isBlankAtom(atom: RichTextBlock) {
@@ -412,7 +420,8 @@ function PlainEditable({ text, className, ariaLabel, style, onInput, onFocus, on
   return <div ref={ref} className={className} style={style} role="textbox" aria-label={ariaLabel} contentEditable suppressContentEditableWarning spellCheck onFocus={onFocus} onBlur={onBlur} onKeyDown={onKeyDown} onPaste={pastePlainLine} onInput={(event) => onInput(event.currentTarget.innerText.replace(/\n/g, " ").slice(0, 400))} />;
 }
 
-export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, initialContent, professional, isCompleted, justSaved = false, preview, templateText, services }: Props) {
+export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, initialContent, professional, isCompleted, justSaved = false, preview, templateText, services, savedAt }: Props) {
+  const router = useRouter();
   const [content, setContent] = useState<QuoteDocumentContent>(() => ({ ...initialContent, blocks: normalizeFlow(initialContent.blocks.filter((block) => block.id !== "intro-title"), true) }));
   const contentRef = useRef(content);
   const documentContentFieldRef = useRef<HTMLInputElement>(null);
@@ -472,9 +481,131 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     return () => { observer.disconnect(); window.removeEventListener("resize", scheduleMeasure); cancelAnimationFrame(measureFrameRef.current); };
   }, [scheduleMeasure]);
 
+  /*
+   * Salvamento automático: o documento é gravado pouco depois de cada alteração e também ao sair do editor
+   * (por qualquer link). Assim nada do que foi digitado depende de clicar em SALVAR.
+   */
+  const lastSavedJsonRef = useRef(JSON.stringify(content));
+  const knownUpdatedAtRef = useRef(savedAt);
+  const saveStateRef = useRef<SaveState>("saved");
+  const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [savedTime, setSavedTime] = useState<string | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const firstPendingAtRef = useRef(0);
+  const inFlightRef = useRef<Promise<void> | null>(null);
+  const submittingRef = useRef(false);
+
+  function updateSaveState(state: SaveState) {
+    if (saveStateRef.current === state) return;
+    saveStateRef.current = state;
+    setSaveState(state);
+  }
+
+  const isDirty = useCallback(() => JSON.stringify(contentRef.current) !== lastSavedJsonRef.current, []);
+
+  const sendDocument = useCallback((json: string, keepalive = false) => fetch(`/api/orcamentos/${quoteId}/documento`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: json, keepalive }), [quoteId]);
+
+  const autosave = useCallback(async (): Promise<void> => {
+    clearTimeout(autosaveTimerRef.current);
+    if (submittingRef.current) return;
+    if (inFlightRef.current) {
+      await inFlightRef.current;
+      return autosave();
+    }
+    const json = JSON.stringify(contentRef.current);
+    if (json === lastSavedJsonRef.current) {
+      updateSaveState("saved");
+      return;
+    }
+    updateSaveState("saving");
+    const request = (async () => {
+      try {
+        const response = await sendDocument(json);
+        if (!response.ok) throw new Error(String(response.status));
+        const result = await response.json() as { updatedAt: string };
+        lastSavedJsonRef.current = json;
+        knownUpdatedAtRef.current = result.updatedAt;
+        firstPendingAtRef.current = 0;
+        setSavedTime(timeFormat.format(new Date(result.updatedAt)));
+        updateSaveState(JSON.stringify(contentRef.current) === json ? "saved" : "pending");
+      } catch {
+        updateSaveState("error");
+      }
+    })();
+    inFlightRef.current = request;
+    await request;
+    inFlightRef.current = null;
+    // Digitação durante a gravação, ou falha de rede: grava de novo em seguida.
+    if (saveStateRef.current === "pending") scheduleAutosave();
+    else if (saveStateRef.current === "error") autosaveTimerRef.current = setTimeout(() => void autosave(), 5_000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sendDocument]);
+
+  function scheduleAutosave() {
+    const now = Date.now();
+    if (!firstPendingAtRef.current) firstPendingAtRef.current = now;
+    clearTimeout(autosaveTimerRef.current);
+    // Mesmo digitando sem parar, o documento é gravado a cada poucos segundos.
+    autosaveTimerRef.current = setTimeout(() => void autosave(), now - firstPendingAtRef.current > AUTOSAVE_MAX_WAIT ? 0 : AUTOSAVE_DELAY);
+  }
+
   function writeContent(next: QuoteDocumentContent) {
     contentRef.current = next;
-    if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
+    const json = JSON.stringify(next);
+    if (documentContentFieldRef.current) documentContentFieldRef.current.value = json;
+    if (json !== lastSavedJsonRef.current) {
+      updateSaveState("pending");
+      scheduleAutosave();
+    }
+  }
+
+  useEffect(() => {
+    // Ao fechar ou recarregar a aba com algo ainda não gravado, tenta gravar e pede confirmação ao navegador.
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (submittingRef.current || !isDirty()) return;
+      const json = JSON.stringify(contentRef.current);
+      if (json.length < 60_000) void sendDocument(json, true).catch(() => undefined);
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    // Ao voltar para a página pelo histórico do navegador, confere se a versão na tela ainda é a mais recente.
+    const checkFreshness = async () => {
+      try {
+        const response = await fetch(`/api/orcamentos/${quoteId}/documento`, { cache: "no-store" });
+        if (!response.ok) return;
+        const { updatedAt } = await response.json() as { updatedAt: string };
+        if (new Date(updatedAt).getTime() > new Date(knownUpdatedAtRef.current).getTime() + 500 && !isDirty()) router.refresh();
+      } catch {
+        // Sem conexão, a versão na tela continua sendo editada e será gravada depois.
+      }
+    };
+    const pageShow = (event: PageTransitionEvent) => { if (event.persisted) void checkFreshness(); };
+    void checkFreshness();
+    window.addEventListener("beforeunload", beforeUnload);
+    window.addEventListener("pageshow", pageShow);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      window.removeEventListener("pageshow", pageShow);
+      clearTimeout(autosaveTimerRef.current);
+      // Saída por um link do sistema: grava o que ainda não foi salvo.
+      if (!submittingRef.current && isDirty()) {
+        const json = JSON.stringify(contentRef.current);
+        void sendDocument(json, json.length < 60_000).catch(() => undefined);
+      }
+    };
+  }, [quoteId, router, isDirty, sendDocument]);
+
+  /** SALVAR e CONCLUIR esperam um salvamento automático em andamento, para a versão mais nova ser a última gravada. */
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    clearTimeout(autosaveTimerRef.current);
+    if (inFlightRef.current) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+      void inFlightRef.current.then(() => form.requestSubmit(submitter ?? undefined));
+      return;
+    }
+    submittingRef.current = true;
   }
 
   /** Aplica uma mudança de estrutura (inserir, remover, alinhar). Textos alterados por fora são recriados. */
@@ -765,7 +896,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
       // A orientação de texto vazio ocupa espaço de verdade (fica na mesma célula do editor): em telas estreitas
       // ela quebra em várias linhas sem vazar da folha, e clicar sobre ela posiciona o cursor no texto.
       return <div key={`${block.id}:${versions[block.id] ?? 0}`} data-block-id={block.id} data-flow="text" className="quote-sheet-block is-text">
-        <InlineRichTextEditor initialValue={block.text} className="quote-sheet-text" ariaLabel={block.id.startsWith("service-description-") ? "Descrição do serviço" : "Texto da proposta"} onFocus={activate} onBlur={() => setContent(contentRef.current)} onChange={(value) => updateBlockText(block.id, value ?? "")} onKeyDown={(event) => handleTextKeys(event, block)} command={activeBlockId === block.id ? richTextCommand : null} onSelectionSize={setRichTextSize} onSelectionStyle={setRichTextStyle} />
+        <InlineRichTextEditor initialValue={block.text} maxCharacters={QUOTE_TEXT_MAX_CHARACTERS} className="quote-sheet-text" ariaLabel={block.id.startsWith("service-description-") ? "Descrição do serviço" : "Texto da proposta"} onFocus={activate} onBlur={() => setContent(contentRef.current)} onChange={(value) => updateBlockText(block.id, value ?? "")} onKeyDown={(event) => handleTextKeys(event, block)} command={activeBlockId === block.id ? richTextCommand : null} onSelectionSize={setRichTextSize} onSelectionStyle={setRichTextStyle} />
         <span className="quote-sheet-placeholder" aria-hidden="true">{placeholder}</span>
       </div>;
     }
@@ -792,12 +923,14 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   const gapCss = layout.gaps.map((gap) => `${gap.selector}{margin-top:${gap.gap}px!important}`).join("");
   const bottomSpace = layout.bottom;
 
-  return <form className="quote-document-editor quote-docs-editor" action={updateQuoteDocumentAction}>
+  const saveLabel = saveState === "saving" ? "Salvando..." : saveState === "pending" ? "Alterações ainda não salvas." : saveState === "error" ? "Não foi possível salvar automaticamente. Tentando de novo; se persistir, clique em SALVAR." : savedTime ? `Salvo automaticamente às ${savedTime}.` : justSaved ? "Alterações salvas." : "Salvamento automático ativado.";
+
+  return <form className="quote-document-editor quote-docs-editor" action={updateQuoteDocumentAction} onSubmit={handleSubmit}>
     <input type="hidden" name="quoteId" value={quoteId} />
     <input ref={documentContentFieldRef} type="hidden" name="documentContent" defaultValue={JSON.stringify(content)} />
     <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; void uploadImages(files); }} />
     <section className="quote-docs-toolbar" aria-label="Ferramentas do editor">
-      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{quoteCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{quoteTitle}</strong>{justSaved ? <small className="quote-docs-saved" role="status">Alterações salvas. Conclua quando o documento estiver pronto.</small> : null}</div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">TEXTO PADRÃO</button><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
+      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{quoteCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{quoteTitle}</strong><small className={`quote-docs-saved is-${saveState}`} role="status" aria-live="polite">{saveLabel}</small></div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">TEXTO PADRÃO</button><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
       <div className="quote-docs-toolbar-tools">
         <ComponentsMenu options={componentOptions} onOpen={() => { insertionPointRef.current = currentInsertionPoint(); }} onSelect={selectComponent} />
         {imageUpload.busy ? <span className="quote-docs-tool-context">ENVIANDO IMAGENS...</span> : null}

@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // O documento do editor do PDF é enviado inteiro ao salvar; o limite padrão (1 MB) cortaria propostas longas.
+  experimental: { serverActions: { bodySizeLimit: "3mb" } },
   async headers() {
     return [{
       source: "/(.*)",

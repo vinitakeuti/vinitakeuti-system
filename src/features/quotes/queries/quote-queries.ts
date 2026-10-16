@@ -54,7 +54,7 @@ export async function findCatalogServicesForQuote(query?: string) {
 }
 
 export async function getQuoteForPdf(id: string) {
-  return prisma.quote.findUnique({ where: { id }, select: { id: true, code: true, title: true, scope: true, documentContent: true, amountCents: true, discountCents: true, discountPercentBps: true, terms: true, validUntil: true, createdAt: true, completedAt: true, paymentNotes: true, payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 50, select: { id: true, amountCents: true, paidAt: true } }, client: { select: { name: true, company: true, document: true, email: true } }, items: { orderBy: { createdAt: "asc" }, select: { id: true, name: true, categoryName: true, proposalText: true, billingType: true, pricingMethod: true, billingCycle: true, quantity: true, unitAmountCents: true, totalAmountCents: true } } } });
+  return prisma.quote.findUnique({ where: { id }, select: { id: true, code: true, title: true, scope: true, documentContent: true, amountCents: true, discountCents: true, discountPercentBps: true, terms: true, validUntil: true, createdAt: true, updatedAt: true, completedAt: true, paymentNotes: true, payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 50, select: { id: true, amountCents: true, paidAt: true } }, client: { select: { name: true, company: true, document: true, email: true } }, items: { orderBy: { createdAt: "asc" }, select: { id: true, name: true, categoryName: true, proposalText: true, billingType: true, pricingMethod: true, billingCycle: true, quantity: true, unitAmountCents: true, totalAmountCents: true } } } });
 }
 
 export async function getQuoteForEdit(id: string) {

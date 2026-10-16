@@ -757,3 +757,6 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 .quote-docs-components-menu button small { color:var(--muted); font-size:.7rem; line-height:1.35; }
 .quote-docs-components-menu button:hover:not(:disabled),.quote-docs-components-menu button:focus-visible { background:var(--accent-surface); outline:0; }
 .quote-docs-components-menu button:disabled { cursor:not-allowed; opacity:.5; }
+/* Estado do salvamento automático do editor do PDF. */
+.quote-docs-saved.is-pending,.quote-docs-saved.is-saving { color:var(--muted); }
+.quote-docs-saved.is-error { color:#783b2a; }

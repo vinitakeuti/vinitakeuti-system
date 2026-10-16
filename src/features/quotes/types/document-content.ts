@@ -1,4 +1,10 @@
-import { richTextHasContent } from "@/lib/rich-text";
+import { richTextForStorage, richTextHasContent } from "@/lib/rich-text";
+
+/** Limite de caracteres de cada texto do documento: folgado o bastante para nunca cortar uma proposta real. */
+export const QUOTE_TEXT_MAX_CHARACTERS = 60_000;
+const QUOTE_DOCUMENT_MAX_BLOCKS = 400;
+/** Tamanho máximo do documento serializado aceito ao salvar. */
+export const QUOTE_DOCUMENT_MAX_JSON_LENGTH = 1_500_000;
 
 export type QuoteDocumentBlockType = "heading" | "paragraph" | "rich-text" | "image" | "page-break";
 export type QuoteDocumentFontSize = "small" | "medium" | "large";
@@ -128,8 +134,9 @@ export function withQuoteServiceBlocks(content: QuoteDocumentContent, services: 
 export function parseQuoteDocumentContent(value: unknown, fallback: { title: string; clientName: string }): QuoteDocumentContent {
   if (!value || typeof value !== "object" || Array.isArray(value)) return createDefaultQuoteDocument(fallback);
   const candidate = value as { version?: unknown; blocks?: unknown };
-  if (candidate.version !== 1 || !Array.isArray(candidate.blocks) || candidate.blocks.length > 200) return createDefaultQuoteDocument(fallback);
-  const blocks = candidate.blocks.flatMap((block, index): QuoteDocumentBlock[] => {
+  if (candidate.version !== 1 || !Array.isArray(candidate.blocks)) return createDefaultQuoteDocument(fallback);
+  // Um documento grande demais é limitado, nunca trocado por um documento vazio.
+  const blocks = candidate.blocks.slice(0, QUOTE_DOCUMENT_MAX_BLOCKS).flatMap((block, index): QuoteDocumentBlock[] => {
     if (!block || typeof block !== "object" || Array.isArray(block)) return [];
     const item = block as Partial<QuoteDocumentBlock>;
     if (typeof item.text !== "string" || !validTypes.has(item.type as QuoteDocumentBlockType) || !validSizes.has(item.fontSize as QuoteDocumentFontSize) || !validAlignments.has(item.align as QuoteDocumentAlign)) return [];
@@ -141,7 +148,8 @@ export function parseQuoteDocumentContent(value: unknown, fallback: { title: str
       const align = item.align === "justify" ? "center" : item.align as QuoteDocumentAlign;
       return image ? [{ id, type, text: "", fontSize: item.fontSize as QuoteDocumentFontSize, bold: false, italic: false, underline: false, align, image }] : [];
     }
-    const text = type === "rich-text" ? item.text.slice(0, 16_000) : item.text.slice(0, 4_000);
+    // O texto rico é validado e regravado inteiro: cortar o JSON no meio o tornaria ilegível.
+    const text = type === "rich-text" ? richTextForStorage(item.text, QUOTE_TEXT_MAX_CHARACTERS) ?? "" : item.text.slice(0, 4_000);
     return [{ id, type, text, fontSize: item.fontSize as QuoteDocumentFontSize, bold: Boolean(item.bold), italic: Boolean(item.italic), underline: Boolean(item.underline), align: item.align as QuoteDocumentAlign }];
   });
   const withoutLegacyDefaults = blocks.filter((block) => !(block.id === "intro-title" || (block.id === "intro-client" && block.text === `Olá, ${fallback.clientName}.`) || (block.id === "intro-body" && block.text === "Preparamos esta proposta com os serviços, prazos e investimento apresentados a seguir.")));

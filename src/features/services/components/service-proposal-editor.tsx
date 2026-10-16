@@ -36,6 +36,8 @@ type InlineEditorProps = {
   ariaLabel: string;
   className?: string;
   placeholder?: string;
+  /** Limite de caracteres do texto salvo (o catálogo de serviços usa 4.000; o PDF do orçamento, bem mais). */
+  maxCharacters?: number;
 };
 
 function escapeHtml(value: string) {
@@ -428,7 +430,7 @@ function applyParagraphStyle(editor: HTMLElement, style: RichTextParagraphStyle 
   });
 }
 
-export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, onSelectionSize, onSelectionStyle, onKeyDown, ariaLabel, className, placeholder }: InlineEditorProps) {
+export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, onSelectionSize, onSelectionStyle, onKeyDown, ariaLabel, className, placeholder, maxCharacters = 4_000 }: InlineEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const pendingSizeRef = useRef<number | null>(null);
   const onSelectionSizeRef = useRef(onSelectionSize);
@@ -454,7 +456,7 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
       pendingSizeRef.current = null;
     }
     dropStaleSizes(editor);
-    const value = serializeRichText(documentFromEditor(editor));
+    const value = serializeRichText(documentFromEditor(editor), maxCharacters);
     editor.dataset.empty = String(!value);
     onChange(value);
   }
