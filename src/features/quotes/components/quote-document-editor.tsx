@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest } from "@/features/services/components/service-proposal-editor";
 import { QuoteClosingPreview, QuoteCoverPreview, type QuotePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { updateQuoteDocumentAction } from "@/features/quotes/services/quote-actions";
-import { QUOTE_INTRO_BLOCK_ID, quoteDocumentBlockRole, quoteImageWidthShare, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentBlockType, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
-import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, richTextPlainText, serializeRichText, type RichTextBlock, type RichTextParagraphStyle, type RichTextRun } from "@/lib/rich-text";
+import { hasQuoteServicesComponent, QUOTE_INTRO_BLOCK_ID, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
+import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, serializeRichText, type RichTextBlock, type RichTextParagraphStyle } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
   name: string;
@@ -21,14 +21,7 @@ type ProfessionalProfile = {
   website?: string | null;
 };
 
-/** Parte de um texto rico exibida numa folha: os itens [atomStart, atomStart + atomCount) do texto de origem. */
-type DocumentDisplayBlock = QuoteDocumentBlock & { sourceId?: string; partIndex?: number; atomStart?: number; atomCount?: number; atomTotal?: number };
-type DocumentPage = { blocks: DocumentDisplayBlock[] };
-/** Parte em edição: fica como está enquanto o usuário digita, para o editor não ser recriado sob o cursor. */
-type PinnedPart = { id: string; sourceId: string; atomStart: number; atomCount: number; pageIndex: number };
-type FocusRequest = { sourceId: string; atomIndex: number; offset: number };
-/** Onde as imagens entram: no ponto do cursor dentro de um texto ou logo depois de um bloco selecionado. */
-type InsertionPoint = { kind: "text"; sourceId: string; atomIndex: number; offset: number } | { kind: "block"; blockId: string };
+type ServiceSource = { id: string; name: string; categoryName: string | null; proposalText: string | null };
 
 type Props = {
   quoteId: string;
@@ -40,37 +33,38 @@ type Props = {
   isCompleted: boolean;
   justSaved?: boolean;
   preview: QuotePreviewData;
-  /** Texto padrão em rich text; só entra no documento quando o usuário clica em INSERIR TEXTO PADRÃO. */
+  /** Texto padrão em rich text; só entra no documento pelo componente Texto padrão. */
   templateText?: string | null;
+  /** Serviços do orçamento, para o componente Serviços incluídos. */
+  services: ServiceSource[];
 };
 
-const sizeLabels: Record<QuoteDocumentFontSize, string> = { small: "Pequeno", medium: "Normal", large: "Grande" };
-const alignLabels: Record<QuoteDocumentAlign, string> = { left: "À esquerda", center: "Centralizado", right: "À direita", justify: "Justificado" };
+/** Onde um componente entra: no ponto do cursor dentro de um texto ou logo depois de um bloco selecionado. */
+type InsertionPoint = { kind: "text"; blockId: string; atomIndex: number; offset: number } | { kind: "block"; blockId: string };
+type FocusRequest = { blockId: string; edge: "start" | "end" } | { blockId: string; atomIndex: number; offset: number };
 
-function estimatedBlockHeight(block: DocumentDisplayBlock) {
-  if (block.type === "image") return Math.ceil(666 * quoteImageWidthShare(block) * (block.image ? block.image.height / block.image.width : 0.6)) + 22;
-  const source = block.type === "rich-text" ? richTextPlainText(block.text) : block.text;
-  if (!source) return 24;
-  const role = quoteDocumentBlockRole(block);
-  if (role === "section-label") return 58;
-  if (role === "service-category") return 26;
-  if (role === "service-title") return 54;
-  const charactersPerLine = block.fontSize === "large" ? 48 : block.fontSize === "small" ? 100 : 78;
-  const lines = Math.max(1, source.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / charactersPerLine)), 0));
-  return lines * (block.fontSize === "large" ? 32 : block.fontSize === "small" ? 20 : 25) + (block.type === "rich-text" ? 12 : 18);
-}
+/**
+ * Medidas da folha do PDF em pontos (A4). O editor desenha a folha nas mesmas proporções, com a fonte do PDF,
+ * para que as quebras de página na tela coincidam com as do arquivo gerado.
+ */
+const PDF_PAGE = { width: 595.28, top: 48, bottom: 46, header: 93, headerGap: 29 };
+const PDF_CONTENT_HEIGHT = 841.89 - PDF_PAGE.top - PDF_PAGE.bottom - PDF_PAGE.header - PDF_PAGE.headerGap;
+/** Espaço cinza entre as folhas, em pixels. */
+const PAGE_GUTTER = 24;
+/**
+ * Telas estreitas: o texto mantém um tamanho legível e as margens ficam menores. As folhas continuam com a
+ * proporção do A4, mas a quebra é aproximada (as linhas quebram em outros pontos que no PDF).
+ */
+const COMPACT_PT = 1.3339;
+const COMPACT_PADDING = { top: 22, bottom: 28 };
+const A4_RATIO = 841.89 / 595.28;
 
-/** Texto criado ao inserir imagens: continua o documento depois delas. */
+type PageBreak = { top: number; gap: number; remaining: number };
+type FlowLayout = { pt: number; compact: boolean; bottom: number; gaps: Array<{ selector: string; gap: number }>; breaks: PageBreak[]; tail: number };
+const initialLayout: FlowLayout = { pt: COMPACT_PT, compact: false, bottom: PDF_PAGE.bottom * COMPACT_PT, gaps: [], breaks: [], tail: 0 };
+
 const CONTINUATION_TEXT_PREFIX = "text-";
-
-/** A apresentação e o texto depois de uma imagem aparecem mesmo vazios, para sempre haver onde escrever. */
-function isWritableWhenEmpty(id: string) {
-  return id === QUOTE_INTRO_BLOCK_ID || id.startsWith(CONTINUATION_TEXT_PREFIX);
-}
-
-function newTextBlock(text: string): QuoteDocumentBlock {
-  return { id: `${CONTINUATION_TEXT_PREFIX}${crypto.randomUUID().slice(0, 8)}`, type: "rich-text", text, fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
-}
+const alignLabels: Record<QuoteDocumentAlign, string> = { left: "À esquerda", center: "Centralizado", right: "À direita", justify: "Justificado" };
 
 /** Itens indivisíveis do texto rico: cada parágrafo e cada item de lista. */
 function richTextAtoms(text: string): RichTextBlock[] {
@@ -81,174 +75,43 @@ function serializeAtoms(atoms: RichTextBlock[]) {
   return serializeRichText({ version: 1, blocks: mergeAdjacentRichTextLists(atoms) }, 16_000) ?? "";
 }
 
-function atomRuns(atom: RichTextBlock) {
-  return atom.type === "paragraph" ? atom.runs : atom.items[0] ?? [];
+function isBlankAtom(atom: RichTextBlock) {
+  return isBlankRichTextRuns(atom.type === "paragraph" ? atom.runs : atom.items[0] ?? []);
 }
 
-function withAtomRuns(atom: RichTextBlock, runs: RichTextRun[]): RichTextBlock {
-  return atom.type === "paragraph" ? { ...atom, runs } : { type: atom.type, items: [runs] };
+function newTextBlock(text: string, id = `${CONTINUATION_TEXT_PREFIX}${crypto.randomUUID().slice(0, 8)}`): QuoteDocumentBlock {
+  return { id, type: "rich-text", text, fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
 }
 
-function atomTextLength(atom: RichTextBlock) {
-  return isBlankRichTextRuns(atomRuns(atom)) ? 0 : atomRuns(atom).reduce((total, run) => total + run.text.length, 0);
-}
-
-/** Une dois itens vizinhos (Backspace no início ou Delete no fim de uma parte). Devolve o item e onde fica o cursor. */
-function joinAtoms(first: RichTextBlock, second: RichTextBlock): { atom: RichTextBlock; caret: number } {
-  if (isBlankRichTextRuns(atomRuns(second))) return { atom: first, caret: atomTextLength(first) };
-  if (isBlankRichTextRuns(atomRuns(first))) return { atom: second, caret: 0 };
-  return { atom: withAtomRuns(first, [...atomRuns(first), ...atomRuns(second)]), caret: atomTextLength(first) };
-}
-
-const PARAGRAPH_STYLE_SIZES: Record<RichTextParagraphStyle, number> = { title: 18, subtitle: 13, section: 10 };
-
-function estimatedAtomHeight(atom: RichTextBlock) {
-  const runs = atomRuns(atom);
-  if (atom.type === "paragraph" && atom.style === "section") return 46;
-  const baseSize = atom.type === "paragraph" && atom.style ? PARAGRAPH_STYLE_SIZES[atom.style] : RICH_TEXT_BASE_SIZE;
-  const size = Math.max(baseSize, ...runs.map((run) => run.size ?? baseSize));
-  const scale = size / RICH_TEXT_BASE_SIZE;
-  const text = runs.map((run) => run.text).join("");
-  const charactersPerLine = (atom.type === "paragraph" ? 74 : 69) / scale;
-  const lines = Math.max(1, text.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / charactersPerLine)), 0));
-  return Math.ceil(lines * 25 * scale * (richTextLineHeight(size) / 1.65)) + (atom.type === "paragraph" ? 8 : 3);
-}
-
-/** Unidade de paginação: um bloco comum, um item de texto rico ou a parte inteira que está sendo editada. */
-type PaginationUnit = { block: QuoteDocumentBlock; atoms?: { start: number; items: RichTextBlock[]; total: number; pinnedId?: string } };
-
-function paginationUnits(blocks: QuoteDocumentBlock[], pinned: PinnedPart | null) {
-  return blocks.flatMap((block): PaginationUnit[] => {
-    if (block.type !== "rich-text") return [{ block }];
-    const atoms = richTextAtoms(block.text);
-    const total = atoms.length;
-    if (!richTextPlainText(block.text).trim()) {
-      // A apresentação continua visível mesmo vazia, para que sempre exista onde escrever antes dos serviços.
-      return isWritableWhenEmpty(block.id) ? [{ block, atoms: { start: 0, items: atoms, total, pinnedId: pinned?.sourceId === block.id ? pinned.id : undefined } }] : [];
-    }
-    const pin = pinned?.sourceId === block.id && pinned.atomStart >= 0 && pinned.atomStart + pinned.atomCount <= total ? pinned : null;
-    const units: PaginationUnit[] = [];
-    for (let index = 0; index < total; index += 1) {
-      if (pin && index === pin.atomStart) {
-        units.push({ block, atoms: { start: index, items: atoms.slice(index, index + pin.atomCount), total, pinnedId: pin.id } });
-        index += Math.max(0, pin.atomCount - 1);
-        continue;
-      }
-      units.push({ block, atoms: { start: index, items: [atoms[index]], total } });
-    }
-    return units;
-  });
-}
-
-/** Mantém título do serviço, categoria e o início da descrição juntos; o rótulo de seção acompanha o primeiro serviço. */
-function paginationGroups(units: PaginationUnit[]) {
-  const groups: PaginationUnit[][] = [];
-  let index = 0;
-  const serviceGroup = (start: number) => {
-    const group = [units[start]];
-    const suffix = units[start].block.id.slice("service-title-".length);
-    let next = start + 1;
-    if (units[next]?.block.id === `service-category-${suffix}`) group.push(units[next++]);
-    if (units[next]?.block.id === `service-description-${suffix}`) group.push(units[next++]);
-    return { group, next };
-  };
-  while (index < units.length) {
-    const unit = units[index];
-    if (unit.block.id === "services-label" && units[index + 1]?.block.id.startsWith("service-title-")) {
-      const service = serviceGroup(index + 1);
-      groups.push([unit, ...service.group]);
-      index = service.next;
-      continue;
-    }
-    if (unit.block.id.startsWith("service-title-")) {
-      const service = serviceGroup(index);
-      groups.push(service.group);
-      index = service.next;
-      continue;
-    }
-    groups.push([unit]);
-    index += 1;
-  }
-  return groups;
-}
-
-type PageLayout = { heights: Record<string, number>; capacity: number };
-
-/** Assinatura curta do texto: blocos ricos são editores não controlados e precisam ser recriados quando o conteúdo é redistribuído. */
-function textSignature(text: string) {
-  let hash = 5381;
-  for (let index = 0; index < text.length; index += 1) hash = ((hash << 5) + hash + text.charCodeAt(index)) | 0;
-  return `${text.length}-${(hash >>> 0).toString(36)}`;
-}
-
-function continuesPart(previous: PaginationUnit | undefined, unit: PaginationUnit) {
-  return Boolean(previous?.atoms && unit.atoms && !previous.atoms.pinnedId && !unit.atoms.pinnedId && previous.block.id === unit.block.id && previous.atoms.start + previous.atoms.items.length === unit.atoms.start);
-}
-
-function unitHeight(unit: PaginationUnit, previous: PaginationUnit | undefined, layout: PageLayout | null) {
-  if (!unit.atoms) return layout?.heights[unit.block.id] ?? estimatedBlockHeight(unit.block);
-  const overhead = layout?.heights[`${unit.block.id}#overhead`] ?? 24;
-  if (unit.atoms.pinnedId) return layout?.heights[unit.atoms.pinnedId] ?? unit.atoms.items.reduce((total, atom) => total + estimatedAtomHeight(atom), overhead);
-  // A apresentação vazia é exibida sem itens: ocupa uma linha para o texto de orientação.
-  const atomHeight = unit.atoms.items.length ? layout?.heights[`${unit.block.id}#${unit.atoms.start}`] ?? estimatedAtomHeight(unit.atoms.items[0]) : 26;
-  return atomHeight + (continuesPart(previous, unit) ? 0 : overhead);
+/** Textos livres do documento: a apresentação e os textos criados ao inserir componentes. */
+function isFreeText(block: QuoteDocumentBlock | undefined) {
+  return block?.type === "rich-text" && (block.id === QUOTE_INTRO_BLOCK_ID || block.id.startsWith(CONTINUATION_TEXT_PREFIX));
 }
 
 /**
- * Distribui o documento pelas folhas usando a altura medida na tela (ou uma estimativa antes da primeira medição).
- * O texto rico é paginado parágrafo a parágrafo e, em cada folha, os parágrafos de um mesmo texto formam um único
- * editor: dentro da folha é possível apagar, selecionar e formatar livremente. A parte em edição nunca é empurrada
- * para a folha seguinte, para o cursor não sair do lugar; o que vem depois dela é que avança quando a folha enche.
+ * Mantém o fluxo coerente depois de inserir ou remover componentes: textos livres vizinhos voltam a ser um só
+ * e o documento sempre termina num texto, para haver onde continuar escrevendo.
  */
-function paginateDocument(blocks: QuoteDocumentBlock[], layout: PageLayout | null, pinned: PinnedPart | null) {
-  const capacity = layout?.capacity ?? 790;
-  const unitPages: PaginationUnit[][] = [[]];
-  let usedHeight = 0;
-  for (const group of paginationGroups(paginationUnits(blocks, pinned))) {
-    const heightOn = (previous: PaginationUnit | undefined) => group.reduce((total, unit, index) => total + unitHeight(unit, index ? group[index - 1] : previous, layout), 0);
-    const isPinned = group.some((unit) => unit.atoms ? Boolean(unit.atoms.pinnedId) : pinned?.id === unit.block.id);
-    // A parte em edição fica na folha em que estava: não avança nem volta para a folha anterior.
-    while (isPinned && pinned && unitPages.length - 1 < pinned.pageIndex) {
-      unitPages.push([]);
-      usedHeight = 0;
+function normalizeFlow(blocks: QuoteDocumentBlock[], stableIds = false) {
+  const output: QuoteDocumentBlock[] = [];
+  for (const block of blocks) {
+    const previous = output.at(-1);
+    if (isFreeText(previous) && block.type === "rich-text" && block.id.startsWith(CONTINUATION_TEXT_PREFIX)) {
+      output[output.length - 1] = { ...previous!, text: serializeAtoms([...richTextAtoms(previous!.text), ...richTextAtoms(block.text)]) };
+      continue;
     }
-    let height = heightOn(unitPages.at(-1)!.at(-1));
-    if (unitPages.at(-1)!.length && usedHeight + height > capacity && !isPinned) {
-      unitPages.push([]);
-      usedHeight = 0;
-      height = heightOn(undefined);
-    }
-    unitPages.at(-1)!.push(...group);
-    usedHeight += height;
+    output.push(block);
   }
-
-  const partCounters: Record<string, number> = {};
-  return unitPages.map((units): DocumentPage => {
-    const pageBlocks: DocumentDisplayBlock[] = [];
-    const pageItems: RichTextBlock[][] = [];
-    units.forEach((unit, index) => {
-      if (!unit.atoms) {
-        pageBlocks.push(unit.block);
-        pageItems.push([]);
-        return;
-      }
-      if (continuesPart(units[index - 1], unit)) {
-        pageBlocks.at(-1)!.atomCount! += unit.atoms.items.length;
-        pageItems.at(-1)!.push(...unit.atoms.items);
-        return;
-      }
-      const partIndex = partCounters[unit.block.id] ?? 0;
-      partCounters[unit.block.id] = partIndex + 1;
-      let id = unit.atoms.pinnedId ?? `${unit.block.id}-part-${partIndex}`;
-      if (!unit.atoms.pinnedId && pinned && id === pinned.id) id = `${id}-next`;
-      pageBlocks.push({ ...unit.block, id, sourceId: unit.block.id, partIndex, atomStart: unit.atoms.start, atomCount: unit.atoms.items.length, atomTotal: unit.atoms.total });
-      pageItems.push([...unit.atoms.items]);
-    });
-    return { blocks: pageBlocks.map((block, index) => block.sourceId ? { ...block, text: serializeAtoms(pageItems[index]) } : block) };
-  });
+  if (!isFreeText(output.at(-1))) {
+    // Na abertura do editor o id precisa ser o mesmo no servidor e no navegador.
+    let id = `${CONTINUATION_TEXT_PREFIX}end`;
+    for (let suffix = 2; stableIds && output.some((block) => block.id === id); suffix += 1) id = `${CONTINUATION_TEXT_PREFIX}end-${suffix}`;
+    output.push(stableIds ? newTextBlock("", id) : newTextBlock(""));
+  }
+  return output;
 }
 
-/** Elementos que correspondem, em ordem, aos itens de uma parte: parágrafos e itens de lista. */
+/** Elementos que correspondem, em ordem, aos itens de um texto: parágrafos e itens de lista. */
 function atomElements(editor: Element) {
   return Array.from(editor.children).flatMap((child) => child.tagName === "UL" || child.tagName === "OL" ? Array.from(child.children).filter((item) => item.tagName === "LI") : [child]) as HTMLElement[];
 }
@@ -265,73 +128,18 @@ function caretAtEdge(editor: HTMLElement, edge: "start" | "end") {
   else probe.setStart(range.endContainer, range.endOffset);
   if (probe.toString().length) return false;
   const fragment = probe.cloneContents();
-  return fragment.querySelectorAll("p, div, li").length <= 1 && fragment.querySelectorAll("br").length <= (edge === "end" ? 1 : 0);
+  return fragment.querySelectorAll("p, div, li, h1, h2, h3, h4, h5, h6").length <= 1 && fragment.querySelectorAll("br").length <= (edge === "end" ? 1 : 0);
 }
 
-/**
- * Item do texto (índice na origem) e posição do cursor dentro dele, a partir da seleção atual numa parte.
- * Texto solto no início do editor (primeira linha digitada num editor vazio) conta como o primeiro parágrafo.
- */
-function caretAtomPosition(wrapper: HTMLElement): { atomIndex: number; offset: number } | null {
-  const editor = wrapper.querySelector<HTMLElement>("[contenteditable]");
+/** O cursor está na primeira (ou última) linha visual do editor: as setas seguem para o bloco vizinho. */
+function caretOnEdgeLine(editor: HTMLElement, edge: "start" | "end") {
+  if (caretAtEdge(editor, edge)) return true;
   const selection = window.getSelection();
-  if (!editor || !selection?.rangeCount || !editor.contains(selection.anchorNode)) return null;
-  const leadingInline = Array.from(editor.childNodes).findIndex((node) => node instanceof HTMLElement && !["A", "B", "BR", "EM", "FONT", "I", "SPAN", "STRONG", "U"].includes(node.tagName));
-  const inlineNodes = Array.from(editor.childNodes).slice(0, leadingInline === -1 ? editor.childNodes.length : leadingInline);
-  const hasLeadingParagraph = inlineNodes.some((node) => node.textContent?.length || (node instanceof HTMLElement && node.tagName === "BR"));
-  const atoms = atomElements(editor);
-  const anchor = selection.anchorNode!;
-  let index = atoms.findIndex((atom) => atom === anchor || atom.contains(anchor));
-  let container: Node = editor;
-  if (index >= 0) {
-    container = atoms[index];
-    if (hasLeadingParagraph) index += 1;
-  } else if (hasLeadingParagraph && inlineNodes.some((node) => node === anchor || node.contains(anchor))) {
-    index = 0;
-  } else return null;
-  const probe = document.createRange();
-  probe.selectNodeContents(container);
-  probe.setEnd(anchor, selection.anchorOffset);
-  return { atomIndex: Number(wrapper.dataset.atomStart ?? 0) + index, offset: probe.toString().length };
-}
-
-/**
- * Prepara a imagem para o PDF: fotos são reduzidas (lado maior até 2000 px) e regravadas em JPEG, o que também
- * aplica a rotação da câmera. PNGs pequenos seguem como estão, preservando a nitidez de prints e logos.
- */
-async function prepareImageFile(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
-  if (file.type === "image/png" && scale === 1 && file.size <= 3_500_000) {
-    bitmap.close();
-    return file;
-  }
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("canvas");
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("encode")), "image/jpeg", 0.88));
-}
-
-const imageAlignOptions: Array<{ value: QuoteDocumentAlign; label: string }> = [
-  { value: "left", label: "Alinhar imagem à esquerda" },
-  { value: "center", label: "Centralizar imagem" },
-  { value: "right", label: "Alinhar imagem à direita" },
-];
-const imageSizeOptions: Array<{ value: QuoteDocumentFontSize; label: string }> = [
-  { value: "small", label: "PEQUENA" },
-  { value: "medium", label: "MÉDIA" },
-  { value: "large", label: "LARGURA TOTAL" },
-];
-
-/** Ícone de alinhamento: linhas encostadas à esquerda, ao centro ou à direita. */
-function AlignIcon({ align }: { align: QuoteDocumentAlign }) {
-  return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">{[14, 9, 14, 7].map((width, index) => <rect key={index} x={align === "left" ? 1 : align === "right" ? 15 - width : (16 - width) / 2} y={2 + index * 3.5} width={width} height="1.5" fill="currentColor" />)}</svg>;
+  if (!selection?.rangeCount || !selection.isCollapsed) return false;
+  const caret = selection.getRangeAt(0).getClientRects()[0];
+  if (!caret) return false;
+  const bounds = editor.getBoundingClientRect();
+  return edge === "start" ? caret.top - bounds.top < caret.height * 0.9 : bounds.bottom - caret.bottom < caret.height * 0.9;
 }
 
 /** Coloca o cursor no caractere `offset` de um elemento (Infinity = fim). */
@@ -360,6 +168,132 @@ function placeCaret(element: HTMLElement, offset: number) {
   range.collapse(true);
   selection.removeAllRanges();
   selection.addRange(range);
+}
+
+/** Item do texto onde está o cursor e a posição dele dentro do item. */
+function caretAtomPosition(editor: HTMLElement): { atomIndex: number; offset: number } | null {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !editor.contains(selection.anchorNode)) return null;
+  const atoms = atomElements(editor);
+  const anchor = selection.anchorNode!;
+  const index = atoms.findIndex((atom) => atom === anchor || atom.contains(anchor));
+  if (index < 0) return null;
+  const probe = document.createRange();
+  probe.selectNodeContents(atoms[index]);
+  probe.setEnd(anchor, selection.anchorOffset);
+  return { atomIndex: index, offset: probe.toString().length };
+}
+
+/**
+ * Prepara a imagem para o PDF: fotos são reduzidas (lado maior até 2000 px) e regravadas em JPEG, o que também
+ * aplica a rotação da câmera. PNGs pequenos seguem como estão, preservando a nitidez de prints e logos.
+ */
+async function prepareImageFile(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+  if (file.type === "image/png" && scale === 1 && file.size <= 3_500_000) {
+    bitmap.close();
+    return file;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("canvas");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("encode")), "image/jpeg", 0.88));
+}
+
+/**
+ * Item medido para a paginação. `selector` identifica o elemento por CSS: o espaço entre as folhas é aplicado por
+ * uma regra de estilo, sem alterar o HTML do texto que está sendo editado.
+ */
+type FlowItem = { element: HTMLElement; selector: string; keepWithNext: boolean; breakAfter: boolean };
+
+function flowItems(content: HTMLElement): FlowItem[] {
+  const items: FlowItem[] = [];
+  content.querySelectorAll<HTMLElement>(":scope > [data-block-id]").forEach((wrapper) => {
+    const base = `[data-block-id="${wrapper.dataset.blockId}"]`;
+    const editor = wrapper.dataset.flow === "text" ? wrapper.querySelector<HTMLElement>("[contenteditable]") : null;
+    const before = items.length;
+    Array.from(editor?.children ?? []).forEach((child, index) => {
+      const path = `${base} [contenteditable] > :nth-child(${index + 1})`;
+      if (child.tagName === "UL" || child.tagName === "OL") {
+        Array.from(child.children).forEach((item, itemIndex) => items.push({ element: item as HTMLElement, selector: `${path} > :nth-child(${itemIndex + 1})`, keepWithNext: false, breakAfter: false }));
+        return;
+      }
+      items.push({ element: child as HTMLElement, selector: path, keepWithNext: /^H[1-6]$/.test(child.tagName), breakAfter: false });
+    });
+    if (items.length === before) items.push({ element: wrapper, selector: base, keepWithNext: wrapper.dataset.keep === "next", breakAfter: wrapper.dataset.flow === "page-break" });
+  });
+  return items;
+}
+
+/**
+ * Pagina o documento a partir das alturas medidas, descontando o espaço entre folhas já aplicado (as posições
+ * não dependem da própria paginação, o que evita oscilação). Títulos não ficam sozinhos no fim da folha e a
+ * quebra de página manual força uma nova folha.
+ */
+function measureFlow(sheet: HTMLElement, header: HTMLElement, content: HTMLElement, end: HTMLElement, current: FlowLayout): FlowLayout {
+  const width = sheet.clientWidth;
+  const compact = width < 600;
+  const pt = compact ? COMPACT_PT : width / PDF_PAGE.width;
+  const top = compact ? COMPACT_PADDING.top : PDF_PAGE.top * pt;
+  const bottom = compact ? COMPACT_PADDING.bottom : PDF_PAGE.bottom * pt;
+  // No computador a área útil é a do PDF; no celular, a que sobra na folha A4 depois das margens e do cabeçalho.
+  const headerSpace = compact ? header.getBoundingClientRect().height + parseFloat(getComputedStyle(header).marginBottom) : (PDF_PAGE.header + PDF_PAGE.headerGap) * pt;
+  const capacity = compact ? width * A4_RATIO - top - bottom - headerSpace : PDF_CONTENT_HEIGHT * pt;
+  const items = flowItems(content);
+  const applied = new Map(current.gaps.map((gap) => [gap.selector, gap.gap]));
+  const contentTop = content.getBoundingClientRect().top;
+  const sheetOffset = contentTop - sheet.getBoundingClientRect().top;
+  // Posição real de cada item sem o espaço entre folhas, e posição "consumida" (a quebra manual não ocupa altura no PDF).
+  let shift = 0;
+  const actual = items.map((item) => {
+    shift += applied.get(item.selector) ?? 0;
+    return item.element.getBoundingClientRect().top - contentTop - shift;
+  });
+  const endActual = end.getBoundingClientRect().top - contentTop - shift;
+  const consumed: number[] = [];
+  let position = actual[0] ?? 0;
+  items.forEach((item, index) => {
+    consumed[index] = position;
+    const next = index + 1 < items.length ? actual[index + 1] : endActual;
+    position += item.breakAfter ? 0 : next - actual[index];
+  });
+
+  const between = bottom + top + headerSpace + PAGE_GUTTER;
+  const gaps: FlowLayout["gaps"] = [];
+  const breaks: PageBreak[] = [];
+  let pageStart = 0;
+  let pageStartActual = 0;
+  let firstOnPage = 0;
+  let added = 0;
+  for (let index = 0; index < items.length; index += 1) {
+    const forced = index > 0 && items[index - 1].breakAfter;
+    const next = index + 1 < items.length ? consumed[index + 1] : position;
+    const overflows = next - pageStart > capacity + 0.5 && index > firstOnPage;
+    if (!forced && !overflows) continue;
+    let breakAt = index;
+    if (!forced) while (breakAt - 1 > firstOnPage && items[breakAt - 1].keepWithNext) breakAt -= 1;
+    const remaining = Math.max(0, capacity - (actual[breakAt] - pageStartActual));
+    const gap = Math.round(remaining + between);
+    breaks.push({ top: Math.round(sheetOffset + actual[breakAt] + added), gap, remaining: Math.round(remaining) });
+    gaps.push({ selector: items[breakAt].selector, gap });
+    added += gap;
+    pageStart = consumed[breakAt];
+    pageStartActual = actual[breakAt];
+    firstOnPage = breakAt;
+  }
+  return { pt, compact, bottom, gaps, breaks, tail: Math.max(0, Math.round(capacity - (endActual - pageStartActual))) };
+}
+
+function sameLayout(left: FlowLayout, right: FlowLayout) {
+  if (left.compact !== right.compact || Math.abs(left.bottom - right.bottom) > 0.5 || Math.abs(left.pt - right.pt) > 0.001 || Math.abs(left.tail - right.tail) > 1 || left.gaps.length !== right.gaps.length) return false;
+  return left.gaps.every((gap, index) => gap.selector === right.gaps[index].selector && Math.abs(gap.gap - right.gaps[index].gap) <= 1) && left.breaks.every((item, index) => Math.abs(item.top - right.breaks[index].top) <= 1);
 }
 
 /** Menu suspenso da barra: posição fixa (a barra rola na horizontal) e fecha com Esc, clique fora, rolagem ou redimensionamento. */
@@ -430,391 +364,277 @@ function ParagraphStyleControl({ style, onSelect }: { style: RichTextParagraphSt
   </>;
 }
 
-type PartBoundaryAction = "merge-backward" | "merge-forward" | "focus-previous" | "focus-next";
+type ComponentOption = { key: "services" | "template" | "images" | "page-break"; label: string; detail: string; disabled?: boolean };
 
-/** Backspace/Delete e setas na borda de uma parte continuam no texto da folha vizinha. */
-function partBoundaryAction(event: KeyboardEvent<HTMLDivElement>, block: DocumentDisplayBlock): PartBoundaryAction | null {
-  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || block.atomStart === undefined || block.atomCount === undefined || block.atomTotal === undefined) return null;
-  const hasPrevious = block.atomStart > 0;
-  const hasNext = block.atomStart + block.atomCount < block.atomTotal;
-  const editor = event.currentTarget;
-  if ((event.key === "Backspace" || event.key === "ArrowLeft" || event.key === "ArrowUp") && hasPrevious && caretAtEdge(editor, "start")) return event.key === "Backspace" ? "merge-backward" : "focus-previous";
-  if ((event.key === "Delete" || event.key === "ArrowRight" || event.key === "ArrowDown") && hasNext && caretAtEdge(editor, "end")) return event.key === "Delete" ? "merge-forward" : "focus-next";
-  return null;
+/** Componentes: blocos prontos inseridos no ponto do cursor (ou depois do bloco selecionado). */
+function ComponentsMenu({ options, onOpen, onSelect }: { options: ComponentOption[]; onOpen: () => void; onSelect: (key: ComponentOption["key"]) => void }) {
+  const menu = useToolbarMenu("quote-docs-components-menu");
+  return <>
+    <button type="button" ref={menu.triggerRef} className="quote-docs-components-trigger" aria-haspopup="menu" aria-expanded={menu.position !== null} title="Inserir serviços incluídos, texto padrão, imagens ou quebra de página" onMouseDown={(event) => { event.preventDefault(); if (!menu.position) onOpen(); }} onClick={() => menu.toggle(300)}>COMPONENTES</button>
+    {menu.position ? <div className="quote-docs-components-menu" role="menu" aria-label="Componentes do documento" style={{ top: menu.position.top, left: menu.position.left }}>
+      <p>Entra no ponto do cursor.</p>
+      {options.map((option) => <button type="button" role="menuitem" key={option.key} disabled={option.disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => { menu.close(); onSelect(option.key); }}><strong>{option.label}</strong><small>{option.detail}</small></button>)}
+    </div> : null}
+  </>;
 }
 
-/** Blocos gerados a partir do orçamento: podem ter o texto ajustado, mas nunca são apagados. */
-function isProtectedBlock(block: QuoteDocumentBlock) {
-  const role = quoteDocumentBlockRole(block);
-  return role === "section-label" || role === "service-title" || role === "service-category";
+const imageAlignOptions: Array<{ value: QuoteDocumentAlign; label: string }> = [
+  { value: "left", label: "Alinhar imagem à esquerda" },
+  { value: "center", label: "Centralizar imagem" },
+  { value: "right", label: "Alinhar imagem à direita" },
+];
+const imageSizeOptions: Array<{ value: QuoteDocumentFontSize; label: string }> = [
+  { value: "small", label: "PEQUENA" },
+  { value: "medium", label: "MÉDIA" },
+  { value: "large", label: "LARGURA TOTAL" },
+];
+
+/** Ícone de alinhamento: linhas encostadas à esquerda, ao centro ou à direita. */
+function AlignIcon({ align }: { align: QuoteDocumentAlign }) {
+  return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">{[14, 9, 14, 7].map((width, index) => <rect key={index} x={align === "left" ? 1 : align === "right" ? 15 - width : (16 - width) / 2} y={2 + index * 3.5} width={width} height="1.5" fill="currentColor" />)}</svg>;
 }
 
-function caretAtTextStart(element: HTMLElement) {
-  const selection = window.getSelection();
-  if (!selection?.rangeCount || !selection.isCollapsed) return false;
-  const probe = document.createRange();
-  probe.selectNodeContents(element);
-  probe.setEnd(selection.getRangeAt(0).startContainer, selection.getRangeAt(0).startOffset);
-  return probe.toString().length === 0;
+function pastePlainLine(event: ClipboardEvent<HTMLDivElement>) {
+  event.preventDefault();
+  document.execCommand("insertText", false, event.clipboardData.getData("text/plain").replace(/\s+/g, " ").slice(0, 400));
 }
 
-function EditableBlock({ block, imageSrc, onActivate, onInput, onCommit, onRemove, onBoundary, onPullUp, command, onSelectionSize, onSelectionStyle }: { block: DocumentDisplayBlock; imageSrc?: string; onActivate: () => void; onInput: (text: string) => void; onCommit: () => void; onRemove: () => void; onBoundary: (action: PartBoundaryAction) => void; onPullUp: () => boolean; command?: RichTextEditorCommandRequest | null; onSelectionSize?: (size: number) => void; onSelectionStyle?: (style: RichTextParagraphStyle | null) => void }) {
-  // Imagem: selecionada com um clique; Backspace ou Delete a remove. Largura e posição vêm da barra de ferramentas.
-  if (block.type === "image" && block.image) return <div data-block-id={block.id} className={`quote-editor-document-block quote-editor-document-image is-${block.align}`}>
-    <div className="quote-editor-document-image-frame" tabIndex={0} role="img" aria-label="Imagem do documento. Backspace ou Delete remove a imagem." title="Clique para alinhar, redimensionar ou remover" style={{ width: `${quoteImageWidthShare(block) * 100}%` }} onFocus={onActivate} onBlur={onCommit} onKeyDown={(event) => { if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); onRemove(); } }}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- arquivo servido pela API do orçamento, já reduzido no envio */}
-      <img src={imageSrc} alt="" draggable={false} style={{ aspectRatio: `${block.image.width} / ${block.image.height}` }} />
-    </div>
-  </div>;
-  const continuation = Boolean(block.sourceId?.startsWith(CONTINUATION_TEXT_PREFIX));
-  if (block.type === "rich-text") return <div className="quote-editor-document-block quote-editor-document-rich-text" data-block-id={block.id} data-source-id={block.sourceId} data-atom-start={block.atomStart} data-atom-count={block.atomCount}><InlineRichTextEditor initialValue={block.text} onSelectionSize={onSelectionSize} onSelectionStyle={onSelectionStyle} onKeyDown={(event) => {
-    const action = partBoundaryAction(event, block);
-    if (action) { event.preventDefault(); onBoundary(action); return; }
-    // Backspace no início do texto logo abaixo de uma imagem seleciona a imagem (um segundo Backspace a remove).
-    if (event.key === "Backspace" && !event.shiftKey && block.atomStart === 0 && caretAtEdge(event.currentTarget, "start") && onPullUp()) event.preventDefault();
-  }} ariaLabel={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Apresentação da proposta" : "Texto da proposta"} placeholder={block.sourceId === QUOTE_INTRO_BLOCK_ID ? "Escreva aqui a apresentação da proposta, o contexto do projeto ou qualquer texto que deve vir antes dos serviços." : continuation ? "Continue o texto aqui." : undefined} className="quote-editor-document-rich-content" onFocus={onActivate} onBlur={onCommit} onChange={(value) => onInput(value ?? "")} command={command} /></div>;
-  const role = quoteDocumentBlockRole(block);
-  const className = `quote-editor-document-block quote-editor-document-${block.type} quote-editor-document-${block.fontSize}${role ? ` quote-editor-document-role-${role}` : ""}${block.text ? "" : " is-empty"}`;
-  // O rótulo da seção de serviços não é editável: o estilo dele precisa ser mantido. Selecionado, o Backspace
-  // apaga as linhas em branco logo acima, trazendo a seção de volta para a folha anterior.
-  if (role === "section-label") return <div data-block-id={block.id} className={className}>
-    <div className="quote-editor-document-content" tabIndex={0} role="heading" aria-level={2} title="Selecione e use Backspace para apagar as linhas em branco acima" onFocus={onActivate} onBlur={onCommit} onKeyDown={(event) => { if (event.key === "Backspace") { event.preventDefault(); onPullUp(); } }}>{block.text}</div>
-  </div>;
-  return <div data-block-id={block.id} className={className}>
-    <div className="quote-editor-document-content" role="textbox" aria-multiline="true" aria-label={block.type === "heading" ? "Título do documento" : "Texto do documento"} contentEditable suppressContentEditableWarning onFocus={onActivate} onBlur={onCommit} onKeyDown={(event) => {
-      if (event.key === "Backspace" && caretAtTextStart(event.currentTarget) && event.currentTarget.innerText.trim()) { event.preventDefault(); onPullUp(); return; }
-      if ((event.key === "Backspace" || event.key === "Delete") && !event.currentTarget.innerText.trim()) { event.preventDefault(); if (!isProtectedBlock(block)) onRemove(); }
-    }} onInput={(event) => onInput(event.currentTarget.innerText.slice(0, 4_000))} style={{ textAlign: block.align, fontWeight: block.bold ? 700 : 400, fontStyle: block.italic ? "italic" : "normal", textDecoration: block.underline ? "underline" : "none" }}>{block.text}</div>
-  </div>;
+/**
+ * Texto de uma linha (título e categoria do serviço). Não controlado pelo React: o navegador edita o texto
+ * livremente e o componente só é recriado quando o texto muda por fora (ao restaurar um título apagado).
+ */
+function PlainEditable({ text, className, ariaLabel, style, onInput, onFocus, onBlur, onKeyDown }: { text: string; className: string; ariaLabel: string; style?: CSSProperties; onInput: (text: string) => void; onFocus: () => void; onBlur: () => void; onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const initialText = useRef(text);
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.textContent = initialText.current;
+  }, []);
+  return <div ref={ref} className={className} style={style} role="textbox" aria-label={ariaLabel} contentEditable suppressContentEditableWarning spellCheck onFocus={onFocus} onBlur={onBlur} onKeyDown={onKeyDown} onPaste={pastePlainLine} onInput={(event) => onInput(event.currentTarget.innerText.replace(/\n/g, " ").slice(0, 400))} />;
 }
 
-export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, initialContent, professional, isCompleted, justSaved = false, preview, templateText }: Props) {
-  const [content, setContent] = useState<QuoteDocumentContent>(initialContent);
-  const contentRef = useRef<QuoteDocumentContent>(initialContent);
+export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, initialContent, professional, isCompleted, justSaved = false, preview, templateText, services }: Props) {
+  const [content, setContent] = useState<QuoteDocumentContent>(() => ({ ...initialContent, blocks: normalizeFlow(initialContent.blocks.filter((block) => block.id !== "intro-title"), true) }));
+  const contentRef = useRef(content);
   const documentContentFieldRef = useRef<HTMLInputElement>(null);
-  const [activeBlockId, setActiveBlockId] = useState(initialContent.blocks.find((block) => block.id !== "intro-title")?.id ?? "");
+  const [activeBlockId, setActiveBlockId] = useState("");
   const [richTextCommand, setRichTextCommand] = useState<RichTextEditorCommandRequest | null>(null);
   const [richTextSize, setRichTextSize] = useState(RICH_TEXT_BASE_SIZE);
   const [richTextStyle, setRichTextStyle] = useState<RichTextParagraphStyle | null>(null);
+  // Textos são editores não controlados: só são recriados quando o texto muda por fora (inserir um componente no meio, por exemplo).
+  const [versions, setVersions] = useState<Record<string, number>>({});
   const [restoreVersion, setRestoreVersion] = useState(0);
-  // Editores de texto rico são não controlados: o que foi digitado fica no DOM. Ao confirmar ou redistribuir o
-  // texto, a parte editada precisa ser recriada mesmo quando o texto dela volta a ser igual ao anterior
-  // (senão continuaria mostrando um parágrafo que foi para a folha seguinte).
-  const editedPartsRef = useRef(new Set<string>());
-  const [partVersions, setPartVersions] = useState<Record<string, number>>({});
-  const reflowRef = useRef<(wrapper: HTMLElement) => void>(() => undefined);
-  const reflowGuardRef = useRef<{ content: QuoteDocumentContent | null; count: number }>({ content: null, count: 0 });
-  const blocks = content.blocks;
-  const editableBlocks = blocks.filter((block) => block.id !== "intro-title");
-  const activeBlock = editableBlocks.find((block) => block.id === activeBlockId) ?? (activeBlockId.includes("-part-") ? { id: activeBlockId, type: "rich-text" as const, text: "", fontSize: "medium" as const, bold: false, italic: false, underline: false, align: "left" as const } : editableBlocks[0]);
-  const canvasRef = useRef<HTMLElement>(null);
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
+  const [layout, setLayout] = useState<FlowLayout>(initialLayout);
+  const layoutRef = useRef(layout);
+  const [showClosing, setShowClosing] = useState(false);
+  const [imageUpload, setImageUpload] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const sheetRef = useRef<HTMLElement>(null);
+  const flowRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const flowEndRef = useRef<HTMLDivElement>(null);
   const measureFrameRef = useRef(0);
   const measureBurstRef = useRef({ since: 0, updates: 0 });
-  const [pageLayout, setPageLayout] = useState<PageLayout | null>(null);
-  const [pinnedPart, setPinnedPart] = useState<PinnedPart | null>(null);
-  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
-  const pages = paginateDocument(editableBlocks, pageLayout, pinnedPart);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const insertionPointRef = useRef<InsertionPoint | null>(null);
+  const blocks = content.blocks;
+  const activeBlock = blocks.find((block) => block.id === activeBlockId);
+  const hasServices = hasQuoteServicesComponent(content);
+  const totalPages = layout.breaks.length + 3;
 
-  /** Mede a área útil de uma folha e a altura real de cada bloco; só atualiza o estado quando algo mudou de fato. */
-  const measureLayout = useCallback(() => {
-    const root = canvasRef.current;
-    const page = root?.querySelector<HTMLElement>(".quote-docs-editable-page");
-    const body = page?.querySelector<HTMLElement>(".quote-docs-page-content");
-    if (!root || !page || !body) return;
-    const pageStyle = getComputedStyle(page);
-    const bodyStyle = getComputedStyle(body);
-    const header = page.querySelector<HTMLElement>(":scope > header")?.offsetHeight ?? 0;
-    const footer = page.querySelector<HTMLElement>(":scope > footer")?.offsetHeight ?? 0;
-    const capacity = Math.floor(parseFloat(pageStyle.minHeight) - parseFloat(pageStyle.paddingTop) - parseFloat(pageStyle.paddingBottom) - header - footer - parseFloat(bodyStyle.paddingTop) - parseFloat(bodyStyle.paddingBottom));
-    if (!Number.isFinite(capacity) || capacity < 200) return;
-    const heights: Record<string, number> = {};
-    root.querySelectorAll<HTMLElement>("[data-block-id]").forEach((element) => {
-      const style = getComputedStyle(element);
-      const outerHeight = Math.ceil(element.offsetHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom));
-      heights[element.dataset.blockId!] = outerHeight;
-      // Altura de cada parágrafo, para paginar o texto rico parágrafo a parágrafo. Só vale quando a parte
-      // tem exatamente os itens de origem (durante a digitação a contagem muda até o texto ser confirmado).
-      const { sourceId, atomStart, atomCount } = element.dataset;
-      const editor = element.querySelector("[contenteditable]");
-      if (!sourceId || atomStart === undefined || atomCount === undefined || !editor) return;
-      const atoms = atomElements(editor);
-      if (!atoms.length || atoms.length !== Number(atomCount)) return;
-      // Altura própria + margens do item: não depende da posição dele na folha (o que faria a paginação oscilar).
-      atoms.forEach((atom, index) => {
-        const atomStyle = getComputedStyle(atom);
-        heights[`${sourceId}#${Number(atomStart) + index}`] = Math.max(1, Math.ceil(atom.offsetHeight + parseFloat(atomStyle.marginTop) + parseFloat(atomStyle.marginBottom)));
-      });
-      heights[`${sourceId}#overhead`] = Math.ceil(parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth) + parseFloat(style.marginTop) + parseFloat(style.marginBottom));
-    });
+  const measure = useCallback(() => {
+    const sheet = sheetRef.current;
+    const header = headerRef.current;
+    const flow = flowRef.current;
+    const end = flowEndRef.current;
+    if (!sheet || !header || !flow || !end) return;
+    const next = measureFlow(sheet, header, flow, end, layoutRef.current);
+    if (sameLayout(next, layoutRef.current)) return;
     // Trava de segurança: se as medidas ficarem mudando sem parar, a paginação congela até o próximo segundo.
     const now = performance.now();
-    const burst = measureBurstRef.current;
-    if (now - burst.since > 1000) measureBurstRef.current = { since: now, updates: 0 };
-    setPageLayout((current) => {
-      if (current && Math.abs(current.capacity - capacity) < 2 && Object.keys(heights).every((id) => Math.abs((current.heights[id] ?? -100) - heights[id]) < 2)) return current;
-      if (measureBurstRef.current.updates > 40) return current;
-      measureBurstRef.current.updates += 1;
-      return { capacity, heights: { ...current?.heights, ...heights } };
-    });
-    // A folha do texto em edição passou do tamanho de uma página: redistribui na hora, sem esperar o usuário sair do texto.
-    const wrapper = document.activeElement instanceof HTMLElement ? document.activeElement.closest<HTMLElement>("[data-source-id]") : null;
-    const activePage = wrapper?.closest<HTMLElement>(".quote-docs-editable-page");
-    if (wrapper && activePage && root.contains(activePage) && activePage.offsetHeight > parseFloat(pageStyle.minHeight) + 2) reflowRef.current(wrapper);
+    if (now - measureBurstRef.current.since > 1000) measureBurstRef.current = { since: now, updates: 0 };
+    if (measureBurstRef.current.updates > 30) return;
+    measureBurstRef.current.updates += 1;
+    layoutRef.current = next;
+    setLayout(next);
   }, []);
 
   const scheduleMeasure = useCallback(() => {
     cancelAnimationFrame(measureFrameRef.current);
-    measureFrameRef.current = requestAnimationFrame(measureLayout);
-  }, [measureLayout]);
+    measureFrameRef.current = requestAnimationFrame(measure);
+  }, [measure]);
 
-  useLayoutEffect(() => { measureLayout(); });
+  useLayoutEffect(() => { measure(); });
   useEffect(() => {
+    const sheet = sheetRef.current;
+    const observer = new ResizeObserver(scheduleMeasure);
+    if (sheet) observer.observe(sheet);
     window.addEventListener("resize", scheduleMeasure);
-    return () => { window.removeEventListener("resize", scheduleMeasure); cancelAnimationFrame(measureFrameRef.current); };
+    return () => { observer.disconnect(); window.removeEventListener("resize", scheduleMeasure); cancelAnimationFrame(measureFrameRef.current); };
   }, [scheduleMeasure]);
-  const totalPages = pages.length + 2;
-  const pageHeader = <header className="quote-docs-page-header">
-    <div className="quote-docs-page-header-top">
-      <div className="quote-docs-page-brand">
-        <span className="quote-docs-page-logo"><img src="/assets/images/logo-vr.svg" alt="" /></span>
-        <div className="quote-docs-page-professional">
-          <span>PROPOSTA COMERCIAL</span>
-          <strong>{professional.name}</strong>
-          {professional.professionalTitle ? <small>{professional.professionalTitle}</small> : null}
-        </div>
-      </div>
-      <div className="quote-docs-page-client"><span>CLIENTE</span><strong>{preview.client.name}</strong>{[preview.client.company, preview.client.document].filter(Boolean).map((detail) => <small key={detail}>{detail}</small>)}</div>
-    </div>
-  </header>;
 
-  function commitContent(next: QuoteDocumentContent) {
-    if (editedPartsRef.current.size) {
-      const edited = Array.from(editedPartsRef.current);
-      editedPartsRef.current.clear();
-      setPartVersions((current) => ({ ...current, ...Object.fromEntries(edited.map((id) => [id, (current[id] ?? 0) + 1])) }));
-    }
+  function writeContent(next: QuoteDocumentContent) {
+    contentRef.current = next;
+    if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
+  }
+
+  /** Aplica uma mudança de estrutura (inserir, remover, alinhar). Textos alterados por fora são recriados. */
+  function applyBlocks(nextBlocks: QuoteDocumentBlock[], focus?: FocusRequest) {
+    const normalized = normalizeFlow(nextBlocks);
+    const previous = new Map(contentRef.current.blocks.map((block) => [block.id, block.text]));
+    const changed = normalized.filter((block) => block.type === "rich-text" && previous.has(block.id) && previous.get(block.id) !== block.text).map((block) => block.id);
+    if (changed.length) setVersions((current) => ({ ...current, ...Object.fromEntries(changed.map((id) => [id, (current[id] ?? 0) + 1])) }));
+    const next = { ...contentRef.current, blocks: normalized };
+    writeContent(next);
     setContent(next);
+    if (focus) setFocusRequest(focus);
   }
 
   function updateBlock(id: string, patch: Partial<QuoteDocumentBlock>) {
-    const next = { ...contentRef.current, blocks: contentRef.current.blocks.map((block) => block.id === id ? { ...block, ...patch } : block) };
-    contentRef.current = next;
-    if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
-    commitContent(next);
+    applyBlocks(contentRef.current.blocks.map((block) => block.id === id ? { ...block, ...patch } : block));
   }
 
+  /** Digitação: atualiza só o documento salvo no formulário; a tela continua com o que o navegador já mostra. */
   function updateBlockText(id: string, text: string) {
-    const next = { ...contentRef.current, blocks: contentRef.current.blocks.map((block) => block.id === id ? { ...block, text } : block) };
-    contentRef.current = next;
-    if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
-  }
-
-  function updateDisplayBlockText(block: DocumentDisplayBlock, text: string) {
-    if (!block.sourceId || block.partIndex === undefined) {
-      updateBlockText(block.id, text);
-      return;
-    }
-    // As partes exibidas vêm do estado confirmado (não do texto em digitação): a parte em edição substitui
-    // exatamente os itens que ela mostra, sem duplicar o que foi distribuído para as outras folhas.
-    const displayedSource = content.blocks.find((item) => item.id === block.sourceId);
-    if (!displayedSource || block.atomStart === undefined || block.atomCount === undefined) return;
-    const atoms = richTextAtoms(displayedSource.text);
-    const merged = [...atoms.slice(0, block.atomStart), ...richTextAtoms(text), ...atoms.slice(block.atomStart + block.atomCount)];
-    updateBlockText(displayedSource.id, serializeAtoms(merged));
-  }
-
-  /** Continua a edição na folha vizinha: une os parágrafos da quebra (Backspace/Delete) ou só move o cursor (setas). */
-  function handlePartBoundary(block: DocumentDisplayBlock, action: PartBoundaryAction) {
-    const source = contentRef.current.blocks.find((item) => item.id === block.sourceId);
-    if (!source || block.atomStart === undefined || block.atomCount === undefined || block.atomTotal === undefined) return;
-    const atoms = richTextAtoms(source.text);
-    // Os itens antes e depois da parte não mudam enquanto ela é editada; só a contagem da própria parte pode mudar.
-    const firstAfter = atoms.length - (block.atomTotal - block.atomStart - block.atomCount);
-    let request: FocusRequest;
-    if (action === "focus-previous") request = { sourceId: source.id, atomIndex: block.atomStart - 1, offset: Infinity };
-    else if (action === "focus-next") request = { sourceId: source.id, atomIndex: firstAfter, offset: 0 };
-    else {
-      const boundary = action === "merge-backward" ? block.atomStart : firstAfter;
-      if (boundary <= 0 || boundary >= atoms.length) return;
-      const joined = joinAtoms(atoms[boundary - 1], atoms[boundary]);
-      updateBlockText(source.id, serializeAtoms([...atoms.slice(0, boundary - 1), joined.atom, ...atoms.slice(boundary + 1)]));
-      request = { sourceId: source.id, atomIndex: boundary - 1, offset: joined.caret };
-    }
-    setPinnedPart(null);
-    setFocusRequest(request);
-    commitContent(contentRef.current);
+    writeContent({ ...contentRef.current, blocks: contentRef.current.blocks.map((block) => block.id === id ? { ...block, text } : block) });
+    scheduleMeasure();
   }
 
   useLayoutEffect(() => {
     if (!focusRequest) return;
-    const parts = Array.from(canvasRef.current?.querySelectorAll<HTMLElement>(`[data-source-id="${focusRequest.sourceId}"]`) ?? []);
-    const part = parts.find((element) => Number(element.dataset.atomStart) <= focusRequest.atomIndex && focusRequest.atomIndex < Number(element.dataset.atomStart) + Number(element.dataset.atomCount));
-    const editor = part?.querySelector<HTMLElement>("[contenteditable]");
-    if (!part || !editor) return;
+    const wrapper = sheetRef.current?.querySelector<HTMLElement>(`[data-block-id="${focusRequest.blockId}"]`);
+    if (!wrapper) return;
     setFocusRequest(null);
-    editor.focus();
-    const atom = atomElements(editor)[focusRequest.atomIndex - Number(part.dataset.atomStart)];
-    placeCaret(atom ?? editor, focusRequest.offset);
-  }, [focusRequest, pages]);
+    const editor = wrapper.querySelector<HTMLElement>("[contenteditable]");
+    const target = editor ?? wrapper.querySelector<HTMLElement>("[tabindex]");
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    wrapper.scrollIntoView({ block: "nearest" });
+    if (!editor) return;
+    const atoms = atomElements(editor);
+    if ("atomIndex" in focusRequest) placeCaret(atoms[focusRequest.atomIndex] ?? atoms.at(-1) ?? editor, focusRequest.offset);
+    else placeCaret(focusRequest.edge === "start" ? atoms[0] ?? editor : atoms.at(-1) ?? editor, focusRequest.edge === "start" ? 0 : Infinity);
+  }, [focusRequest, content]);
 
-  function commitDocument() {
-    commitContent(contentRef.current);
-  }
-
-  function removeBlock(id: string) {
-    if (contentRef.current.blocks.length <= 1) return;
-    const next = { ...contentRef.current, blocks: contentRef.current.blocks.filter((block) => block.id !== id) };
-    contentRef.current = next;
-    if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
-    commitContent(next);
-  }
-
-  function commitBlock(block: DocumentDisplayBlock) {
-    setPinnedPart(null);
-    const sourceId = block.sourceId ?? block.id;
-    const source = contentRef.current.blocks.find((item) => item.id === sourceId);
-    if (source && source.type !== "rich-text" && source.type !== "image" && !source.text.trim()) {
-      if (isProtectedBlock(source)) {
-        // Título e categoria do serviço não somem: esvaziados, voltam ao texto anterior.
-        const previous = content.blocks.find((item) => item.id === source.id);
-        if (previous?.text.trim()) updateBlockText(source.id, previous.text);
-        setRestoreVersion((version) => version + 1);
-      } else if (contentRef.current.blocks.length > 1) {
-        removeBlock(source.id);
-        return;
-      }
-    }
-    commitDocument();
-  }
-
-  /**
-   * Redistribui a parte em edição quando ela não cabe mais na folha: o texto é confirmado, a paginação refeita
-   * e o cursor volta ao mesmo parágrafo e posição — na folha seguinte, se for para lá que ele foi.
-   * Limitado a duas tentativas por alteração para nunca entrar em ciclo (um parágrafo maior que a folha, por exemplo).
-   */
-  reflowRef.current = (wrapper: HTMLElement) => {
-    const guard = reflowGuardRef.current;
-    if (guard.content !== contentRef.current) reflowGuardRef.current = { content: contentRef.current, count: 0 };
-    if (reflowGuardRef.current.count >= 2) return;
-    const sourceId = wrapper.dataset.sourceId;
-    const position = caretAtomPosition(wrapper);
-    if (!sourceId || !position) return;
-    reflowGuardRef.current.count += 1;
-    setPinnedPart(null);
-    setFocusRequest({ sourceId, ...position });
-    commitContent(contentRef.current);
-  };
-
-  /**
-   * Backspace no início de um bloco: com uma imagem logo acima, seleciona a imagem; antes de um bloco fixo,
-   * apaga a linha em branco logo acima dele, no texto anterior. Devolve se algo foi feito.
-   */
-  function pullBlockUp(block: DocumentDisplayBlock) {
-    const blocksInOrder = contentRef.current.blocks.filter((item) => item.id !== "intro-title");
-    const position = blocksInOrder.findIndex((item) => item.id === (block.sourceId ?? block.id));
-    const previous = position > 0 ? blocksInOrder[position - 1] : null;
-    if (previous?.type === "image") {
-      const frame = canvasRef.current?.querySelector<HTMLElement>(`[data-block-id="${previous.id}"] [tabindex]`);
-      frame?.focus();
-      return Boolean(frame);
-    }
-    if (block.type === "rich-text" || !previous || previous.type !== "rich-text") return false;
-    const atoms = richTextAtoms(previous.text);
-    const last = atoms.at(-1);
-    if (!last || !isBlankRichTextRuns(atomRuns(last))) return false;
-    updateBlockText(previous.id, serializeAtoms(atoms.slice(0, -1)));
-    commitContent(contentRef.current);
-    return true;
-  }
-
-  function replaceBlocks(blocks: QuoteDocumentBlock[]) {
-    const next = { ...contentRef.current, blocks };
-    contentRef.current = next;
-    if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
-    setPinnedPart(null);
-    commitContent(next);
+  function focusNeighbor(id: string, direction: -1 | 1) {
+    const index = contentRef.current.blocks.findIndex((block) => block.id === id);
+    const neighbor = contentRef.current.blocks[index + direction];
+    if (neighbor) setFocusRequest({ blockId: neighbor.id, edge: direction < 0 ? "end" : "start" });
   }
 
   /** Ponto de inserção a partir do foco atual: o cursor num texto ou o bloco selecionado. */
   function currentInsertionPoint(): InsertionPoint | null {
     const focused = document.activeElement instanceof HTMLElement ? document.activeElement.closest<HTMLElement>("[data-block-id]") : null;
-    if (!focused || !canvasRef.current?.contains(focused)) return null;
-    const sourceId = focused.dataset.sourceId;
-    if (sourceId) {
-      const position = caretAtomPosition(focused);
-      return { kind: "text", sourceId, ...(position ?? { atomIndex: Number(focused.dataset.atomStart ?? 0) + Number(focused.dataset.atomCount ?? 1) - 1, offset: Infinity }) };
+    if (!focused || !flowRef.current?.contains(focused)) return null;
+    const blockId = focused.dataset.blockId!;
+    const editor = focused.dataset.flow === "text" ? focused.querySelector<HTMLElement>("[contenteditable]") : null;
+    if (editor) {
+      const position = caretAtomPosition(editor);
+      return { kind: "text", blockId, ...(position ?? { atomIndex: atomElements(editor).length - 1, offset: Infinity }) };
     }
-    return { kind: "block", blockId: focused.dataset.blockId! };
+    return { kind: "block", blockId };
   }
 
   /**
-   * Insere as imagens enviadas. Dentro de um texto, ele é dividido no parágrafo do cursor: o que vem antes fica
-   * acima das imagens e o restante continua logo abaixo delas. Sem cursor, entram ao fim da apresentação.
+   * Abre espaço para um componente. Dentro de um texto, ele é dividido no parágrafo do cursor (numa linha em
+   * branco, o componente ocupa o lugar dela). Sem cursor, o componente entra no fim do documento.
    */
-  function insertImages(point: InsertionPoint | null, images: QuoteDocumentImage[]) {
+  function insertionSlot(point: InsertionPoint | null) {
     const blocks = [...contentRef.current.blocks];
-    const imageBlocks: QuoteDocumentBlock[] = images.map((image) => ({ id: `image-${image.id}`, type: "image", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "center", image }));
-    const trailingText = (index: number) => blocks[index]?.type === "rich-text" ? [] : [newTextBlock("")];
-    const target = point ? blocks.findIndex((block) => block.id === (point.kind === "text" ? point.sourceId : point.blockId)) : -1;
+    const target = point ? blocks.findIndex((block) => block.id === point.blockId) : -1;
     if (point?.kind === "text" && target >= 0) {
       const source = blocks[target];
       const atoms = richTextAtoms(source.text);
       const at = Math.min(Math.max(0, point.atomIndex), atoms.length - 1);
       const caretAtom = atoms[at];
-      // Numa linha em branco a imagem ocupa o lugar dela; no início de um parágrafo, entra antes dele.
       let split = caretAtom ? at + 1 : atoms.length;
       let skip = 0;
-      if (caretAtom && isBlankRichTextRuns(atomRuns(caretAtom))) { split = at; skip = 1; }
+      if (caretAtom && isBlankAtom(caretAtom)) { split = at; skip = 1; }
       else if (caretAtom && point.offset === 0) split = at;
       const before = atoms.slice(0, split);
       const after = atoms.slice(split + skip);
+      // Texto vazio: o componente entra depois dele, que continua acima como lugar para escrever.
+      if (!atoms.some((atom) => !isBlankAtom(atom))) return { blocks, index: target + 1, before, after, splitText: false };
       if (!before.length) {
         blocks[target] = { ...source, text: serializeAtoms(after) };
-        blocks.splice(target, 0, ...imageBlocks);
-      } else {
-        blocks[target] = { ...source, text: serializeAtoms(before) };
-        blocks.splice(target + 1, 0, ...imageBlocks, ...(after.length ? [newTextBlock(serializeAtoms(after))] : trailingText(target + 1)));
+        return { blocks, index: target, before, after, splitText: false };
       }
-      replaceBlocks(blocks);
-      return;
+      blocks[target] = { ...source, text: serializeAtoms(before) };
+      if (after.length) blocks.splice(target + 1, 0, newTextBlock(serializeAtoms(after)));
+      return { blocks, index: target + 1, before, after, splitText: after.length > 0 };
     }
     let index = target;
     const role = index >= 0 ? quoteDocumentBlockRole(blocks[index]) : null;
     if (role === "service-title" || role === "service-category") {
-      // Título e categoria ficam junto da descrição do serviço: a imagem entra depois dela.
+      // Título e categoria ficam junto da descrição do serviço: o componente entra depois dela.
       const description = blocks.findIndex((block) => block.id === `service-description-${blocks[index].id.replace(/^service-(title|category)-/, "")}`);
       if (description >= 0) index = description;
     } else if (role === "section-label") index -= 1;
-    if (index < 0 && target < 0) {
-      const servicesStart = blocks.findIndex((block) => block.id === "services-label" || block.id.startsWith("service-"));
-      index = (servicesStart === -1 ? blocks.length : servicesStart) - 1;
+    if (target < 0) {
+      const last = blocks.at(-1);
+      index = last && last.id !== QUOTE_INTRO_BLOCK_ID && isFreeText(last) && !richTextAtoms(last.text).length ? blocks.length - 2 : blocks.length - 1;
     }
-    blocks.splice(index + 1, 0, ...imageBlocks, ...trailingText(index + 1));
-    replaceBlocks(blocks);
+    return { blocks, index: index + 1, before: [] as RichTextBlock[], after: [] as RichTextBlock[], splitText: false };
   }
 
-  /** Remove a imagem e reúne o texto que tinha sido dividido por ela. */
-  function removeImageBlock(id: string) {
-    const blocks = contentRef.current.blocks.filter((block) => block.id !== id);
-    const index = contentRef.current.blocks.findIndex((block) => block.id === id);
-    if (index < 0) return;
-    const previous = blocks[index - 1];
-    const next = blocks[index];
-    if (previous?.type === "rich-text" && next?.type === "rich-text" && next.id.startsWith(CONTINUATION_TEXT_PREFIX)) {
-      blocks[index - 1] = { ...previous, text: serializeAtoms([...richTextAtoms(previous.text), ...richTextAtoms(next.text)]) };
-      blocks.splice(index, 1);
-    }
-    setActiveBlockId(previous?.id ?? "");
-    replaceBlocks(blocks);
+  function insertBlocks(point: InsertionPoint | null, inserted: QuoteDocumentBlock[], focus: FocusRequest) {
+    if (!inserted.length) return;
+    const slot = insertionSlot(point);
+    slot.blocks.splice(slot.index, 0, ...inserted);
+    applyBlocks(slot.blocks, focus);
   }
 
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const insertionPointRef = useRef<InsertionPoint | null | undefined>(undefined);
-  const [imageUpload, setImageUpload] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  function insertServices(point: InsertionPoint | null) {
+    if (hasQuoteServicesComponent(contentRef.current)) return;
+    const inserted = quoteServiceComponentBlocks(services);
+    if (inserted.length) insertBlocks(point, inserted, { blockId: inserted[0].id, edge: "start" });
+  }
+
+  function insertPageBreak(point: InsertionPoint | null) {
+    const pageBreak: QuoteDocumentBlock = { id: `page-break-${crypto.randomUUID().slice(0, 8)}`, type: "page-break", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
+    const slot = insertionSlot(point);
+    slot.blocks.splice(slot.index, 0, pageBreak);
+    // O cursor segue para o texto da nova página (criado pela normalização quando a quebra fica no fim).
+    const following = slot.blocks[slot.index + 1];
+    applyBlocks(slot.blocks, following?.type === "rich-text" ? { blockId: following.id, edge: "start" } : { blockId: pageBreak.id, edge: "start" });
+    if (!following) requestAnimationFrame(() => focusNeighbor(pageBreak.id, 1));
+  }
+
+  /** O texto padrão entra no ponto do cursor, dentro do próprio texto. */
+  function insertTemplate(point: InsertionPoint | null) {
+    if (!templateText) return;
+    const templateAtoms = richTextAtoms(templateText);
+    if (point?.kind === "text" && contentRef.current.blocks.some((block) => block.id === point.blockId && block.type === "rich-text")) {
+      const slot = insertionSlot(point);
+      const sourceIndex = slot.blocks.findIndex((block) => block.id === point.blockId);
+      slot.blocks[sourceIndex] = { ...slot.blocks[sourceIndex], text: serializeAtoms([...slot.before, ...templateAtoms, ...slot.after]) };
+      // O texto que a divisão separou volta para o mesmo bloco, logo depois do texto padrão.
+      const merged = slot.splitText ? slot.blocks.filter((_, index) => index !== slot.index) : slot.blocks;
+      applyBlocks(merged, { blockId: point.blockId, atomIndex: slot.before.length + templateAtoms.length - 1, offset: Infinity });
+      return;
+    }
+    const text = newTextBlock(serializeAtoms(templateAtoms));
+    insertBlocks(point, [text], { blockId: text.id, edge: "end" });
+  }
+
+  /** Remove blocos e reúne o texto que tinha sido dividido por eles. O cursor vai para o bloco anterior. */
+  function removeBlocks(ids: string[]) {
+    const current = contentRef.current.blocks;
+    const first = current.findIndex((block) => ids.includes(block.id));
+    const previous = current.slice(0, Math.max(0, first)).reverse().find((block) => !ids.includes(block.id));
+    const next = current.slice(first + 1).find((block) => !ids.includes(block.id));
+    const target = previous ?? next;
+    applyBlocks(current.filter((block) => !ids.includes(block.id)), target ? { blockId: target.id, edge: previous ? "end" : "start" } : undefined);
+    setActiveBlockId(target?.id ?? "");
+  }
+
+  function removeServices() {
+    if (!window.confirm("Remover a seção Serviços incluídos? As descrições editadas neste PDF serão descartadas. A seção pode ser inserida de novo em COMPONENTES.")) return;
+    removeBlocks(contentRef.current.blocks.filter((block) => block.id === "services-label" || block.id.startsWith("service-")).map((block) => block.id));
+  }
 
   async function uploadImages(files: File[]) {
-    const point = insertionPointRef.current === undefined ? null : insertionPointRef.current;
-    insertionPointRef.current = undefined;
+    const point = insertionPointRef.current;
+    insertionPointRef.current = null;
     if (!files.length) return;
     setImageUpload({ busy: true, error: null });
     const uploaded: QuoteDocumentImage[] = [];
@@ -832,88 +652,212 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
         break;
       }
     }
-    if (uploaded.length) insertImages(point, uploaded);
+    const imageBlocks: QuoteDocumentBlock[] = uploaded.map((image) => ({ id: `image-${image.id}`, type: "image", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "center", image }));
+    if (imageBlocks.length) insertBlocks(point, imageBlocks, { blockId: imageBlocks[0].id, edge: "start" });
     setImageUpload({ busy: false, error });
   }
 
-  /** Acrescenta o texto padrão ao fim da apresentação (antes dos serviços). */
-  function insertTemplateText() {
-    if (!templateText) return;
-    const current = contentRef.current;
-    const merge = (existing: string) => serializeRichText({ version: 1, blocks: [...parseRichText(existing).blocks, ...parseRichText(templateText).blocks] }, 16_000) ?? "";
-    const intro = current.blocks.find((block) => block.id === QUOTE_INTRO_BLOCK_ID);
-    const blocks: QuoteDocumentBlock[] = intro
-      ? current.blocks.map((block) => block.id === intro.id ? { ...block, text: merge(block.text) } : block)
-      : [{ id: QUOTE_INTRO_BLOCK_ID, type: "rich-text", text: merge(""), fontSize: "medium", bold: false, italic: false, underline: false, align: "left" }, ...current.blocks];
-    const next = { ...current, blocks };
-    contentRef.current = next;
-    if (documentContentFieldRef.current) documentContentFieldRef.current.value = JSON.stringify(next);
-    setPinnedPart(null);
-    commitContent(next);
+  function selectComponent(key: ComponentOption["key"]) {
+    const point = insertionPointRef.current ?? currentInsertionPoint();
+    if (key === "images") {
+      insertionPointRef.current = point;
+      imageInputRef.current?.click();
+      return;
+    }
+    insertionPointRef.current = null;
+    if (key === "services") insertServices(point);
+    else if (key === "template") insertTemplate(point);
+    else insertPageBreak(point);
+  }
+
+  /** Texto: setas nas bordas seguem para o bloco vizinho; Backspace/Delete na borda selecionam o componente ao lado. */
+  function handleTextKeys(event: KeyboardEvent<HTMLDivElement>, block: QuoteDocumentBlock) {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const editor = event.currentTarget;
+    const index = contentRef.current.blocks.findIndex((item) => item.id === block.id);
+    const previous = contentRef.current.blocks[index - 1];
+    const next = contentRef.current.blocks[index + 1];
+    if (event.key === "ArrowUp" && previous && caretOnEdgeLine(editor, "start")) { event.preventDefault(); focusNeighbor(block.id, -1); return; }
+    if (event.key === "ArrowDown" && next && caretOnEdgeLine(editor, "end")) { event.preventDefault(); focusNeighbor(block.id, 1); return; }
+    if ((event.key === "ArrowLeft" || event.key === "Backspace") && previous && caretAtEdge(editor, "start")) {
+      event.preventDefault();
+      if (event.key === "ArrowLeft" || previous.type !== "rich-text") focusNeighbor(block.id, -1);
+      return;
+    }
+    if ((event.key === "ArrowRight" || event.key === "Delete") && next && caretAtEdge(editor, "end")) {
+      event.preventDefault();
+      if (event.key === "ArrowRight" || next.type !== "rich-text") focusNeighbor(block.id, 1);
+    }
+  }
+
+  /** Componente selecionado (imagem, quebra de página, rótulo da seção): Backspace/Delete remove, setas e Enter navegam. */
+  function handleComponentKeys(event: KeyboardEvent<HTMLDivElement>, block: QuoteDocumentBlock) {
+    if (event.key === "Backspace" || event.key === "Delete") {
+      event.preventDefault();
+      if (block.id === "services-label") removeServices();
+      else removeBlocks([block.id]);
+    } else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      focusNeighbor(block.id, -1);
+    } else if (event.key === "ArrowDown" || event.key === "ArrowRight" || event.key === "Enter") {
+      event.preventDefault();
+      focusNeighbor(block.id, 1);
+    }
+  }
+
+  /** Título e categoria do serviço: uma linha só; Enter e setas seguem para o bloco vizinho. */
+  function handlePlainKeys(event: KeyboardEvent<HTMLDivElement>, block: QuoteDocumentBlock) {
+    const editor = event.currentTarget;
+    if (event.key === "Enter") { event.preventDefault(); focusNeighbor(block.id, 1); return; }
+    if (event.shiftKey) return;
+    if (event.key === "ArrowUp" || (event.key === "ArrowLeft" && caretAtEdge(editor, "start"))) { event.preventDefault(); focusNeighbor(block.id, -1); return; }
+    if (event.key === "ArrowDown" || (event.key === "ArrowRight" && caretAtEdge(editor, "end"))) { event.preventDefault(); focusNeighbor(block.id, 1); }
+  }
+
+  /** Título e categoria do serviço não ficam vazios: apagados, voltam ao texto anterior ao sair do campo. */
+  function commitPlain(block: QuoteDocumentBlock) {
+    const current = contentRef.current.blocks.find((item) => item.id === block.id);
+    if (current && !current.text.trim()) {
+      const role = quoteDocumentBlockRole(current);
+      if (role === "service-title" || role === "service-category") {
+        writeContent({ ...contentRef.current, blocks: contentRef.current.blocks.map((item) => item.id === current.id ? { ...item, text: block.text } : item) });
+        setContent(contentRef.current);
+        setRestoreVersion((version) => version + 1);
+        return;
+      }
+      removeBlocks([current.id]);
+      return;
+    }
+    setContent(contentRef.current);
   }
 
   function applyRichTextCommand(value: RichTextEditorCommand, size?: number, paragraphStyle?: RichTextParagraphStyle | null) {
     setRichTextCommand((current) => ({ id: (current?.id ?? 0) + 1, value, size, paragraphStyle }));
   }
 
+  const componentOptions: ComponentOption[] = [
+    { key: "services", label: "Serviços incluídos", detail: hasServices ? "Já está no documento." : services.length ? "Título, categoria e descrição de cada serviço do orçamento." : "O orçamento não tem serviços.", disabled: hasServices || !services.length },
+    { key: "template", label: "Texto padrão", detail: templateText ? "Seu texto padrão salvo, no ponto do cursor." : "Nenhum texto padrão salvo. Crie em TEXTO PADRÃO.", disabled: !templateText },
+    { key: "images", label: "Imagens", detail: "PNG, JPEG ou WEBP. Uma ou várias de uma vez." },
+    { key: "page-break", label: "Quebra de página", detail: "O conteúdo seguinte começa numa nova página." },
+  ];
+
+  function pageHeader(key?: string) {
+    return <header className="quote-sheet-header" key={key} ref={key ? undefined : headerRef}>
+      <div className="quote-sheet-brand">
+        <span className="quote-sheet-logo"><img src="/assets/images/logo-vr.svg" alt="" /></span>
+        <div className="quote-sheet-professional">
+          <span>PROPOSTA COMERCIAL</span>
+          <strong>{professional.name}</strong>
+          {professional.professionalTitle ? <small>{professional.professionalTitle}</small> : null}
+        </div>
+      </div>
+      <div className="quote-sheet-client"><span>CLIENTE</span><strong>{preview.client.name}</strong>{[preview.client.company, preview.client.document].filter(Boolean).map((detail) => <small key={detail}>{detail}</small>)}</div>
+    </header>;
+  }
+
+  function renderBlock(block: QuoteDocumentBlock, index: number): ReactNode {
+    const activate = () => setActiveBlockId(block.id);
+    const role = quoteDocumentBlockRole(block);
+    const selected = activeBlockId === block.id ? " is-selected" : "";
+    if (block.type === "rich-text") {
+      const placeholder = block.id === QUOTE_INTRO_BLOCK_ID ? "Comece a escrever a proposta aqui. Use COMPONENTES para inserir serviços incluídos, texto padrão, imagens ou quebras de página." : block.id.startsWith(CONTINUATION_TEXT_PREFIX) ? "Continue o texto aqui." : "Descrição do serviço.";
+      // A orientação de texto vazio ocupa espaço de verdade (fica na mesma célula do editor): em telas estreitas
+      // ela quebra em várias linhas sem vazar da folha, e clicar sobre ela posiciona o cursor no texto.
+      return <div key={`${block.id}:${versions[block.id] ?? 0}`} data-block-id={block.id} data-flow="text" className="quote-sheet-block is-text">
+        <InlineRichTextEditor initialValue={block.text} className="quote-sheet-text" ariaLabel={block.id.startsWith("service-description-") ? "Descrição do serviço" : "Texto da proposta"} onFocus={activate} onBlur={() => setContent(contentRef.current)} onChange={(value) => updateBlockText(block.id, value ?? "")} onKeyDown={(event) => handleTextKeys(event, block)} command={activeBlockId === block.id ? richTextCommand : null} onSelectionSize={setRichTextSize} onSelectionStyle={setRichTextStyle} />
+        <span className="quote-sheet-placeholder" aria-hidden="true">{placeholder}</span>
+      </div>;
+    }
+    if (block.type === "image" && block.image) return <div key={block.id} data-block-id={block.id} data-flow="block" className={`quote-sheet-block is-image is-${block.align}${selected}`}>
+      <div className="quote-sheet-image" tabIndex={0} role="img" aria-label="Imagem do documento. Backspace ou Delete remove a imagem." title="Clique para alinhar, redimensionar ou remover" style={{ width: `${quoteImageWidthShare(block) * 100}%` }} onFocus={activate} onKeyDown={(event) => handleComponentKeys(event, block)}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- arquivo servido pela API do orçamento, já reduzido no envio */}
+        <img src={`/api/orcamentos/${quoteId}/imagens/${block.image.id}`} alt="" draggable={false} style={{ aspectRatio: `${block.image.width} / ${block.image.height}` }} />
+      </div>
+    </div>;
+    if (block.type === "page-break") return <div key={block.id} data-block-id={block.id} data-flow="page-break" className={`quote-sheet-block is-page-break${selected}`}>
+      <div className="quote-sheet-page-break" tabIndex={0} role="separator" aria-label="Quebra de página. Backspace ou Delete remove." onFocus={activate} onKeyDown={(event) => handleComponentKeys(event, block)}><span>QUEBRA DE PÁGINA</span></div>
+    </div>;
+    if (role === "section-label") return <div key={block.id} data-block-id={block.id} data-flow="block" data-keep="next" className={`quote-sheet-block is-section-label${selected}`}>
+      <div className="quote-sheet-section-label" tabIndex={0} role="heading" aria-level={2} title="Componente Serviços incluídos" onFocus={activate} onKeyDown={(event) => handleComponentKeys(event, block)}><span>{block.text}</span></div>
+    </div>;
+    const plainClass = role === "service-title" ? "is-service-title" : role === "service-category" ? "is-service-category" : block.type === "heading" ? "is-heading" : "is-paragraph";
+    const first = role === "service-title" && blocks[index - 1]?.id === "services-label" ? " is-first" : "";
+    return <div key={`${block.id}:${restoreVersion}`} data-block-id={block.id} data-flow="block" data-keep={role ? "next" : undefined} className={`quote-sheet-block ${plainClass}${first}`}>
+      <PlainEditable text={block.text} className="quote-sheet-plain" ariaLabel={role === "service-title" ? "Nome do serviço" : role === "service-category" ? "Categoria do serviço" : "Texto do documento"} style={role ? undefined : { textAlign: block.align, fontWeight: block.bold ? 700 : 400, fontStyle: block.italic ? "italic" : "normal", textDecoration: block.underline ? "underline" : "none" }} onFocus={activate} onBlur={() => commitPlain(block)} onInput={(text) => updateBlockText(block.id, text)} onKeyDown={(event) => handlePlainKeys(event, block)} />
+    </div>;
+  }
+
+  const activeRole = activeBlock ? quoteDocumentBlockRole(activeBlock) : null;
+  const gapCss = layout.gaps.map((gap) => `${gap.selector}{margin-top:${gap.gap}px!important}`).join("");
+  const bottomSpace = layout.bottom;
+
   return <form className="quote-document-editor quote-docs-editor" action={updateQuoteDocumentAction}>
     <input type="hidden" name="quoteId" value={quoteId} />
     <input ref={documentContentFieldRef} type="hidden" name="documentContent" defaultValue={JSON.stringify(content)} />
+    <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; void uploadImages(files); }} />
     <section className="quote-docs-toolbar" aria-label="Ferramentas do editor">
       <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{quoteCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{quoteTitle}</strong>{justSaved ? <small className="quote-docs-saved" role="status">Alterações salvas. Conclua quando o documento estiver pronto.</small> : null}</div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">TEXTO PADRÃO</button><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
       <div className="quote-docs-toolbar-tools">
+        <ComponentsMenu options={componentOptions} onOpen={() => { insertionPointRef.current = currentInsertionPoint(); }} onSelect={selectComponent} />
+        {imageUpload.busy ? <span className="quote-docs-tool-context">ENVIANDO IMAGENS...</span> : null}
+        {imageUpload.error ? <span className="quote-docs-tool-error" role="alert">{imageUpload.error}</span> : null}
+        <span className="quote-docs-divider" />
         {activeBlock?.type === "image" ? <>
-          <span className="quote-docs-tool-context">IMAGEM</span>
           {imageAlignOptions.map((option) => <button type="button" key={option.value} aria-label={option.label} title={option.label} aria-pressed={activeBlock.align === option.value} className={`quote-docs-image-align${activeBlock.align === option.value ? " is-active" : ""}`} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { align: option.value })}><AlignIcon align={option.value} /></button>)}
           <span className="quote-docs-divider" />
           {imageSizeOptions.map((option) => <button type="button" key={option.value} aria-pressed={activeBlock.fontSize === option.value} className={`quote-docs-image-size${activeBlock.fontSize === option.value ? " is-active" : ""}`} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { fontSize: option.value })}>{option.label}</button>)}
           <span className="quote-docs-divider" />
-          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeImageBlock(activeBlock.id)}>REMOVER IMAGEM</button>
-        </> : activeBlock && quoteDocumentBlockRole(activeBlock) === "section-label" ? <span className="quote-docs-tool-context">SEÇÃO FIXA DO ORÇAMENTO · BACKSPACE APAGA AS LINHAS EM BRANCO ACIMA</span> : activeBlock?.type === "rich-text" ? <>
-          <span className="quote-docs-tool-context">FORMATAÇÃO DO TEXTO</span>
-          <button type="button" aria-label="Negrito" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("bold")}><strong>N</strong></button>
-          <button type="button" aria-label="Itálico" className="quote-docs-italic" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("italic")}><em>I</em></button>
-          <button type="button" aria-label="Sublinhado" className="quote-docs-underline" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("underline")}><u>S</u></button>
+          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>REMOVER IMAGEM</button>
+        </> : activeBlock?.type === "page-break" ? <>
+          <span className="quote-docs-tool-context">QUEBRA DE PÁGINA</span>
+          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>REMOVER QUEBRA</button>
+        </> : activeRole === "section-label" ? <>
+          <span className="quote-docs-tool-context">SERVIÇOS INCLUÍDOS</span>
+          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={removeServices}>REMOVER SEÇÃO</button>
+        </> : activeRole === "service-title" || activeRole === "service-category" ? <span className="quote-docs-tool-context">{activeRole === "service-title" ? "NOME DO SERVIÇO" : "CATEGORIA DO SERVIÇO"}</span>
+        : activeBlock && activeBlock.type !== "rich-text" ? <>
+          <button type="button" aria-label="Negrito" className={activeBlock.bold ? "is-active" : ""} aria-pressed={activeBlock.bold} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { bold: !activeBlock.bold })}>N</button>
+          <button type="button" aria-label="Itálico" className={activeBlock.italic ? "is-active quote-docs-italic" : "quote-docs-italic"} aria-pressed={activeBlock.italic} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { italic: !activeBlock.italic })}>I</button>
+          <button type="button" aria-label="Sublinhado" className={activeBlock.underline ? "is-active quote-docs-underline" : "quote-docs-underline"} aria-pressed={activeBlock.underline} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { underline: !activeBlock.underline })}>S</button>
+          <select aria-label="Alinhamento" value={activeBlock.align} onChange={(event) => updateBlock(activeBlock.id, { align: event.target.value as QuoteDocumentAlign })}>{Object.entries(alignLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+        </> : <>
+          <button type="button" aria-label="Negrito" title="Negrito" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("bold")}><strong>N</strong></button>
+          <button type="button" aria-label="Itálico" title="Itálico" className="quote-docs-italic" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("italic")}><em>I</em></button>
+          <button type="button" aria-label="Sublinhado" title="Sublinhado" className="quote-docs-underline" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("underline")}><u>S</u></button>
           <span className="quote-docs-divider" />
           <ParagraphStyleControl style={richTextStyle} onSelect={(style) => applyRichTextCommand("paragraphStyle", undefined, style)} />
           <FontSizeControl size={richTextSize} onStep={(direction) => applyRichTextCommand(direction > 0 ? "increaseFontSize" : "decreaseFontSize")} onSelect={(size) => applyRichTextCommand("fontSize", size)} />
           <span className="quote-docs-divider" />
-          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("insertUnorderedList")}>LISTA</button>
-          <button type="button" aria-label="Lista numerada" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("insertOrderedList")}>1.</button>
+          <button type="button" title="Lista com marcadores" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("insertUnorderedList")}>LISTA</button>
+          <button type="button" aria-label="Lista numerada" title="Lista numerada" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("insertOrderedList")}>1.</button>
           <span className="quote-docs-divider" />
-          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("removeFormat")}>LIMPAR FORMATAÇÃO</button>
-        </> : <>
-        <select aria-label="Tipo de conteúdo" disabled={!activeBlock} value={activeBlock?.type ?? "paragraph"} onChange={(event) => activeBlock && updateBlock(activeBlock.id, { type: event.target.value as QuoteDocumentBlockType })}><option value="heading">Título</option><option value="paragraph">Texto</option></select>
-        <select aria-label="Tamanho do texto" disabled={!activeBlock} value={activeBlock?.fontSize ?? "medium"} onChange={(event) => activeBlock && updateBlock(activeBlock.id, { fontSize: event.target.value as QuoteDocumentFontSize })}>{Object.entries(sizeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-        <span className="quote-docs-divider" />
-        <button type="button" aria-label="Negrito" disabled={!activeBlock} className={activeBlock?.bold ? "is-active" : ""} aria-pressed={activeBlock?.bold ?? false} onClick={() => activeBlock && updateBlock(activeBlock.id, { bold: !activeBlock.bold })}>N</button>
-        <button type="button" aria-label="Itálico" disabled={!activeBlock} className={activeBlock?.italic ? "is-active quote-docs-italic" : "quote-docs-italic"} aria-pressed={activeBlock?.italic ?? false} onClick={() => activeBlock && updateBlock(activeBlock.id, { italic: !activeBlock.italic })}>I</button>
-        <button type="button" aria-label="Sublinhado" disabled={!activeBlock} className={activeBlock?.underline ? "is-active quote-docs-underline" : "quote-docs-underline"} aria-pressed={activeBlock?.underline ?? false} onClick={() => activeBlock && updateBlock(activeBlock.id, { underline: !activeBlock.underline })}>S</button>
-        <select aria-label="Alinhamento" disabled={!activeBlock} value={activeBlock?.align ?? "left"} onChange={(event) => activeBlock && updateBlock(activeBlock.id, { align: event.target.value as QuoteDocumentAlign })}>{Object.entries(alignLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-        <span className="quote-docs-divider" />
-        <button type="button" disabled={!activeBlock} onClick={() => activeBlock && updateBlock(activeBlock.id, { bold: false, italic: false, underline: false, fontSize: activeBlock.type === "heading" ? "large" : "medium", align: "left" })}>LIMPAR FORMATAÇÃO</button>
+          <button type="button" title="Remove negrito, itálico, sublinhado, tamanho e estilo de título da linha ou do trecho selecionado" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("removeFormat")}>LIMPAR FORMATAÇÃO</button>
         </>}
-        <span className="quote-docs-divider" />
-        <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; void uploadImages(files); }} />
-        <button type="button" disabled={imageUpload.busy} title="Insere uma ou mais imagens no ponto do cursor" onMouseDown={(event) => { event.preventDefault(); insertionPointRef.current = currentInsertionPoint(); }} onClick={() => { if (insertionPointRef.current === undefined) insertionPointRef.current = currentInsertionPoint(); imageInputRef.current?.click(); }}>{imageUpload.busy ? "ENVIANDO IMAGENS..." : "INSERIR IMAGENS"}</button>
-        {imageUpload.error ? <span className="quote-docs-tool-error" role="alert">{imageUpload.error}</span> : null}
-        {templateText ? <>
-          <span className="quote-docs-divider" />
-          <button type="button" title="Acrescenta o texto padrão à apresentação, antes dos serviços" onMouseDown={(event) => event.preventDefault()} onClick={insertTemplateText}>INSERIR TEXTO PADRÃO</button>
-        </> : null}
       </div>
     </section>
-    <section className="quote-docs-canvas" aria-label="Documento editável" ref={canvasRef}>
+    <section className="quote-docs-canvas" aria-label="Documento editável">
       <div className="quote-docs-pages">
         <QuoteCoverPreview quote={preview} professional={professional} />
-        {pages.map((page, pageIndex) => <article className="quote-docs-page quote-docs-editable-page" key={`page-${pageIndex}`}>
-          {pageHeader}
-          <div className="quote-docs-page-content">
-            {page.blocks.map((block) => <EditableBlock key={block.type === "rich-text" ? `${block.id}:${textSignature(block.text)}:${partVersions[block.id] ?? 0}` : `${block.id}:${restoreVersion}`} block={block} imageSrc={block.image ? `/api/orcamentos/${quoteId}/imagens/${block.image.id}` : undefined} onPullUp={() => pullBlockUp(block)} onActivate={() => { setActiveBlockId(block.id); setPinnedPart(block.sourceId && block.atomStart !== undefined && block.atomCount !== undefined ? { id: block.id, sourceId: block.sourceId, atomStart: block.atomStart, atomCount: block.atomCount, pageIndex } : { id: block.id, sourceId: block.id, atomStart: -1, atomCount: 0, pageIndex }); }} onBoundary={(action) => handlePartBoundary(block, action)} onInput={(text) => { if (block.type === "rich-text") editedPartsRef.current.add(block.id); updateDisplayBlockText(block, text); scheduleMeasure(); }} onCommit={() => commitBlock(block)} onRemove={() => block.type === "image" ? removeImageBlock(block.id) : removeBlock(block.sourceId ?? block.id)} command={activeBlockId === block.id && block.type === "rich-text" ? richTextCommand : null} onSelectionSize={setRichTextSize} onSelectionStyle={setRichTextStyle} />)}
+        <article ref={sheetRef} className={`quote-sheet${layout.compact ? " is-compact" : ""}`} style={{ "--pt": `${layout.pt}px`, paddingBottom: layout.tail + bottomSpace } as CSSProperties} aria-label="Páginas do documento">
+          <style>{gapCss}</style>
+          {pageHeader()}
+          <div ref={flowRef} className="quote-sheet-flow">
+            {blocks.map(renderBlock)}
+            <div ref={flowEndRef} className="quote-sheet-flow-end" />
           </div>
-          <footer><span />{pageIndex + 2} / {totalPages}</footer>
-        </article>)}
-        <QuoteClosingPreview quote={preview} professional={professional} pageNumber={totalPages} />
+          <span className="quote-sheet-page-number" aria-hidden="true">{totalPages - 1} / {totalPages}</span>
+          {layout.breaks.map((pageBreak, index) => <div key={index} className="quote-sheet-break" aria-hidden="true" style={{ top: pageBreak.top, height: pageBreak.gap }}>
+            <div className="quote-sheet-break-end" style={{ height: pageBreak.remaining + bottomSpace }}><span className="quote-sheet-page-number">{index + 2} / {totalPages}</span></div>
+            <div className="quote-sheet-break-gutter" />
+            <div className="quote-sheet-break-start">{pageHeader(`header-${index}`)}</div>
+          </div>)}
+        </article>
+        <div className="quote-docs-closing-toggle">
+          <div><span>PÁGINA FINAL</span><small>Investimento, condições e aceite. Gerada a partir dos valores do orçamento.</small></div>
+          <button type="button" className="secondary-action" aria-expanded={showClosing} onClick={() => setShowClosing((value) => !value)}>{showClosing ? "OCULTAR PÁGINA FINAL" : "EXIBIR PÁGINA FINAL"}</button>
+        </div>
+        {showClosing ? <QuoteClosingPreview quote={preview} professional={professional} pageNumber={totalPages} /> : null}
       </div>
     </section>
   </form>;

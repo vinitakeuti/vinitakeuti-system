@@ -180,6 +180,11 @@ function PdfRuns({ runs }: { runs: RichTextRun[] }) {
   return <>{runs.map((run, index) => <Text key={`${index}-${run.text.slice(0, 12)}`} style={{ ...(run.bold ? { fontWeight: 700 } : {}), fontStyle: run.italic ? "italic" : "normal", textDecoration: run.underline ? "underline" : "none", ...(run.size ? { fontSize: run.size, lineHeight: richTextLineHeight(run.size) } : {}) }}>{run.text}</Text>)}</>;
 }
 
+/** Parágrafos e itens curtos não se dividem entre folhas, como no editor; só textos muito longos podem quebrar no meio. */
+function keepsWhole(runs: RichTextRun[]) {
+  return runs.reduce((total, run) => total + run.text.length, 0) < 1_500;
+}
+
 function DocumentRichText({ value }: { value: string }) {
   const document = parseRichText(value);
   if (!document.blocks.length) return null;
@@ -189,8 +194,8 @@ function DocumentRichText({ value }: { value: string }) {
     if (block.type === "paragraph" && block.style === "section") return <SectionHeading key={`paragraph-${index}`} compact>{block.runs.map((run) => run.text).join("").replace(/\n/g, " ").trim()}</SectionHeading>;
     if (block.type === "paragraph" && block.style) return <Text key={`paragraph-${index}`} style={[block.style === "title" ? styles.editorRichTextTitle : styles.editorRichTextSubtitle, index === 0 ? { marginTop: 0 } : {}]} minPresenceAhead={40}><PdfRuns runs={block.runs} /></Text>;
     if (block.type === "paragraph" && isBlankRichTextRuns(block.runs)) return <Text key={`paragraph-${index}`} style={styles.editorRichTextParagraph}><PdfRuns runs={[{ ...block.runs[0], text: " " }]} /></Text>;
-    if (block.type === "paragraph") return <Text key={`paragraph-${index}`} style={styles.editorRichTextParagraph}><PdfRuns runs={block.runs} /></Text>;
-    return <View key={`${block.type}-${index}`} style={styles.editorRichTextList}>{block.items.map((item, itemIndex) => <View key={`${index}-${itemIndex}`} style={styles.editorRichTextListItem}><Text style={styles.editorRichTextBullet}>{block.type === "ordered-list" ? `${itemIndex + 1}.` : "-"}</Text><Text style={styles.editorRichTextListText}><PdfRuns runs={item} /></Text></View>)}</View>;
+    if (block.type === "paragraph") return <Text key={`paragraph-${index}`} style={styles.editorRichTextParagraph} wrap={!keepsWhole(block.runs)}><PdfRuns runs={block.runs} /></Text>;
+    return <View key={`${block.type}-${index}`} style={styles.editorRichTextList}>{block.items.map((item, itemIndex) => <View key={`${index}-${itemIndex}`} style={styles.editorRichTextListItem} wrap={!keepsWhole(item)}><Text style={styles.editorRichTextBullet}>{block.type === "ordered-list" ? `${itemIndex + 1}.` : "-"}</Text><Text style={styles.editorRichTextListText}><PdfRuns runs={item} /></Text></View>)}</View>;
   })}</View>;
 }
 
@@ -209,6 +214,8 @@ function DocumentImage({ block, file }: { block: QuoteDocumentBlock; file?: Quot
 }
 
 function DocumentBlock({ block, previous, images }: { block: QuoteDocumentBlock; previous?: QuoteDocumentBlock; images?: Record<string, QuotePdfImage> }) {
+  // Quebra de página inserida no editor: o conteúdo seguinte começa numa nova folha.
+  if (block.type === "page-break") return <View break />;
   if (block.type === "image") return <DocumentImage block={block} file={block.image ? images?.[block.image.id] : undefined} />;
   if (block.type === "rich-text") return <DocumentRichText value={block.text} />;
   const role = quoteDocumentBlockRole(block);

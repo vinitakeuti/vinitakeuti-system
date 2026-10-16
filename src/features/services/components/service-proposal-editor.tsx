@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
 import { isBlankRichTextRuns, normalizedRichTextSize, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, serializeRichText, type RichTextDocument, type RichTextMark, type RichTextParagraphStyle, type RichTextRun } from "@/lib/rich-text";
 
 type Props = {
@@ -59,6 +59,8 @@ function runsToHtml(runs: RichTextRun[]) {
 }
 
 function documentToHtml(document: RichTextDocument) {
+  // Um editor vazio começa com um parágrafo: o que for digitado já nasce dentro dele, nunca solto na raiz.
+  if (!document.blocks.length) return "<p><br></p>";
   return document.blocks.map((block) => {
     if (block.type === "paragraph") {
       // Uma quebra no fim do parágrafo só aparece no navegador se houver outra depois dela.
@@ -231,6 +233,9 @@ function dropStaleSizes(editor: HTMLElement) {
 /** Troca as marcações <font size="7"> criadas pelo navegador por trechos com o tamanho do documento. */
 function convertFontMarkers(editor: HTMLElement, size: number) {
   const created: HTMLElement[] = [];
+  // Os nós de texto são movidos para o novo trecho; o cursor que estava neles volta para o mesmo ponto.
+  const selection = window.getSelection();
+  const anchor = selection?.rangeCount ? { node: selection.anchorNode, offset: selection.anchorOffset, focus: selection.focusNode, focusOffset: selection.focusOffset } : null;
   editor.querySelectorAll<HTMLElement>("font[size='7']").forEach((font) => {
     const span = document.createElement("span");
     markSizedElement(span, size);
@@ -240,6 +245,13 @@ function convertFontMarkers(editor: HTMLElement, size: number) {
     created.push(span);
   });
   dropStaleSizes(editor);
+  if (created.length && anchor?.node && anchor.focus && editor.contains(anchor.node) && editor.contains(anchor.focus)) {
+    try {
+      selection!.setBaseAndExtent(anchor.node, anchor.offset, anchor.focus, anchor.focusOffset);
+    } catch {
+      // A seleção original deixou de existir; o navegador mantém a posição que já tinha.
+    }
+  }
   return created;
 }
 
@@ -291,6 +303,111 @@ function applyFontSize(editor: HTMLElement, size: number) {
   return null;
 }
 
+function placeCaretAt(node: Node, offset: number) {
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.setStart(node, offset);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+/** Texto e marcações soltos na raiz passam para dentro de um parágrafo, mantendo o cursor onde estava. */
+function ensureParagraphs(editor: HTMLElement) {
+  const loose = Array.from(editor.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE ? Boolean(node.textContent) : node instanceof HTMLElement && INLINE_TAGS.has(node.tagName));
+  if (!loose.length) return;
+  const selection = window.getSelection();
+  const anchor = selection?.rangeCount ? { node: selection.anchorNode, offset: selection.anchorOffset } : null;
+  let paragraph: HTMLParagraphElement | null = null;
+  for (const node of Array.from(editor.childNodes)) {
+    if (!loose.includes(node)) {
+      paragraph = null;
+      continue;
+    }
+    if (!paragraph) {
+      paragraph = document.createElement("p");
+      editor.insertBefore(paragraph, node);
+    }
+    paragraph.appendChild(node);
+  }
+  if (anchor?.node && editor.contains(anchor.node)) placeCaretAt(anchor.node, anchor.offset);
+}
+
+/**
+ * A linha criada pelo Enter começa limpa: sem negrito, tamanho ou estilo de título herdados da linha anterior.
+ * Linhas em branco que ficaram com estilo de título voltam a ser texto comum.
+ */
+function cleanNewLine(editor: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return;
+  editor.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6").forEach((heading) => {
+    if (heading.textContent || heading.contains(selection.anchorNode)) return;
+    const paragraph = document.createElement("p");
+    paragraph.innerHTML = "<br>";
+    heading.replaceWith(paragraph);
+  });
+  const line = currentLine(editor, selection.getRangeAt(0).startContainer);
+  if (!line) return;
+  // Enter no início de uma linha deixa a linha vazia acima dela: ela também fica sem formatação.
+  const previous = line.previousElementSibling;
+  if (previous instanceof HTMLElement && !previous.textContent && (previous.tagName === line.tagName || /^(P|DIV|H[1-6])$/.test(previous.tagName))) resetLine(previous);
+  if (line.textContent) return;
+  // Reposicionar a seleção também descarta o estilo de digitação que o navegador guardaria para a nova linha.
+  placeCaretAt(resetLine(line), 0);
+}
+
+/** Deixa uma linha vazia como texto comum, sem marcações nem estilo de título. */
+function resetLine(line: HTMLElement) {
+  let target = line;
+  if (/^H[1-6]$/.test(line.tagName)) {
+    target = document.createElement("p");
+    line.replaceWith(target);
+  }
+  target.innerHTML = "<br>";
+  return target;
+}
+
+/**
+ * Limpar formatação: sem seleção, vale para a linha inteira do cursor; com seleção, para o trecho selecionado.
+ * Remove negrito, itálico, sublinhado e tamanhos, e títulos voltam a ser texto comum.
+ */
+function clearFormatting(editor: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !editor.contains(selection.getRangeAt(0).startContainer)) return;
+  const collapsed = selection.isCollapsed;
+  if (collapsed) {
+    const line = currentLine(editor, selection.getRangeAt(0).startContainer);
+    if (!line) return;
+    if (!line.textContent) {
+      placeCaretAt(resetLine(line), 0);
+      return;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(line);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+  document.execCommand("removeFormat", false);
+  const range = selection.rangeCount ? selection.getRangeAt(0) : null;
+  if (range && Array.from(editor.querySelectorAll("h1, h2, h3, h4, h5, h6")).some((heading) => range.intersectsNode(heading))) document.execCommand("formatBlock", false, "<p>");
+  dropStaleSizes(editor);
+  editor.querySelectorAll<HTMLElement>("span, font").forEach((element) => {
+    if (!element.attributes.length || (element.tagName === "FONT" && !element.getAttribute("size") && !element.getAttribute("style"))) element.replaceWith(...Array.from(element.childNodes));
+  });
+  if (collapsed && selection.rangeCount) selection.collapseToEnd();
+}
+
+/** Colar sempre como texto simples: a formatação de outros programas não entra no documento. */
+function pastePlainText(event: ClipboardEvent<HTMLDivElement>) {
+  event.preventDefault();
+  const lines = event.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n").split("\n").slice(0, 400);
+  lines.forEach((line, index) => {
+    if (index) document.execCommand("insertParagraph", false);
+    if (line) document.execCommand("insertText", false, line);
+  });
+}
+
 /** Estilo do parágrafo onde está o cursor. */
 function selectionParagraphStyle(editor: HTMLElement) {
   const selection = window.getSelection();
@@ -326,9 +443,11 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
   const initialHtmlRef = useRef<{ __html: string } | null>(null);
   if (!initialHtmlRef.current) initialHtmlRef.current = { __html: documentToHtml(initialDocumentRef.current) };
 
-  function syncValue() {
+  function syncValue(event?: FormEvent<HTMLDivElement>) {
     const editor = editorRef.current;
     if (!editor) return;
+    if ((event?.nativeEvent as InputEvent | undefined)?.inputType === "insertParagraph") cleanNewLine(editor);
+    ensureParagraphs(editor);
     // O tamanho escolhido numa linha vazia vira <font> só quando o primeiro caractere é digitado.
     if (pendingSizeRef.current && editor.querySelector("font[size='7']")) {
       convertFontMarkers(editor, pendingSizeRef.current);
@@ -336,6 +455,7 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
     }
     dropStaleSizes(editor);
     const value = serializeRichText(documentFromEditor(editor));
+    editor.dataset.empty = String(!value);
     onChange(value);
   }
 
@@ -368,13 +488,23 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
     } else if (command.value === "paragraphStyle") {
       applyParagraphStyle(editor, command.paragraphStyle ?? null);
       onSelectionStyleRef.current?.(selectionParagraphStyle(editor));
+    } else if (command.value === "removeFormat") {
+      clearFormatting(editor);
+      onSelectionStyleRef.current?.(selectionParagraphStyle(editor));
+      onSelectionSizeRef.current?.(selectionSize(editor) ?? RICH_TEXT_BASE_SIZE);
     } else {
       document.execCommand(command.value, false);
     }
     syncValue();
   }, [command]);
 
-  return <div ref={editorRef} className={className} data-placeholder={placeholder} role="textbox" aria-multiline="true" aria-label={ariaLabel} contentEditable suppressContentEditableWarning spellCheck onFocus={onFocus} onBlur={onBlur} onKeyDown={onKeyDown} onInput={syncValue} dangerouslySetInnerHTML={initialHtmlRef.current} />;
+  function handleFocus() {
+    // Enter cria parágrafos (<p>), como os que o documento salva.
+    document.execCommand("defaultParagraphSeparator", false, "p");
+    onFocus?.();
+  }
+
+  return <div ref={editorRef} className={className} data-placeholder={placeholder} data-empty={String(!initialDocumentRef.current.blocks.length)} role="textbox" aria-multiline="true" aria-label={ariaLabel} contentEditable suppressContentEditableWarning spellCheck onFocus={handleFocus} onBlur={onBlur} onKeyDown={onKeyDown} onInput={syncValue} onPaste={pastePlainText} dangerouslySetInnerHTML={initialHtmlRef.current} />;
 }
 
 export function ServiceProposalEditor({ name, initialValue, onChange }: Props) {
@@ -388,7 +518,8 @@ export function ServiceProposalEditor({ name, initialValue, onChange }: Props) {
   function applyCommand(command: RichTextEditorCommand) {
     const editor = containerRef.current?.querySelector<HTMLDivElement>(".service-proposal-content");
     editor?.focus();
-    document.execCommand(command, false);
+    if (command === "removeFormat" && editor) clearFormatting(editor);
+    else document.execCommand(command, false);
     if (!editor) return;
     const value = serializeRichText(documentFromEditor(editor));
     if (hiddenFieldRef.current) hiddenFieldRef.current.value = value ?? "";

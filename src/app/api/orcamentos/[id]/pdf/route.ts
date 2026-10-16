@@ -10,7 +10,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (!quote) return new Response("Orçamento não encontrado.", { status: 404 });
   const professional = await getProfessionalProfileForDocuments();
   const items = quote.items.length ? quote.items.map((item) => ({ description: item.name, categoryName: item.categoryName, proposalText: item.proposalText, quantity: item.quantity, unitPriceCents: item.unitAmountCents })) : [{ description: quote.title, quantity: 1, unitPriceCents: quote.amountCents }];
-  const documentContent = withQuoteServiceBlocks(parseQuoteDocumentContent(quote.documentContent, { title: quote.title, clientName: quote.client.name }), quote.items);
+  // Documentos antigos, nunca salvos no editor, mantêm a seção de serviços automática.
+  const parsed = parseQuoteDocumentContent(quote.documentContent, { title: quote.title, clientName: quote.client.name });
+  const documentContent = quote.documentContent == null ? withQuoteServiceBlocks(parsed, quote.items) : parsed;
   const images = await getQuoteImagesForPdf(quote.id, quoteDocumentImageIds(documentContent));
   const pdf = await generateQuotePdf({ code: quote.code, issuedAt: quote.createdAt, validUntil: quote.validUntil, title: quote.title, scope: quote.scope, documentContent, images, terms: quote.terms, discountCents: quote.discountCents, discountPercentBps: quote.discountPercentBps, client: quote.client, items, payments: quote.payments, paymentNotes: quote.paymentNotes, completedAt: quote.completedAt, professional });
   return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${quote.code}.pdf"` } });

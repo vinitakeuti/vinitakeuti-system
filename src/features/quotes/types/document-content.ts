@@ -1,6 +1,6 @@
 import { richTextHasContent } from "@/lib/rich-text";
 
-export type QuoteDocumentBlockType = "heading" | "paragraph" | "rich-text" | "image";
+export type QuoteDocumentBlockType = "heading" | "paragraph" | "rich-text" | "image" | "page-break";
 export type QuoteDocumentFontSize = "small" | "medium" | "large";
 export type QuoteDocumentAlign = "left" | "center" | "right" | "justify";
 
@@ -67,20 +67,33 @@ export function quoteDocumentBlockRole(block: Pick<QuoteDocumentBlock, "id" | "t
   return null;
 }
 
-const validTypes = new Set<QuoteDocumentBlockType>(["heading", "paragraph", "rich-text", "image"]);
+const validTypes = new Set<QuoteDocumentBlockType>(["heading", "paragraph", "rich-text", "image", "page-break"]);
 const validSizes = new Set<QuoteDocumentFontSize>(["small", "medium", "large"]);
 const validAlignments = new Set<QuoteDocumentAlign>(["left", "center", "right", "justify"]);
 
-/** Documento inicial vazio. O texto padrão nunca entra sozinho: é inserido pelo editor quando o usuário pede. */
+/**
+ * Documento inicial: uma página em branco para escrever. Serviços incluídos, texto padrão, imagens e
+ * quebras de página são componentes inseridos pelo editor onde o usuário escolher.
+ */
 export function createDefaultQuoteDocument(input: { title: string; clientName: string }): QuoteDocumentContent {
   void input.title;
   void input.clientName;
   return {
     version: 1,
     blocks: [
-      { id: "body-1", type: "paragraph", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" },
+      { id: "intro-text", type: "rich-text", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" },
     ],
   };
+}
+
+export function hasQuoteServicesComponent(content: QuoteDocumentContent) {
+  return content.blocks.some((block) => block.id === "services-label" || block.id.startsWith("service-"));
+}
+
+/** Blocos do componente Serviços incluídos: rótulo da seção e, para cada serviço, título, categoria e descrição. */
+export function quoteServiceComponentBlocks(services: ServiceDocumentSource[]): QuoteDocumentBlock[] {
+  if (!services.length) return [];
+  return withQuoteServiceBlocks({ version: 1, blocks: [] }, services).blocks;
 }
 
 type ServiceDocumentSource = {
@@ -122,6 +135,7 @@ export function parseQuoteDocumentContent(value: unknown, fallback: { title: str
     if (typeof item.text !== "string" || !validTypes.has(item.type as QuoteDocumentBlockType) || !validSizes.has(item.fontSize as QuoteDocumentFontSize) || !validAlignments.has(item.align as QuoteDocumentAlign)) return [];
     const type = item.type as QuoteDocumentBlockType;
     const id = typeof item.id === "string" && item.id.length <= 80 ? item.id : `block-${index}`;
+    if (type === "page-break") return [{ id, type, text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" }];
     if (type === "image") {
       const image = parseImage(item.image);
       const align = item.align === "justify" ? "center" : item.align as QuoteDocumentAlign;
@@ -144,7 +158,7 @@ export function withQuoteIntroBlock(content: QuoteDocumentContent): QuoteDocumen
   if (content.blocks.some((block) => block.id === QUOTE_INTRO_BLOCK_ID)) return content;
   const serviceStart = content.blocks.findIndex((block) => block.id === "services-label" || block.id.startsWith("service-"));
   const end = serviceStart === -1 ? content.blocks.length : serviceStart;
-  const hasTextBefore = content.blocks.slice(0, end).some((block) => block.type === "image" || (block.type === "rich-text" ? richTextHasContent(block.text) : block.text.trim().length > 0));
+  const hasTextBefore = content.blocks.slice(0, end).some((block) => block.type === "image" || block.type === "page-break" || (block.type === "rich-text" ? richTextHasContent(block.text) : block.text.trim().length > 0));
   if (hasTextBefore) return content;
   const intro: QuoteDocumentBlock = { id: QUOTE_INTRO_BLOCK_ID, type: "rich-text", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
   return { version: 1, blocks: [intro, ...content.blocks.slice(end)] };

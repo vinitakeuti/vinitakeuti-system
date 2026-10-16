@@ -16,7 +16,9 @@ export default async function QuoteDocumentEditorPage({ params, searchParams }: 
   const [{ id }, { salvo }] = await Promise.all([params, searchParams]);
   const [quote, professional, template] = await Promise.all([getQuoteForPdf(id), getProfessionalProfileForDocuments(), getQuoteTextTemplate()]);
   if (!quote) notFound();
-  const content = withQuoteIntroBlock(withQuoteServiceBlocks(parseQuoteDocumentContent(quote.documentContent, { title: quote.title, clientName: quote.client.name }), quote.items));
+  // Serviços incluídos é um componente inserido pelo editor. Só documentos antigos, nunca salvos, recebem a seção automaticamente.
+  const parsed = parseQuoteDocumentContent(quote.documentContent, { title: quote.title, clientName: quote.client.name });
+  const content = withQuoteIntroBlock(quote.documentContent == null ? withQuoteServiceBlocks(parsed, quote.items) : parsed);
   const preview: QuotePreviewData = {
     id: quote.id,
     code: quote.code,
@@ -33,5 +35,5 @@ export default async function QuoteDocumentEditorPage({ params, searchParams }: 
     // Data do aceite: a da conclusão do orçamento; enquanto pendente, a data de hoje.
     signatureDate: (quote.completedAt ?? new Date()).toISOString(),
   };
-  return <main className="app-shell"><AppSidebar current="quotes" /><div className="workspace"><section className="directory-page quote-editor-page"><nav className="quote-editor-navigation" aria-label="Navegação do editor"><SidebarToggle location="header" /><Link className="text-link" href={`/orcamentos/${quote.id}`}>VOLTAR PARA ORÇAMENTO</Link></nav><QuoteDocumentEditor quoteId={quote.id} quoteCode={quote.code} quoteTitle={quote.title} backHref={`/orcamentos/${quote.id}`} initialContent={content} professional={professional} isCompleted={Boolean(quote.completedAt)} justSaved={salvo === "1"} preview={preview} templateText={richTextForStorage(template?.content ?? null, 16_000)} /></section></div></main>;
+  return <main className="app-shell"><AppSidebar current="quotes" /><div className="workspace"><section className="directory-page quote-editor-page"><nav className="quote-editor-navigation" aria-label="Navegação do editor"><SidebarToggle location="header" /><Link className="text-link" href={`/orcamentos/${quote.id}`}>VOLTAR PARA ORÇAMENTO</Link></nav><QuoteDocumentEditor quoteId={quote.id} quoteCode={quote.code} quoteTitle={quote.title} backHref={`/orcamentos/${quote.id}`} initialContent={content} professional={professional} isCompleted={Boolean(quote.completedAt)} justSaved={salvo === "1"} preview={preview} templateText={richTextForStorage(template?.content ?? null, 16_000)} services={quote.items.map((item) => ({ id: item.id, name: item.name, categoryName: item.categoryName, proposalText: item.proposalText }))} /></section></div></main>;
 }
