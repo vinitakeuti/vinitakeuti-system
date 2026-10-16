@@ -4,6 +4,7 @@ import { DocumentStatus, FinancialEntryOrigin, FinancialEntryStatus, FinancialEn
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
 
 function text(formData: FormData, name: string, max: number) {
   const value = formData.get(name);
@@ -23,15 +24,19 @@ export async function confirmQuoteSaleAction(formData: FormData) {
   const quoteId = text(formData, "quoteId", 50);
   if (!quoteId) redirect("/vendas");
 
-  const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, code: true, clientId: true, title: true, scope: true, amountCents: true, status: true, completedAt: true, client: { select: { name: true } }, sale: { select: { id: true } } } });
+  const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, code: true, clientId: true, title: true, scope: true, amountCents: true, status: true, completedAt: true, client: { select: { name: true } }, sale: { select: { id: true } }, payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 50, select: { amountCents: true, paidAt: true } } } });
   if (!quote || quote.sale || (quote.status !== DocumentStatus.DRAFT && quote.status !== DocumentStatus.SENT)) redirect("/vendas");
 
   const now = new Date();
-  await prisma.$transaction([
-    prisma.quote.update({ where: { id: quote.id }, data: { status: DocumentStatus.ACCEPTED, completedAt: quote.completedAt ?? now } }),
-    prisma.sale.create({ data: { clientId: quote.clientId, quoteId: quote.id, code: saleCode(), title: quote.title, description: quote.scope, amountCents: quote.amountCents, origin: SaleOrigin.QUOTE, status: SaleStatus.CONFIRMED, confirmedAt: now } }),
-    prisma.financialEntry.upsert({ where: { sourceKey: `quote:${quote.id}` }, update: {}, create: { sourceKey: `quote:${quote.id}`, origin: FinancialEntryOrigin.QUOTE, type: FinancialEntryType.INCOME, status: FinancialEntryStatus.PENDING, description: `${quote.code} · ${quote.title}`, category: "Vendas", counterparty: quote.client.name, amountCents: quote.amountCents, dueDate: now, notes: "Entrada criada automaticamente na confirmação do orçamento." } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    await tx.quote.update({ where: { id: quote.id }, data: { status: DocumentStatus.ACCEPTED, completedAt: quote.completedAt ?? now } });
+    await tx.sale.create({ data: { clientId: quote.clientId, quoteId: quote.id, code: saleCode(), title: quote.title, description: quote.scope, amountCents: quote.amountCents, origin: SaleOrigin.QUOTE, status: SaleStatus.CONFIRMED, confirmedAt: now } });
+    const existing = await tx.financialEntry.findUnique({ where: { sourceKey: `quote:${quote.id}` }, select: { id: true } });
+    if (existing) return;
+    // Os pagamentos já registrados na proposta entram como recebimentos; o restante fica a receber.
+    const entry = await tx.financialEntry.create({ data: { sourceKey: `quote:${quote.id}`, origin: FinancialEntryOrigin.QUOTE, type: FinancialEntryType.INCOME, status: FinancialEntryStatus.PENDING, description: `${quote.code} · ${quote.title}`, category: "Vendas", counterparty: quote.client.name, amountCents: quote.amountCents, dueDate: now, notes: "Entrada criada automaticamente na confirmação do orçamento.", payments: { create: quote.payments.map((payment) => ({ amountCents: payment.amountCents, paidAt: payment.paidAt, notes: "Registrado na proposta." })) } }, select: { id: true } });
+    await recalculateFinancialEntry(tx, entry.id, { syncSale: true });
+  });
 
   revalidatePath("/vendas");
   revalidatePath("/financeiro");
@@ -88,7 +93,17 @@ export async function updateSaleStatusAction(formData: FormData) {
     if (sale.quoteId) {
       await tx.quote.update({ where: { id: sale.quoteId }, data: { status: nextStatus === SaleStatus.PENDING || nextStatus === SaleStatus.CANCELLED ? DocumentStatus.SENT : DocumentStatus.ACCEPTED } });
       if (nextStatus !== SaleStatus.CANCELLED) {
-        await tx.financialEntry.upsert({ where: { sourceKey: `quote:${sale.quoteId}` }, update: { status: nextStatus === SaleStatus.PAID ? FinancialEntryStatus.SETTLED : FinancialEntryStatus.PENDING, settledAt: nextStatus === SaleStatus.PAID ? now : null, amountCents: sale.amountCents }, create: { sourceKey: `quote:${sale.quoteId}`, origin: FinancialEntryOrigin.QUOTE, type: FinancialEntryType.INCOME, status: nextStatus === SaleStatus.PAID ? FinancialEntryStatus.SETTLED : FinancialEntryStatus.PENDING, description: `${sale.quote?.code ?? sale.code} · ${sale.title}`, category: "Vendas", counterparty: sale.client.name, amountCents: sale.amountCents, dueDate: sale.confirmedAt ?? now, settledAt: nextStatus === SaleStatus.PAID ? now : null, notes: "Entrada criada automaticamente na confirmação do orçamento." } });
+        // O valor esperado e os recebimentos editados no Financeiro são preservados; só o cancelamento é desfeito.
+        const entry = await tx.financialEntry.upsert({ where: { sourceKey: `quote:${sale.quoteId}` }, update: { status: FinancialEntryStatus.PENDING }, create: { sourceKey: `quote:${sale.quoteId}`, origin: FinancialEntryOrigin.QUOTE, type: FinancialEntryType.INCOME, status: FinancialEntryStatus.PENDING, description: `${sale.quote?.code ?? sale.code} · ${sale.title}`, category: "Vendas", counterparty: sale.client.name, amountCents: sale.amountCents, dueDate: sale.confirmedAt ?? now, notes: "Entrada criada automaticamente na confirmação do orçamento." }, select: { id: true, amountCents: true } });
+        if (nextStatus === SaleStatus.PAID) {
+          // Venda paga: o que ainda falta entra como um recebimento de quitação.
+          const paid = await tx.financialPayment.aggregate({ where: { entryId: entry.id }, _sum: { amountCents: true } });
+          const remaining = entry.amountCents - (paid._sum.amountCents ?? 0);
+          if (remaining > 0) await tx.financialPayment.create({ data: { entryId: entry.id, amountCents: remaining, paidAt: now, notes: "Quitação registrada ao marcar a venda como paga.", fromSale: true } });
+        } else {
+          await tx.financialPayment.deleteMany({ where: { entryId: entry.id, fromSale: true } });
+        }
+        await recalculateFinancialEntry(tx, entry.id);
       } else {
         await tx.financialEntry.updateMany({ where: { sourceKey: `quote:${sale.quoteId}` }, data: { status: FinancialEntryStatus.CANCELLED, settledAt: null } });
       }

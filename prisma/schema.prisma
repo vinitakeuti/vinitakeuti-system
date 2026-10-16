@@ -419,12 +419,32 @@ model FinancialEntry {
   dueDate      DateTime
   settledAt    DateTime?
   notes        String?
+  /// Soma dos recebimentos (entradas) ou pagamentos (saídas) já registrados. Atualizada junto com FinancialPayment.
+  paidCents    Int                  @default(0)
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
+  payments     FinancialPayment[]
 
   @@index([status, dueDate, id])
   @@index([type, dueDate, id])
   @@index([createdAt, id])
+}
+
+/// Valores efetivamente recebidos ou pagos de um lançamento. Um lançamento pode ser quitado em várias partes;
+/// ele fica realizado quando a soma alcança o valor esperado.
+model FinancialPayment {
+  id          String         @id @default(cuid())
+  entryId     String
+  amountCents Int
+  paidAt      DateTime
+  notes       String?
+  /// Quitação lançada ao marcar a venda como paga; sai se a venda voltar a ficar em aberto.
+  fromSale    Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  entry       FinancialEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([entryId, paidAt, id])
+  @@index([paidAt])
 }
 
 model QuoteServiceItem {

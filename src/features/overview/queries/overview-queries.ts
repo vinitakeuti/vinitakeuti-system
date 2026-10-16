@@ -25,8 +25,9 @@ export async function getOverviewData() {
       where: { type: FinancialEntryType.INCOME, status: FinancialEntryStatus.PENDING, dueDate: { gte: now } },
       take: 5,
       orderBy: [{ dueDate: "asc" }, { id: "asc" }],
-      select: { id: true, description: true, counterparty: true, amountCents: true, dueDate: true },
-    }),
+      select: { id: true, description: true, counterparty: true, amountCents: true, paidCents: true, dueDate: true },
+    // Recebimentos parciais: mostra só o que ainda falta.
+    }).then((entries) => entries.map(({ paidCents, ...entry }) => ({ ...entry, amountCents: entry.amountCents - paidCents }))),
     prisma.monitoredApp.findMany({
       take: 6,
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
