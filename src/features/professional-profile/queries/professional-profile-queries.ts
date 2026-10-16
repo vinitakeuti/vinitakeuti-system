@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { BRAND_TITLE } from "@/features/professional-profile/types/brand";
 
 /** Identificação usada nos documentos enquanto o perfil profissional não tiver esses dados preenchidos. */
 export const DEFAULT_PROFESSIONAL = { name: "Vinicius Riudi", document: "54.565.291/0001-94" } as const;
@@ -12,6 +13,8 @@ export async function getProfessionalProfileForDocuments() {
     ...profile,
     name: profile?.name?.trim() || DEFAULT_PROFESSIONAL.name,
     document: profile?.document?.trim() || DEFAULT_PROFESSIONAL.document,
+    // O título dos documentos é o mesmo da marca na barra lateral.
+    professionalTitle: BRAND_TITLE,
   };
 }
 

@@ -17,7 +17,6 @@ export async function saveProfessionalProfile(formData: FormData) {
 
   const data = {
     name,
-    professionalTitle: text(formData, "professionalTitle", 120),
     email: text(formData, "email", 254),
     phone: text(formData, "phone", 40),
     document: text(formData, "document", 32),

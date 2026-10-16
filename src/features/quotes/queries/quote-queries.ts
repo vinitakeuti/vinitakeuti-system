@@ -40,17 +40,39 @@ export async function getClientForQuote(id: string) {
   return prisma.client.findUnique({ where: { id }, select: { id: true, name: true, company: true, email: true } });
 }
 
-export async function findCatalogServicesForQuote(query?: string) {
-  const value = query?.trim().slice(0, 100);
-  return prisma.serviceCatalogItem.findMany({
+const CATALOG_PAGE_SIZE = 30;
+
+/**
+ * Busca no catálogo para montar a proposta: por texto e/ou categoria, agrupável por categoria (ordem da categoria,
+ * depois nome) e paginada. O catálogo é pequeno o bastante para paginar por deslocamento, com limite máximo.
+ */
+export async function findCatalogServicesForQuote(input: { query?: string; categoryId?: string; offset?: number }) {
+  const value = input.query?.trim().slice(0, 100);
+  const offset = Math.max(0, Math.min(2_000, Math.floor(input.offset ?? 0)));
+  const records = await prisma.serviceCatalogItem.findMany({
     where: {
       isActive: true,
+      ...(input.categoryId ? { categoryId: input.categoryId.slice(0, 50) } : {}),
       ...(value ? { OR: [{ name: { contains: value, mode: "insensitive" } }, { description: { contains: value, mode: "insensitive" } }, { category: { name: { contains: value, mode: "insensitive" } } }] } : {}),
     },
-    take: value ? 20 : 10,
-    orderBy: value ? [{ name: "asc" }, { id: "asc" }] : [{ createdAt: "desc" }, { id: "desc" }],
-    select: { id: true, name: true, billingType: true, pricingMethod: true, defaultAmountCents: true, estimatedHours: true, billingCycle: true, category: { select: { name: true } } },
+    skip: offset,
+    take: CATALOG_PAGE_SIZE + 1,
+    orderBy: [{ category: { sortOrder: "asc" } }, { category: { name: "asc" } }, { name: "asc" }, { id: "asc" }],
+    select: { id: true, name: true, billingType: true, pricingMethod: true, defaultAmountCents: true, estimatedHours: true, billingCycle: true, category: { select: { id: true, name: true } } },
   });
+  const hasMore = records.length > CATALOG_PAGE_SIZE;
+  return { data: hasMore ? records.slice(0, CATALOG_PAGE_SIZE) : records, nextOffset: hasMore ? offset + CATALOG_PAGE_SIZE : null };
+}
+
+/** Categorias com serviços ativos, para os filtros do seletor de serviços. */
+export async function listCatalogCategoriesForQuote() {
+  const categories = await prisma.serviceCategory.findMany({
+    where: { isActive: true, services: { some: { isActive: true } } },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }, { id: "asc" }],
+    take: 60,
+    select: { id: true, name: true, _count: { select: { services: { where: { isActive: true } } } } },
+  });
+  return categories.map((category) => ({ id: category.id, name: category.name, count: category._count.services }));
 }
 
 export async function getQuoteForPdf(id: string) {

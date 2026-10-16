@@ -32,7 +32,8 @@ export async function getClientProfile(id: string) {
     where: { id },
     select: {
       id: true, name: true, company: true, email: true, phone: true, document: true, address: true, city: true, notes: true, createdAt: true,
-      quotes: { take: 25, orderBy: { createdAt: "desc" }, select: { id: true, code: true, title: true, amountCents: true, status: true, createdAt: true, validUntil: true } },
+      quotes: { take: 25, orderBy: { createdAt: "desc" }, select: { id: true, code: true, title: true, amountCents: true, status: true, createdAt: true, validUntil: true, completedAt: true } },
+      documents: { take: 100, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], select: { id: true, code: true, title: true, kind: true, completedAt: true, updatedAt: true } },
       projects: { where: { status: { in: [ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS, ProjectStatus.WAITING_CLIENT] } }, take: 25, orderBy: { updatedAt: "desc" }, select: { id: true, name: true, status: true, deliveryAt: true, budgetCents: true } },
       monitoredApps: { take: 25, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { id: true, name: true, url: true, healthEndpoint: true, environment: true, status: true, lastCheckedAt: true } },
       subscriptions: { take: 25, orderBy: [{ status: "asc" }, { nextPaymentAt: "asc" }], select: { id: true, name: true, status: true, amountCents: true, billingCycle: true, nextPaymentAt: true, serviceCatalogItem: { select: { category: { select: { name: true } } } } } },

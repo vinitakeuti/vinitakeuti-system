@@ -34,3 +34,17 @@ export function coverTitleLayout(title: string) {
 export function pointsToCoverCqw(points: number) {
   return `${((points * 100) / 595).toFixed(2)}cqw`;
 }
+
+/** Paletas das capas de contrato, cessão e memorial técnico (PDF e pré-visualização usam as mesmas cores). */
+export const CONTRACT_COVER_COLORS = { background: "#F4F3EF", band: "#1B1C1B", accent: "#4B6156", text: "#111111", muted: "#6B706C", line: "#1B1C1B", watermark: "#E6E4DE" } as const;
+export const ASSIGNMENT_COVER_COLORS = { background: "#24332C", mark: "#2C3F35", panel: "#2E4238", accent: "#B9D3C4", text: "#FFFFFF", soft: "#C9D6CF", muted: "#8FA89A" } as const;
+export const MEMORIAL_COVER_COLORS = { background: "#FFFFFF", grid: "#F1F5F2", gridLine: "#DCE5DF", accent: "#4B6156", text: "#111111", muted: "#6B706C", line: "#C9D3CD" } as const;
+
+/** Área quadriculada da capa do memorial técnico, em pontos. */
+export const MEMORIAL_GRID = { height: 460, step: 18 } as const;
+
+/** Tamanho do título nas capas de contrato, cessão e memorial: diminui conforme o comprimento, para caber na largura. */
+export function coverTitleSize(title: string) {
+  const length = title.trim().length;
+  return length <= 20 ? 34 : length <= 34 ? 30 : length <= 54 ? 26 : length <= 80 ? 22 : 19;
+}

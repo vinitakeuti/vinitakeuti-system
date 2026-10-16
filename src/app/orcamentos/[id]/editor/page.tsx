@@ -5,10 +5,11 @@ import { SidebarToggle } from "@/components/sidebar-toggle";
 import { QuoteDocumentEditor } from "@/features/quotes/components/quote-document-editor";
 import { getQuoteForPdf } from "@/features/quotes/queries/quote-queries";
 import type { QuotePreviewData } from "@/features/quotes/components/quote-document-previews";
-import { parseQuoteDocumentContent, withQuoteIntroBlock, withQuoteServiceBlocks } from "@/features/quotes/types/document-content";
+import { parseQuoteDocumentContent, QUOTE_TEXT_MAX_CHARACTERS, withQuoteIntroBlock, withQuoteServiceBlocks } from "@/features/quotes/types/document-content";
 import { getProfessionalProfileForDocuments } from "@/features/professional-profile/queries/professional-profile-queries";
 import { getQuoteTextTemplate } from "@/features/quotes/queries/quote-text-template-queries";
 import { richTextForStorage } from "@/lib/rich-text";
+import { updateQuoteDocumentAction } from "@/features/quotes/services/quote-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,5 +36,5 @@ export default async function QuoteDocumentEditorPage({ params, searchParams }: 
     // Data do aceite: a da conclusão do orçamento; enquanto pendente, a data de hoje.
     signatureDate: (quote.completedAt ?? new Date()).toISOString(),
   };
-  return <main className="app-shell"><AppSidebar current="quotes" /><div className="workspace"><section className="directory-page quote-editor-page"><nav className="quote-editor-navigation" aria-label="Navegação do editor"><SidebarToggle location="header" /><Link className="text-link" href={`/orcamentos/${quote.id}`}>VOLTAR PARA ORÇAMENTO</Link></nav><QuoteDocumentEditor key={quote.updatedAt.toISOString()} savedAt={quote.updatedAt.toISOString()} quoteId={quote.id} quoteCode={quote.code} quoteTitle={quote.title} backHref={`/orcamentos/${quote.id}`} initialContent={content} professional={professional} isCompleted={Boolean(quote.completedAt)} justSaved={salvo === "1"} preview={preview} templateText={richTextForStorage(template?.content ?? null, 16_000)} services={quote.items.map((item) => ({ id: item.id, name: item.name, categoryName: item.categoryName, proposalText: item.proposalText }))} /></section></div></main>;
+  return <main className="app-shell"><AppSidebar current="quotes" /><div className="workspace"><section className="directory-page quote-editor-page"><nav className="quote-editor-navigation" aria-label="Navegação do editor"><SidebarToggle location="header" /><Link className="text-link" href={`/orcamentos/${quote.id}`}>VOLTAR PARA ORÇAMENTO</Link></nav><QuoteDocumentEditor key={quote.updatedAt.toISOString()} savedAt={quote.updatedAt.toISOString()} kind="proposal" documentId={quote.id} documentCode={quote.code} documentTitle={quote.title} apiBase={`/api/orcamentos/${quote.id}`} saveAction={updateQuoteDocumentAction} idFieldName="quoteId" backHref={`/orcamentos/${quote.id}`} initialContent={content} professional={professional} isCompleted={Boolean(quote.completedAt)} justSaved={salvo === "1"} cover={preview} closing={{ type: "investment", quote: preview }} templateText={richTextForStorage(template?.content ?? null, QUOTE_TEXT_MAX_CHARACTERS)} services={quote.items.map((item) => ({ id: item.id, name: item.name, categoryName: item.categoryName, proposalText: item.proposalText }))} /></section></div></main>;
 }

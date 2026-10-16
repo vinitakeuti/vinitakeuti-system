@@ -128,6 +128,7 @@ model Client {
   projects       Project[]
   charges        Charge[]
   quotes         Quote[]
+  documents      ClientDocument[]
   sales          Sale[]
   contracts      Contract[]
   subscriptions  Subscription[]
@@ -311,6 +312,7 @@ model Quote {
   items           QuoteServiceItem[]
   payments        QuotePayment[]
   images          QuoteImage[]
+  documents       ClientDocument[]
   sale            Sale?
 
   @@index([status, validUntil])
@@ -331,19 +333,52 @@ model QuotePayment {
   @@index([quoteId, paidAt, id])
 }
 
-/// Imagens inseridas no PDF do orçamento. Arquivos pequenos (até 4 MB), limitados por orçamento.
+/// Imagens inseridas no PDF de um orçamento ou de um documento do cliente. Arquivos pequenos (até 4 MB), limitados por documento.
 model QuoteImage {
-  id        String   @id @default(cuid())
-  quoteId   String
-  mimeType  String
-  width     Int
-  height    Int
-  byteSize  Int
-  data      Bytes
-  createdAt DateTime @default(now())
-  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  id         String          @id @default(cuid())
+  quoteId    String?
+  documentId String?
+  mimeType   String
+  width      Int
+  height     Int
+  byteSize   Int
+  data       Bytes
+  createdAt  DateTime        @default(now())
+  quote      Quote?          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  document   ClientDocument? @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([quoteId, createdAt])
+  @@index([documentId, createdAt])
+}
+
+enum ClientDocumentKind {
+  CONTRACT
+  IP_ASSIGNMENT
+  TECHNICAL_MEMORIAL
+}
+
+/// Documentos produzidos para o cliente além da proposta comercial: contrato, cessão de direitos e memorial técnico.
+model ClientDocument {
+  id              String             @id @default(cuid())
+  clientId        String
+  /// Proposta de referência: traz os serviços para o documento. Opcional.
+  quoteId         String?
+  kind            ClientDocumentKind
+  code            String             @unique
+  title           String
+  documentContent Json?
+  /// Null enquanto o documento estiver pendente de conclusão no editor.
+  completedAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  client          Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  quote           Quote?             @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  images          QuoteImage[]
+
+  @@index([clientId, kind, createdAt])
+  @@index([kind, updatedAt, id])
+  @@index([updatedAt, id])
+  @@index([quoteId])
 }
 
 model Sale {

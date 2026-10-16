@@ -97,7 +97,7 @@ export async function updateQuoteDocumentAction(formData: FormData) {
   revalidateQuoteLists(quote.id, quote.clientId);
   revalidatePath(`/orcamentos/${quote.id}/editor`);
   // Ir ao texto padrão a partir do editor salva o documento antes, e a página de destino oferece o retorno ao PDF.
-  if (intent === "template") redirect(`/orcamentos/texto-padrao?orcamento=${quote.id}`);
+  if (intent === "template") redirect(`/documentos/texto-padrao?tipo=proposta&orcamento=${quote.id}`);
   redirect(complete ? `/orcamentos/${quote.id}?concluido=1` : `/orcamentos/${quote.id}/editor?salvo=1`);
 }
 

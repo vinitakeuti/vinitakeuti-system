@@ -8,7 +8,7 @@ const navigation = [
   { code: "01", href: "/", id: "overview", label: "Visão geral" },
   { code: "02", href: "/clientes", id: "clients", label: "Clientes" },
   { code: "03", href: "/financeiro", id: "finance", label: "Financeiro" },
-  { code: "04", href: "/orcamentos", id: "quotes", label: "Orçamentos" },
+  { code: "04", href: "/documentos", id: "quotes", label: "Documentos" },
   { code: "05", href: "/vendas", id: "sales", label: "Vendas" },
   { code: "06", href: "/servicos", id: "services", label: "Serviços" },
   { code: "07", href: "/monitoramento", id: "monitoring", label: "Monitoramento" },

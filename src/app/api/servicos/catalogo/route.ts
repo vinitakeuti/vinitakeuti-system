@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { findCatalogServicesForQuote } from "@/features/quotes/queries/quote-queries";
+import { findCatalogServicesForQuote, listCatalogCategoriesForQuote } from "@/features/quotes/queries/quote-queries";
 
+/** Catálogo para o seletor de serviços da proposta: texto, categoria e página; categorias quando `facets=1`. */
 export async function GET(request: Request) {
-  const query = new URL(request.url).searchParams.get("q")?.slice(0, 100);
-  const data = await findCatalogServicesForQuote(query);
-  return NextResponse.json({ data });
+  const params = new URL(request.url).searchParams;
+  const [result, categories] = await Promise.all([
+    findCatalogServicesForQuote({ query: params.get("q")?.slice(0, 100), categoryId: params.get("categoria") ?? undefined, offset: Number(params.get("offset") ?? 0) || 0 }),
+    params.get("facets") === "1" ? listCatalogCategoriesForQuote() : Promise.resolve(undefined),
+  ]);
+  return NextResponse.json({ ...result, ...(categories ? { categories } : {}) });
 }

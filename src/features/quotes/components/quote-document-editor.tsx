@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest } from "@/features/services/components/service-proposal-editor";
-import { QuoteClosingPreview, QuoteCoverPreview, type QuotePreviewData } from "@/features/quotes/components/quote-document-previews";
-import { updateQuoteDocumentAction } from "@/features/quotes/services/quote-actions";
+import { DocumentSignaturePreview, QuoteClosingPreview, QuoteCoverPreview, type DocumentCoverData, type QuotePreviewData, type SignaturePreviewData } from "@/features/quotes/components/quote-document-previews";
+import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
 import { hasQuoteServicesComponent, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
 import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, serializeRichText, type RichTextBlock, type RichTextParagraphStyle } from "@/lib/rich-text";
 
@@ -25,15 +25,24 @@ type ProfessionalProfile = {
 type ServiceSource = { id: string; name: string; categoryName: string | null; proposalText: string | null };
 
 type Props = {
-  quoteId: string;
-  quoteCode: string;
-  quoteTitle: string;
+  /** Tipo do documento: define capa, cabeçalho das páginas e folha final. */
+  kind: DocumentKind;
+  documentId: string;
+  documentCode: string;
+  documentTitle: string;
+  /** Base das rotas de API do documento (salvamento automático e imagens). */
+  apiBase: string;
+  /** Ação do formulário (SALVAR, CONCLUIR e TEXTO PADRÃO) e o campo com o id do documento. */
+  saveAction: (formData: FormData) => Promise<void>;
+  idFieldName: string;
   backHref: string;
   initialContent: QuoteDocumentContent;
   professional: ProfessionalProfile;
   isCompleted: boolean;
   justSaved?: boolean;
-  preview: QuotePreviewData;
+  cover: DocumentCoverData;
+  /** Folha final: investimento e aceite (proposta) ou assinaturas (demais documentos). */
+  closing: { type: "investment"; quote: QuotePreviewData } | { type: "signatures"; document: SignaturePreviewData };
   /** Texto padrão em rich text; só entra no documento pelo componente Texto padrão. */
   templateText?: string | null;
   /** Serviços do orçamento, para o componente Serviços incluídos. */
@@ -59,17 +68,12 @@ const PDF_PAGE = { width: 595.28, top: 48, bottom: 46, header: 93, headerGap: 29
 const PDF_CONTENT_HEIGHT = 841.89 - PDF_PAGE.top - PDF_PAGE.bottom - PDF_PAGE.header - PDF_PAGE.headerGap;
 /** Espaço cinza entre as folhas, em pixels. */
 const PAGE_GUTTER = 24;
-/**
- * Telas estreitas: o texto mantém um tamanho legível e as margens ficam menores. As folhas continuam com a
- * proporção do A4, mas a quebra é aproximada (as linhas quebram em outros pontos que no PDF).
- */
-const COMPACT_PT = 1.3339;
-const COMPACT_PADDING = { top: 22, bottom: 28 };
-const A4_RATIO = 841.89 / 595.28;
+/** Escala inicial, antes da primeira medição da folha (1 ponto do PDF numa folha de 794 px). */
+const INITIAL_PT = 1.3339;
 
 type PageBreak = { top: number; gap: number; remaining: number };
-type FlowLayout = { pt: number; compact: boolean; bottom: number; gaps: Array<{ selector: string; gap: number }>; breaks: PageBreak[]; tail: number };
-const initialLayout: FlowLayout = { pt: COMPACT_PT, compact: false, bottom: PDF_PAGE.bottom * COMPACT_PT, gaps: [], breaks: [], tail: 0 };
+type FlowLayout = { pt: number; bottom: number; gaps: Array<{ selector: string; gap: number }>; breaks: PageBreak[]; tail: number };
+const initialLayout: FlowLayout = { pt: INITIAL_PT, bottom: PDF_PAGE.bottom * INITIAL_PT, gaps: [], breaks: [], tail: 0 };
 
 const CONTINUATION_TEXT_PREFIX = "text-";
 const alignLabels: Record<QuoteDocumentAlign, string> = { left: "À esquerda", center: "Centralizado", right: "À direita", justify: "Justificado" };
@@ -245,15 +249,14 @@ function flowItems(content: HTMLElement): FlowItem[] {
  * não dependem da própria paginação, o que evita oscilação). Títulos não ficam sozinhos no fim da folha e a
  * quebra de página manual força uma nova folha.
  */
-function measureFlow(sheet: HTMLElement, header: HTMLElement, content: HTMLElement, end: HTMLElement, current: FlowLayout): FlowLayout {
+function measureFlow(sheet: HTMLElement, content: HTMLElement, end: HTMLElement, current: FlowLayout): FlowLayout {
   const width = sheet.clientWidth;
-  const compact = width < 600;
-  const pt = compact ? COMPACT_PT : width / PDF_PAGE.width;
-  const top = compact ? COMPACT_PADDING.top : PDF_PAGE.top * pt;
-  const bottom = compact ? COMPACT_PADDING.bottom : PDF_PAGE.bottom * pt;
-  // No computador a área útil é a do PDF; no celular, a que sobra na folha A4 depois das margens e do cabeçalho.
-  const headerSpace = compact ? header.getBoundingClientRect().height + parseFloat(getComputedStyle(header).marginBottom) : (PDF_PAGE.header + PDF_PAGE.headerGap) * pt;
-  const capacity = compact ? width * A4_RATIO - top - bottom - headerSpace : PDF_CONTENT_HEIGHT * pt;
+  // A folha tem sempre as proporções do PDF, em qualquer tela (no celular, reduzida à largura disponível, como no Docs).
+  const pt = width / PDF_PAGE.width;
+  const top = PDF_PAGE.top * pt;
+  const bottom = PDF_PAGE.bottom * pt;
+  const headerSpace = (PDF_PAGE.header + PDF_PAGE.headerGap) * pt;
+  const capacity = PDF_CONTENT_HEIGHT * pt;
   const items = flowItems(content);
   const applied = new Map(current.gaps.map((gap) => [gap.selector, gap.gap]));
   const contentTop = content.getBoundingClientRect().top;
@@ -296,11 +299,11 @@ function measureFlow(sheet: HTMLElement, header: HTMLElement, content: HTMLEleme
     pageStartActual = actual[breakAt];
     firstOnPage = breakAt;
   }
-  return { pt, compact, bottom, gaps, breaks, tail: Math.max(0, Math.round(capacity - (endActual - pageStartActual))) };
+  return { pt, bottom, gaps, breaks, tail: Math.max(0, Math.round(capacity - (endActual - pageStartActual))) };
 }
 
 function sameLayout(left: FlowLayout, right: FlowLayout) {
-  if (left.compact !== right.compact || Math.abs(left.bottom - right.bottom) > 0.5 || Math.abs(left.pt - right.pt) > 0.001 || Math.abs(left.tail - right.tail) > 1 || left.gaps.length !== right.gaps.length) return false;
+  if (Math.abs(left.bottom - right.bottom) > 0.5 || Math.abs(left.pt - right.pt) > 0.001 || Math.abs(left.tail - right.tail) > 1 || left.gaps.length !== right.gaps.length) return false;
   return left.gaps.every((gap, index) => gap.selector === right.gaps[index].selector && Math.abs(gap.gap - right.gaps[index].gap) <= 1) && left.breaks.every((item, index) => Math.abs(item.top - right.breaks[index].top) <= 1);
 }
 
@@ -420,7 +423,8 @@ function PlainEditable({ text, className, ariaLabel, style, onInput, onFocus, on
   return <div ref={ref} className={className} style={style} role="textbox" aria-label={ariaLabel} contentEditable suppressContentEditableWarning spellCheck onFocus={onFocus} onBlur={onBlur} onKeyDown={onKeyDown} onPaste={pastePlainLine} onInput={(event) => onInput(event.currentTarget.innerText.replace(/\n/g, " ").slice(0, 400))} />;
 }
 
-export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, initialContent, professional, isCompleted, justSaved = false, preview, templateText, services, savedAt }: Props) {
+export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTitle, apiBase, saveAction, idFieldName, backHref, initialContent, professional, isCompleted, justSaved = false, cover, closing, templateText, services, savedAt }: Props) {
+  const kindInfo = documentKindInfo(kind);
   const router = useRouter();
   const [content, setContent] = useState<QuoteDocumentContent>(() => ({ ...initialContent, blocks: normalizeFlow(initialContent.blocks.filter((block) => block.id !== "intro-title"), true) }));
   const contentRef = useRef(content);
@@ -439,7 +443,6 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   const [imageUpload, setImageUpload] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const sheetRef = useRef<HTMLElement>(null);
   const flowRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLElement>(null);
   const flowEndRef = useRef<HTMLDivElement>(null);
   const measureFrameRef = useRef(0);
   const measureBurstRef = useRef({ since: 0, updates: 0 });
@@ -452,11 +455,10 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
 
   const measure = useCallback(() => {
     const sheet = sheetRef.current;
-    const header = headerRef.current;
     const flow = flowRef.current;
     const end = flowEndRef.current;
-    if (!sheet || !header || !flow || !end) return;
-    const next = measureFlow(sheet, header, flow, end, layoutRef.current);
+    if (!sheet || !flow || !end) return;
+    const next = measureFlow(sheet, flow, end, layoutRef.current);
     if (sameLayout(next, layoutRef.current)) return;
     // Trava de segurança: se as medidas ficarem mudando sem parar, a paginação congela até o próximo segundo.
     const now = performance.now();
@@ -473,6 +475,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   }, [measure]);
 
   useLayoutEffect(() => { measure(); });
+
   useEffect(() => {
     const sheet = sheetRef.current;
     const observer = new ResizeObserver(scheduleMeasure);
@@ -503,7 +506,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
 
   const isDirty = useCallback(() => JSON.stringify(contentRef.current) !== lastSavedJsonRef.current, []);
 
-  const sendDocument = useCallback((json: string, keepalive = false) => fetch(`/api/orcamentos/${quoteId}/documento`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: json, keepalive }), [quoteId]);
+  const sendDocument = useCallback((json: string, keepalive = false) => fetch(`${apiBase}/documento`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: json, keepalive }), [apiBase]);
 
   const autosave = useCallback(async (): Promise<void> => {
     clearTimeout(autosaveTimerRef.current);
@@ -571,7 +574,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     // Ao voltar para a página pelo histórico do navegador, confere se a versão na tela ainda é a mais recente.
     const checkFreshness = async () => {
       try {
-        const response = await fetch(`/api/orcamentos/${quoteId}/documento`, { cache: "no-store" });
+        const response = await fetch(`${apiBase}/documento`, { cache: "no-store" });
         if (!response.ok) return;
         const { updatedAt } = await response.json() as { updatedAt: string };
         if (new Date(updatedAt).getTime() > new Date(knownUpdatedAtRef.current).getTime() + 500 && !isDirty()) router.refresh();
@@ -593,7 +596,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
         void sendDocument(json, json.length < 60_000).catch(() => undefined);
       }
     };
-  }, [quoteId, router, isDirty, sendDocument]);
+  }, [apiBase, router, isDirty, sendDocument]);
 
   /** SALVAR e CONCLUIR esperam um salvamento automático em andamento, para a versão mais nova ser a última gravada. */
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -774,7 +777,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
       try {
         const body = new FormData();
         body.append("file", await prepareImageFile(file), "imagem");
-        const response = await fetch(`/api/orcamentos/${quoteId}/imagens`, { method: "POST", body });
+        const response = await fetch(`${apiBase}/imagens`, { method: "POST", body });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) { error = result.error ?? "Não foi possível enviar a imagem."; break; }
         uploaded.push(result as QuoteDocumentImage);
@@ -874,16 +877,16 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
   ];
 
   function pageHeader(key?: string) {
-    return <header className="quote-sheet-header" key={key} ref={key ? undefined : headerRef}>
+    return <header className="quote-sheet-header" key={key}>
       <div className="quote-sheet-brand">
         <span className="quote-sheet-logo"><img src="/assets/images/logo-vr.svg" alt="" /></span>
         <div className="quote-sheet-professional">
-          <span>PROPOSTA COMERCIAL</span>
+          <span>{kindInfo.coverLabel}</span>
           <strong>{professional.name}</strong>
           {professional.professionalTitle ? <small>{professional.professionalTitle}</small> : null}
         </div>
       </div>
-      <div className="quote-sheet-client"><span>CLIENTE</span><strong>{preview.client.name}</strong>{[preview.client.company, preview.client.document].filter(Boolean).map((detail) => <small key={detail}>{detail}</small>)}</div>
+      <div className="quote-sheet-client"><span>CLIENTE</span><strong>{cover.client.name}</strong>{[cover.client.company, cover.client.document].filter(Boolean).map((detail) => <small key={detail}>{detail}</small>)}</div>
     </header>;
   }
 
@@ -903,7 +906,7 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     if (block.type === "image" && block.image) return <div key={block.id} data-block-id={block.id} data-flow="block" className={`quote-sheet-block is-image is-${block.align}${selected}`}>
       <div className="quote-sheet-image" tabIndex={0} role="img" aria-label="Imagem do documento. Backspace ou Delete remove a imagem." title="Clique para alinhar, redimensionar ou remover" style={{ width: `${quoteImageWidthShare(block) * 100}%` }} onFocus={activate} onKeyDown={(event) => handleComponentKeys(event, block)}>
         {/* eslint-disable-next-line @next/next/no-img-element -- arquivo servido pela API do orçamento, já reduzido no envio */}
-        <img src={`/api/orcamentos/${quoteId}/imagens/${block.image.id}`} alt="" draggable={false} style={{ aspectRatio: `${block.image.width} / ${block.image.height}` }} />
+        <img src={`${apiBase}/imagens/${block.image.id}`} alt="" draggable={false} style={{ aspectRatio: `${block.image.width} / ${block.image.height}` }} />
       </div>
     </div>;
     if (block.type === "page-break") return <div key={block.id} data-block-id={block.id} data-flow="page-break" className={`quote-sheet-block is-page-break${selected}`}>
@@ -925,12 +928,12 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
 
   const saveLabel = saveState === "saving" ? "Salvando..." : saveState === "pending" ? "Alterações ainda não salvas." : saveState === "error" ? "Não foi possível salvar automaticamente. Tentando de novo; se persistir, clique em SALVAR." : savedTime ? `Salvo automaticamente às ${savedTime}.` : justSaved ? "Alterações salvas." : "Salvamento automático ativado.";
 
-  return <form className="quote-document-editor quote-docs-editor" action={updateQuoteDocumentAction} onSubmit={handleSubmit}>
-    <input type="hidden" name="quoteId" value={quoteId} />
+  return <form className="quote-document-editor quote-docs-editor" action={saveAction} onSubmit={handleSubmit}>
+    <input type="hidden" name={idFieldName} value={documentId} />
     <input ref={documentContentFieldRef} type="hidden" name="documentContent" defaultValue={JSON.stringify(content)} />
     <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; void uploadImages(files); }} />
     <section className="quote-docs-toolbar" aria-label="Ferramentas do editor">
-      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{quoteCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{quoteTitle}</strong><small className={`quote-docs-saved is-${saveState}`} role="status" aria-live="polite">{saveLabel}</small></div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">TEXTO PADRÃO</button><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
+      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{kindInfo.shortName.toUpperCase()} · {documentCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{documentTitle}</strong><small className={`quote-docs-saved is-${saveState}`} role="status" aria-live="polite">{saveLabel}</small></div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">TEXTO PADRÃO</button><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
       <div className="quote-docs-toolbar-tools">
         <ComponentsMenu options={componentOptions} onOpen={() => { insertionPointRef.current = currentInsertionPoint(); }} onSelect={selectComponent} />
         {imageUpload.busy ? <span className="quote-docs-tool-context">ENVIANDO IMAGENS...</span> : null}
@@ -971,8 +974,8 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
     </section>
     <section className="quote-docs-canvas" aria-label="Documento editável">
       <div className="quote-docs-pages">
-        <QuoteCoverPreview quote={preview} professional={professional} />
-        <article ref={sheetRef} className={`quote-sheet${layout.compact ? " is-compact" : ""}`} style={{ "--pt": `${layout.pt}px`, paddingBottom: layout.tail + bottomSpace } as CSSProperties} aria-label="Páginas do documento">
+        <QuoteCoverPreview quote={cover} professional={professional} kind={kind} />
+        <article ref={sheetRef} className="quote-sheet" style={{ "--pt": `${layout.pt}px`, paddingBottom: layout.tail + bottomSpace } as CSSProperties} aria-label="Páginas do documento">
           <style>{gapCss}</style>
           {pageHeader()}
           <div ref={flowRef} className="quote-sheet-flow">
@@ -987,10 +990,10 @@ export function QuoteDocumentEditor({ quoteId, quoteCode, quoteTitle, backHref, 
           </div>)}
         </article>
         <div className="quote-docs-closing-toggle">
-          <div><span>PÁGINA FINAL</span><small>Investimento, condições e aceite. Gerada a partir dos valores do orçamento.</small></div>
+          <div><span>PÁGINA FINAL</span><small>{closing.type === "investment" ? "Investimento, condições e aceite. Gerada a partir dos valores do orçamento." : kindInfo.closing?.witnesses ? "Assinaturas das partes e das testemunhas." : "Declaração de recebimento e assinaturas."}</small></div>
           <button type="button" className="secondary-action" aria-expanded={showClosing} onClick={() => setShowClosing((value) => !value)}>{showClosing ? "OCULTAR PÁGINA FINAL" : "EXIBIR PÁGINA FINAL"}</button>
         </div>
-        {showClosing ? <QuoteClosingPreview quote={preview} professional={professional} pageNumber={totalPages} /> : null}
+        {showClosing ? closing.type === "investment" ? <QuoteClosingPreview quote={closing.quote} professional={professional} pageNumber={totalPages} /> : <DocumentSignaturePreview document={closing.document} professional={professional} kind={kind} pageNumber={totalPages} /> : null}
       </div>
     </section>
   </form>;

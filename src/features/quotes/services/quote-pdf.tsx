@@ -4,6 +4,8 @@ import type { ReactElement } from "react";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, richTextLineHeight, type RichTextRun } from "@/lib/rich-text";
+import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
+import { TextDocumentCover } from "@/features/quotes/services/pdf-covers";
 import { QUOTE_PAGE_CONTENT_WIDTH, quoteDocumentBlockRole, quoteImageWidthShare, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
 
 const colors = {
@@ -131,6 +133,8 @@ const styles = StyleSheet.create({
 });
 
 export type QuotePdfInput = {
+  /** Tipo do documento: muda a capa, o cabeçalho e a folha final. Padrão: proposta comercial. */
+  kind?: DocumentKind;
   code: string;
   issuedAt: Date;
   validUntil?: Date | null;
@@ -229,6 +233,26 @@ function DocumentBlock({ block, previous, images }: { block: QuoteDocumentBlock;
   return <Text style={[block.type === "heading" ? styles.editorHeading : styles.editorParagraph, block.fontSize === "small" ? styles.editorSmall : block.fontSize === "large" ? styles.editorLarge : styles.editorMedium, { fontWeight: block.bold ? 700 : 400, ...marks }]}>{block.text}</Text>;
 }
 
+/** Folha de assinaturas do contrato, da cessão e do memorial técnico. */
+function SignatureClosing({ quote, kind, signatureLine, clientDetails }: { quote: QuotePdfInput; kind: DocumentKind; signatureLine: string; clientDetails: Array<string | null | undefined> }) {
+  const closing = documentKindInfo(kind).closing!;
+  return <View style={styles.closingBody}>
+    <View style={styles.closingSpacer} />
+    <View style={styles.closingAcceptance} wrap={false}>
+      <Text style={styles.closingAcceptanceTitle}>{closing.title}</Text>
+      <Text style={styles.closingAcceptanceText}>{closing.statement}</Text>
+      <Text style={styles.closingPlace}>{signatureLine}</Text>
+      <View style={styles.closingSignatures}>
+        <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.professional.name}</Text>{quote.professional.document ? <Text style={styles.closingSignatureDetail}>{quote.professional.document}</Text> : null}<Text style={styles.closingSignatureRole}>{closing.professional.role}</Text></View>
+        <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>{closing.client.role}</Text></View>
+      </View>
+      {closing.witnesses ? <View style={[styles.closingSignatures, { marginTop: 44 }]}>
+        {["TESTEMUNHA 1", "TESTEMUNHA 2"].map((role) => <View style={styles.closingSignature} key={role}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>Nome:</Text><Text style={styles.closingSignatureDetail}>CPF:</Text><Text style={styles.closingSignatureRole}>{role}</Text></View>)}
+      </View> : null}
+    </View>
+  </View>;
+}
+
 function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: Buffer }): ReactElement {
   const subtotalCents = quote.items.reduce((total, item) => total + item.quantity * item.unitPriceCents, 0);
   const discountCents = Math.max(0, Math.min(quote.discountCents ?? 0, subtotalCents));
@@ -245,10 +269,13 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
   const contentBlocks = quote.documentContent?.blocks.filter((block) => block.id !== "intro-title") ?? [];
   const signaturePlace = [quote.professional.city, quote.professional.state].filter(Boolean).join(" / ");
   const signatureLine = `${signaturePlace ? `${signaturePlace}, ` : ""}${date.format(quote.completedAt ?? new Date())}.`;
+  const kind = quote.kind ?? "proposal";
+  const kindInfo = documentKindInfo(kind);
+  const isProposal = kind === "proposal";
 
   return (
-    <Document title={`Orçamento ${quote.code}`} author={quote.professional.name} subject={quote.title}>
-      <Page size="A4" style={styles.cover}>
+    <Document title={`${isProposal ? "Orçamento" : kindInfo.shortName} ${quote.code}`} author={quote.professional.name} subject={quote.title}>
+      {isProposal ? <Page size="A4" style={styles.cover}>
         <Svg viewBox={BRAND_MARK_VIEWBOX} style={styles.coverMark}><G transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => <Path key={d} d={d} fill={COVER_COLORS.mark} />)}</G></Svg>
         <View style={styles.coverBrand}>
           <Svg viewBox={BRAND_MARK_VIEWBOX} style={styles.coverLogo}><G transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => <Path key={d} d={d} fill={COVER_COLORS.text} />)}</G></Svg>
@@ -259,7 +286,7 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
         </View>
         <View style={[styles.coverHeadline, { top: titleLayout.top }]}>
           <Text style={styles.coverKicker}>{quote.code} / {quote.issuedAt.getFullYear()}</Text>
-          <Text style={styles.coverLabel}>PROPOSTA COMERCIAL</Text>
+          <Text style={styles.coverLabel}>{kindInfo.coverLabel}</Text>
           <Text style={[styles.coverTitle, { fontSize: titleLayout.fontSize, maxWidth: titleLayout.maxWidth }]}>{quote.title}</Text>
         </View>
         <View style={styles.coverDetails}>
@@ -268,19 +295,19 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
             <View style={styles.coverDetail}><Text style={styles.coverDetailLabel}>EMPRESA</Text><Text style={styles.coverDetailValue}>{clientCompany}</Text></View>
           </View>
           <View style={[styles.coverDetailsRow, { marginTop: 15 }]}>
-            <View style={styles.coverDetail}><Text style={styles.coverDetailLabel}>PROPOSTA</Text><Text style={styles.coverDetailValue}>{quote.code}</Text></View>
-            <View style={styles.coverDetail}><Text style={styles.coverDetailLabel}>VALIDADE</Text><Text style={styles.coverDetailValue}>{validity}</Text></View>
+            <View style={styles.coverDetail}><Text style={styles.coverDetailLabel}>{isProposal ? "PROPOSTA" : "DOCUMENTO"}</Text><Text style={styles.coverDetailValue}>{quote.code}</Text></View>
+            {isProposal ? <View style={styles.coverDetail}><Text style={styles.coverDetailLabel}>VALIDADE</Text><Text style={styles.coverDetailValue}>{validity}</Text></View> : <View style={styles.coverDetail}><Text style={styles.coverDetailLabel}>EMISSÃO</Text><Text style={styles.coverDetailValue}>{date.format(quote.issuedAt)}</Text></View>}
           </View>
         </View>
         <Text style={styles.coverFooter}>{quote.professional.name.toUpperCase()} {website ? `· ${website.toUpperCase()}` : ""}</Text>
-      </Page>
+      </Page> : <TextDocumentCover kind={kind} cover={{ code: quote.code, issuedAt: quote.issuedAt, title: quote.title, client: quote.client, professional: quote.professional }} />}
       <Page size="A4" style={styles.page}>
         <View style={styles.header} fixed>
           <View style={styles.headerTop}>
             <View style={styles.professional}>
               <View style={styles.logoBox}><Image src={logoSvg} style={styles.logo} /></View>
               <View style={styles.professionalDetails}>
-                <Text style={styles.documentKicker}>PROPOSTA COMERCIAL</Text>
+                <Text style={styles.documentKicker}>{kindInfo.coverLabel}</Text>
                 <Text style={styles.professionalName}>{quote.professional.name}</Text>
                 {quote.professional.professionalTitle ? <Text style={styles.professionalTitle}>{quote.professional.professionalTitle}</Text> : null}
               </View>
@@ -296,7 +323,7 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
         <View style={styles.footer} fixed><Text style={styles.footerDetails} /><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
       </Page>
 
-      {/* Folha final própria: investimento em destaque, composição, pagamentos, condições e aceite no pé da página. */}
+      {/* Folha final própria: na proposta, investimento, composição, pagamentos, condições e aceite; nos demais documentos, as assinaturas. */}
       <Page size="A4" style={styles.closingPage}>
         <View style={styles.closingHeader}>
           <View style={styles.closingBrand}>
@@ -306,12 +333,12 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
           <Text style={styles.closingCode}>{quote.code}</Text>
         </View>
         <View style={styles.closingIntro}>
-          <Text style={styles.closingKicker}>INVESTIMENTO</Text>
+          <Text style={styles.closingKicker}>{isProposal ? "INVESTIMENTO" : kindInfo.coverLabel}</Text>
           <Text style={styles.closingTitle}>{quote.title}</Text>
-          {quote.validUntil ? <Text style={styles.closingSubline}>Proposta válida até {validity}</Text> : null}
+          {isProposal && quote.validUntil ? <Text style={styles.closingSubline}>Proposta válida até {validity}</Text> : null}
         </View>
 
-        <View style={styles.closingBody}>
+        {isProposal ? <View style={styles.closingBody}>
           <SectionHeading compact>Composição do investimento</SectionHeading>
           <View style={styles.closingTableHead}><Text style={[styles.closingHeadCell, styles.closingItem]}>SERVIÇO</Text><Text style={[styles.closingHeadCell, { textAlign: "right", width: 130 }]}>QUANTIDADE</Text><Text style={[styles.closingHeadCell, { textAlign: "right", width: 92 }]}>VALOR</Text></View>
           {quote.items.map((item, index) => <View style={styles.closingRow} key={`${item.description}-${index}`} wrap={false}>
@@ -342,7 +369,7 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
               <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>CLIENTE</Text></View>
             </View>
           </View>
-        </View>
+        </View> : <SignatureClosing quote={quote} kind={kind} signatureLine={signatureLine} clientDetails={clientDetails} />}
 
         <View style={styles.closingFooter} fixed><Text>{[quote.professional.name, footerDetails].filter(Boolean).join(" · ").toUpperCase()}</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
       </Page>

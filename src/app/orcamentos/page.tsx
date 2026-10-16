@@ -1,10 +1,6 @@
-import Link from "next/link";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarToggle } from "@/components/sidebar-toggle";
-import { QuoteTabs } from "@/features/quotes/components/quote-tabs";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
+/** Orçamentos passou a fazer parte de Documentos: a proposta comercial é um dos documentos do cliente. */
 export default function QuotesPage() {
-  return <main className="app-shell"><AppSidebar current="quotes" /><div className="workspace"><section className="directory-page quote-workbench-page"><header className="directory-header"><div><p className="eyebrow">ORÇAMENTOS / CRIAÇÃO</p><h1>Orçamentos.</h1><p>Monte uma proposta vinculada a um cliente, com serviços, escopo, estimativas e PDF pronto para envio.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href="/orcamentos/texto-padrao">TEXTO PADRÃO</Link><Link className="primary-action" href="/orcamentos/novo">NOVO ORÇAMENTO</Link></div></header><QuoteTabs current="start" /><section className="quote-workbench-surface"><div className="quote-workbench-intro"><p className="eyebrow">FLUXO DE PROPOSTA</p><h2>Comece uma proposta.</h2><p>Os orçamentos em aberto e as vendas já confirmadas são acompanhados na área de Vendas.</p><div className="quote-workbench-actions"><Link className="primary-action" href="/orcamentos/novo">CRIAR ORÇAMENTO</Link><Link className="text-link" href="/vendas">ACESSAR VENDAS</Link></div></div><ol className="quote-workflow"><li><span>01</span><div><b>Selecionar o cliente</b><small>O orçamento fica registrado no perfil do relacionamento.</small></div></li><li><span>02</span><div><b>Compor os serviços</b><small>Use o catálogo para trazer valor e estimativa de cada item.</small></div></li><li><span>03</span><div><b>Concluir no editor</b><small>Até ser concluído, o orçamento fica em Pendentes de conclusão.</small></div></li></ol><div className="quote-workbench-footer"><span>PRECIFICAÇÃO</span><Link className="text-link" href="/orcamentos/parametros">CONFIGURAR BASE DE PRECIFICAÇÃO</Link></div></section></section></div></main>;
+  redirect("/documentos");
 }

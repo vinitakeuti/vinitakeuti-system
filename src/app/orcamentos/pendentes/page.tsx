@@ -16,7 +16,7 @@ export default async function PendingQuotesPage({ searchParams }: { searchParams
   const { data: quotes, nextCursor } = await listPendingQuotes({ cursor });
 
   return <main className="app-shell"><AppSidebar current="quotes" /><div className="workspace"><section className="directory-page quote-pending-page">
-    <header className="directory-header"><div><p className="eyebrow">ORÇAMENTOS / PENDENTES</p><h1>Orçamentos.</h1><p>Propostas que você começou e ainda não concluiu no editor. Retome de onde parou ou descarte o que não for seguir.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="primary-action" href="/orcamentos/novo">NOVO ORÇAMENTO</Link></div></header>
+    <header className="directory-header"><div><p className="eyebrow">DOCUMENTOS / PROPOSTAS PENDENTES</p><h1>Documentos.</h1><p>Propostas que você começou e ainda não concluiu no editor. Retome de onde parou ou descarte o que não for seguir.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="primary-action" href="/orcamentos/novo">NOVA PROPOSTA</Link></div></header>
     <QuoteTabs current="pending" />
     {excluido ? <p className="form-success" role="status">Orçamento excluído.</p> : null}
     <section className="directory-surface quote-pending-surface" aria-labelledby="quote-pending-title">

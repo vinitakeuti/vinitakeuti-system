@@ -11,10 +11,14 @@ type Props = {
   hint?: string;
   initialClient?: ClientPickerOption | null;
   className?: string;
+  /** Avisa quando o cliente escolhido muda (null ao remover). */
+  onChange?: (client: ClientPickerOption | null) => void;
+  removeLabel?: string;
+  placeholder?: string;
 };
 
 /** Busca de cliente sob demanda: não carrega a base inteira e envia somente o id selecionado. */
-export function ClientPicker({ name = "clientId", label = "Cliente vinculado", hint, initialClient = null, className }: Props) {
+export function ClientPicker({ name = "clientId", label = "Cliente vinculado", hint, initialClient = null, className, onChange, removeLabel = "REMOVER VÍNCULO", placeholder = "Buscar por nome, empresa ou e-mail" }: Props) {
   const listId = useId();
   const [selected, setSelected] = useState<ClientPickerOption | null>(initialClient);
   const [query, setQuery] = useState("");
@@ -42,6 +46,7 @@ export function ClientPicker({ name = "clientId", label = "Cliente vinculado", h
     setSelected(client);
     setIsOpen(false);
     setQuery("");
+    onChange?.(client);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -56,9 +61,9 @@ export function ClientPicker({ name = "clientId", label = "Cliente vinculado", h
     <input type="hidden" name={name} value={selected?.id ?? ""} />
     {selected ? <div className="client-picker-selected">
       <div><b>{selected.name}</b><small>{selected.company ?? "Pessoa física"}</small></div>
-      <button type="button" onClick={() => setSelected(null)}>REMOVER VÍNCULO</button>
+      <button type="button" onClick={() => { setSelected(null); onChange?.(null); }}>{removeLabel}</button>
     </div> : <div className="client-picker-search">
-      <input type="search" role="combobox" aria-label={label} aria-expanded={isOpen} aria-controls={listId} aria-autocomplete="list" value={query} onChange={(event) => { setQuery(event.target.value); setIsOpen(true); }} onFocus={() => setIsOpen(true)} onKeyDown={handleKeyDown} placeholder="Buscar por nome, empresa ou e-mail" autoComplete="off" spellCheck={false} />
+      <input type="search" role="combobox" aria-label={label} aria-expanded={isOpen} aria-controls={listId} aria-autocomplete="list" value={query} onChange={(event) => { setQuery(event.target.value); setIsOpen(true); }} onFocus={() => setIsOpen(true)} onKeyDown={handleKeyDown} placeholder={placeholder} autoComplete="off" spellCheck={false} />
       {isOpen ? <div className="client-picker-results" id={listId} role="listbox">{isLoading && !results.length ? <p>Buscando clientes...</p> : results.length ? results.map((client) => <button type="button" role="option" aria-selected={false} key={client.id} onClick={() => choose(client)}><b>{client.name}</b><small>{client.company ?? "Pessoa física"}</small></button>) : <p>{query ? "Nenhum cliente encontrado." : "Nenhum cliente cadastrado."}</p>}</div> : null}
     </div>}
     {hint ? <small className="client-picker-hint">{hint}</small> : null}

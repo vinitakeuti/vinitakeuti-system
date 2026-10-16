@@ -19,6 +19,7 @@ function rowCents(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) : 0;
 }
 
+/** Pagamentos já recebidos. Fica numa etapa própria do formulário, depois dos serviços e valores. */
 export function QuotePaymentsFields({ initialPayments = [], initialNotes = "", initialTotalCents = 0 }: { initialPayments?: InitialPayment[]; initialNotes?: string | null; initialTotalCents?: number }) {
   const [rows, setRows] = useState<PaymentRow[]>(() => initialPayments.map((payment, index) => ({ key: `saved-${index}`, amount: (payment.amountCents / 100).toFixed(2), date: payment.paidAt })));
   const [totalCents, setTotalCents] = useState(initialTotalCents);
@@ -53,7 +54,7 @@ export function QuotePaymentsFields({ initialPayments = [], initialNotes = "", i
 
   return <div className={`quote-payments${rows.length ? "" : " is-empty"}`} ref={containerRef}>
     <div className="quote-payments-heading">
-      <div><span>PAGAMENTOS JÁ RECEBIDOS</span><small>Opcional. Registre sinais ou parcelas que o cliente já pagou.</small></div>
+      <div><span>{rows.length ? `${rows.length} ${rows.length === 1 ? "PAGAMENTO REGISTRADO" : "PAGAMENTOS REGISTRADOS"}` : "NENHUM PAGAMENTO REGISTRADO"}</span><small>Total da proposta: {money.format(totalCents / 100)}</small></div>
       <button className="secondary-action quote-payments-add" type="button" onClick={addRow} disabled={rows.length >= MAX_QUOTE_PAYMENTS}>ADICIONAR PAGAMENTO</button>
     </div>
     {rows.length ? <>

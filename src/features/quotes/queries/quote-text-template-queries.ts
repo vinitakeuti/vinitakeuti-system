@@ -6,9 +6,14 @@ export async function getQuoteTextTemplateReturn(quoteId?: string) {
   return prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, code: true } });
 }
 
-export async function getQuoteTextTemplate() {
+/** Texto padrão de um tipo de documento ("default" é o da proposta comercial). */
+export async function getDocumentTextTemplate(templateId: string) {
   return prisma.quoteTextTemplate.findUnique({
-    where: { id: "default" },
+    where: { id: templateId },
     select: { content: true, updatedAt: true },
   });
+}
+
+export async function getQuoteTextTemplate() {
+  return getDocumentTextTemplate("default");
 }
