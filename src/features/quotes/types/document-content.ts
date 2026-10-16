@@ -6,7 +6,9 @@ const QUOTE_DOCUMENT_MAX_BLOCKS = 400;
 /** Tamanho máximo do documento serializado aceito ao salvar. */
 export const QUOTE_DOCUMENT_MAX_JSON_LENGTH = 1_500_000;
 
-export type QuoteDocumentBlockType = "heading" | "paragraph" | "rich-text" | "image" | "page-break";
+export type QuoteDocumentBlockType = "heading" | "paragraph" | "rich-text" | "image" | "page-break" | "divider";
+/** Linha divisória: fina e cinza, ou curta e grossa na cor de destaque. */
+export type QuoteDividerStyle = "line" | "accent";
 export type QuoteDocumentFontSize = "small" | "medium" | "large";
 export type QuoteDocumentAlign = "left" | "center" | "right" | "justify";
 
@@ -21,6 +23,8 @@ export type QuoteDocumentBlock = {
   align: QuoteDocumentAlign;
   /** Somente em blocos de imagem: arquivo enviado para o orçamento e suas dimensões em pixels. */
   image?: QuoteDocumentImage;
+  /** Somente em linhas divisórias. */
+  divider?: QuoteDividerStyle;
 };
 
 /** Imagem do documento. A largura vem de `fontSize` (pequena, média ou grande) e a posição de `align`. */
@@ -73,7 +77,7 @@ export function quoteDocumentBlockRole(block: Pick<QuoteDocumentBlock, "id" | "t
   return null;
 }
 
-const validTypes = new Set<QuoteDocumentBlockType>(["heading", "paragraph", "rich-text", "image", "page-break"]);
+const validTypes = new Set<QuoteDocumentBlockType>(["heading", "paragraph", "rich-text", "image", "page-break", "divider"]);
 const validSizes = new Set<QuoteDocumentFontSize>(["small", "medium", "large"]);
 const validAlignments = new Set<QuoteDocumentAlign>(["left", "center", "right", "justify"]);
 
@@ -143,6 +147,7 @@ export function parseQuoteDocumentContent(value: unknown, fallback: { title: str
     const type = item.type as QuoteDocumentBlockType;
     const id = typeof item.id === "string" && item.id.length <= 80 ? item.id : `block-${index}`;
     if (type === "page-break") return [{ id, type, text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" }];
+    if (type === "divider") return [{ id, type, text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left", divider: item.divider === "accent" ? "accent" : "line" }];
     if (type === "image") {
       const image = parseImage(item.image);
       const align = item.align === "justify" ? "center" : item.align as QuoteDocumentAlign;
@@ -166,7 +171,7 @@ export function withQuoteIntroBlock(content: QuoteDocumentContent): QuoteDocumen
   if (content.blocks.some((block) => block.id === QUOTE_INTRO_BLOCK_ID)) return content;
   const serviceStart = content.blocks.findIndex((block) => block.id === "services-label" || block.id.startsWith("service-"));
   const end = serviceStart === -1 ? content.blocks.length : serviceStart;
-  const hasTextBefore = content.blocks.slice(0, end).some((block) => block.type === "image" || block.type === "page-break" || (block.type === "rich-text" ? richTextHasContent(block.text) : block.text.trim().length > 0));
+  const hasTextBefore = content.blocks.slice(0, end).some((block) => block.type === "image" || block.type === "page-break" || block.type === "divider" || (block.type === "rich-text" ? richTextHasContent(block.text) : block.text.trim().length > 0));
   if (hasTextBefore) return content;
   const intro: QuoteDocumentBlock = { id: QUOTE_INTRO_BLOCK_ID, type: "rich-text", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
   return { version: 1, blocks: [intro, ...content.blocks.slice(end)] };

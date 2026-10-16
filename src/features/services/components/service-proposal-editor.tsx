@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
-import { isBlankRichTextRuns, normalizedRichTextSize, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, richTextLineHeight, serializeRichText, type RichTextDocument, type RichTextMark, type RichTextParagraphStyle, type RichTextRun } from "@/lib/rich-text";
+import { isBlankRichTextRuns, normalizedRichTextSize, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_COLORS, RICH_TEXT_SIZES, richTextAlign, richTextBox, richTextColor, richTextColorFromCss, richTextLineHeight, richTextListVariant, serializeRichText, type RichTextAlign, type RichTextBox, type RichTextColor, type RichTextDocument, type RichTextListVariant, type RichTextMark, type RichTextParagraphStyle, type RichTextRun } from "@/lib/rich-text";
 
 type Props = {
   name?: string;
@@ -9,11 +9,17 @@ type Props = {
   onChange?: (value: string | null) => void;
 };
 
-export type RichTextEditorCommand = "bold" | "italic" | "underline" | "insertUnorderedList" | "insertOrderedList" | "removeFormat" | "increaseFontSize" | "decreaseFontSize" | "fontSize" | "paragraphStyle";
-export type RichTextEditorCommandRequest = { id: number; value: RichTextEditorCommand; size?: number; paragraphStyle?: RichTextParagraphStyle | null };
+export type RichTextEditorCommand = "bold" | "italic" | "underline" | "insertUnorderedList" | "insertOrderedList" | "removeFormat" | "increaseFontSize" | "decreaseFontSize" | "fontSize" | "paragraphStyle" | "color" | "align" | "box" | "list";
+/** Lista escolhida na barra: tipo e aparência (null = texto, sem lista). */
+export type RichTextListChoice = { type: "bullet-list" | "ordered-list"; variant?: RichTextListVariant } | null;
+/** Formatação onde está o cursor, para a barra de ferramentas mostrar o estado atual. */
+export type RichTextSelectionFormat = { color: RichTextColor | null; align: RichTextAlign | "left"; box: RichTextBox | null; list: RichTextListChoice };
+export type RichTextEditorCommandRequest = { id: number; value: RichTextEditorCommand; size?: number; color?: RichTextColor | null; align?: RichTextAlign | "left"; box?: RichTextBox | null; list?: RichTextListChoice; paragraphStyle?: RichTextParagraphStyle | null };
 
 /** Cada estilo de parágrafo vira um elemento de bloco próprio no editor. */
 const PARAGRAPH_STYLE_TAGS: Record<RichTextParagraphStyle, string> = { title: "H2", subtitle: "H3", section: "H4" };
+/** Cor normal do texto: aplicá-la remove a cor da paleta. */
+const DEFAULT_TEXT_HEX = "#1f1f1f";
 
 function styleFromTag(tagName: string): RichTextParagraphStyle | undefined {
   if (tagName === "H1" || tagName === "H2") return "title";
@@ -32,6 +38,8 @@ type InlineEditorProps = {
   onSelectionSize?: (size: number) => void;
   /** Informa o estilo do parágrafo onde está o cursor (null = texto). */
   onSelectionStyle?: (style: RichTextParagraphStyle | null) => void;
+  /** Informa cor, alinhamento, moldura e lista onde está o cursor. */
+  onSelectionFormat?: (format: RichTextSelectionFormat) => void;
   onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
   ariaLabel: string;
   className?: string;
@@ -56,8 +64,13 @@ function runsToHtml(runs: RichTextRun[]) {
     if (run.italic) value = `<em>${value}</em>`;
     if (run.bold) value = `<strong>${value}</strong>`;
     if (run.size) value = `<span data-size="${run.size}" style="${sizeStyle(run.size)}">${value}</span>`;
+    if (run.color) value = `<span data-color="${run.color}" style="color:${RICH_TEXT_COLORS[run.color].hex}">${value}</span>`;
     return value;
   }).join("");
+}
+
+function blockAttributes(align?: RichTextAlign, box?: RichTextBox) {
+  return `${align ? ` style="text-align:${align}"` : ""}${box ? ` data-box="${box}"` : ""}`;
 }
 
 function documentToHtml(document: RichTextDocument) {
@@ -68,15 +81,15 @@ function documentToHtml(document: RichTextDocument) {
       // Uma quebra no fim do parágrafo só aparece no navegador se houver outra depois dela.
       const text = block.runs.map((run) => run.text).join("");
       const tag = block.style ? PARAGRAPH_STYLE_TAGS[block.style].toLowerCase() : "p";
-      return `<${tag}>${runsToHtml(block.runs)}${text.length > 1 && text.endsWith("\n") ? "<br>" : ""}</${tag}>`;
+      return `<${tag}${blockAttributes(block.align, block.box)}>${runsToHtml(block.runs)}${text.length > 1 && text.endsWith("\n") ? "<br>" : ""}</${tag}>`;
     }
     const tag = block.type === "bullet-list" ? "ul" : "ol";
-    return `<${tag}>${block.items.map((item) => `<li>${runsToHtml(item)}</li>`).join("")}</${tag}>`;
+    return `<${tag}${blockAttributes(undefined, block.box)}${block.variant ? ` data-variant="${block.variant}"` : ""}>${block.items.map((item) => `<li>${runsToHtml(item)}</li>`).join("")}</${tag}>`;
   }).join("");
 }
 
 function sameMarks(left: RichTextMark, right: RichTextMark) {
-  return left.bold === right.bold && left.italic === right.italic && left.underline === right.underline && left.size === right.size;
+  return left.bold === right.bold && left.italic === right.italic && left.underline === right.underline && left.size === right.size && left.color === right.color;
 }
 
 /**
@@ -88,6 +101,16 @@ function elementSize(node: HTMLElement, basePixels: number, inherited?: number) 
   if (node.dataset.size) return normalizedRichTextSize(node.dataset.size);
   if (!basePixels) return inherited;
   return normalizedRichTextSize(parseFloat(getComputedStyle(node).fontSize) / basePixels * RICH_TEXT_BASE_SIZE);
+}
+
+/**
+ * Cor declarada pelo elemento: atributo do editor, <font color> criado pelo navegador ou estilo de cor.
+ * Uma cor fora da paleta (a cor normal do texto, por exemplo) desfaz a cor herdada.
+ */
+function elementColor(node: HTMLElement, inherited?: RichTextColor) {
+  if (node.dataset.color) return richTextColor(node.dataset.color);
+  const declared = node.getAttribute("color") || node.style.color;
+  return declared ? richTextColorFromCss(declared) : inherited;
 }
 
 function addRun(runs: RichTextRun[], text: string, marks: RichTextMark) {
@@ -118,6 +141,7 @@ function runsFromNodes(nodes: NodeListOf<ChildNode> | ChildNode[], basePixels: n
       italic: marks.italic || node.tagName === "I" || node.tagName === "EM" || style.fontStyle === "italic",
       underline: marks.underline || node.tagName === "U" || style.textDecoration.includes("underline"),
       size: elementSize(node, basePixels, marks.size),
+      color: elementColor(node, marks.color),
     };
     const nested = runsFromNodes(node.childNodes, basePixels, nextMarks);
     for (const run of nested) addRun(runs, run.text, run);
@@ -162,12 +186,17 @@ function documentFromEditor(root: HTMLElement): RichTextDocument {
         .filter((item) => item.tagName === "LI")
         .map((item) => blockRuns(runsFromNodes(item.childNodes, basePixels)))
         .filter((item) => item.length && !isBlankRichTextRuns(item));
-      if (items.length) blocks.push({ type: node.tagName === "UL" ? "bullet-list" : "ordered-list", items });
+      const type = node.tagName === "UL" ? "bullet-list" : "ordered-list";
+      const variant = richTextListVariant(type, node.dataset.variant);
+      const box = richTextBox(node.dataset.box);
+      if (items.length) blocks.push({ type, items, ...(variant ? { variant } : {}), ...(box ? { box } : {}) });
       continue;
     }
     const runs = runsFromNodes(node.childNodes, basePixels);
     const style = styleFromTag(node.tagName);
-    blocks.push({ type: "paragraph", runs: runs.length ? blockRuns(runs) : [{ text: "\n" }], ...(style ? { style } : {}) });
+    const align = richTextAlign(node.style.textAlign);
+    const box = richTextBox(node.dataset.box);
+    blocks.push({ type: "paragraph", runs: runs.length ? blockRuns(runs) : [{ text: "\n" }], ...(style ? { style } : {}), ...(align ? { align } : {}), ...(box ? { box } : {}) });
   }
   appendInlineParagraph();
   // Só linhas em branco equivalem a um texto vazio.
@@ -364,6 +393,9 @@ function resetLine(line: HTMLElement) {
   let target = line;
   if (/^H[1-6]$/.test(line.tagName)) {
     target = document.createElement("p");
+    // A linha nova continua na mesma moldura e com o mesmo alinhamento.
+    if (line.dataset.box) target.dataset.box = line.dataset.box;
+    if (line.style.textAlign) target.style.textAlign = line.style.textAlign;
     line.replaceWith(target);
   }
   target.innerHTML = "<br>";
@@ -410,6 +442,143 @@ function pastePlainText(event: ClipboardEvent<HTMLDivElement>) {
   });
 }
 
+/** Blocos (parágrafos, títulos e listas) do primeiro nível do editor alcançados pela seleção. */
+function selectedBlocks(editor: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !editor.contains(selection.getRangeAt(0).startContainer)) return [];
+  const range = selection.getRangeAt(0);
+  const top = (node: Node) => {
+    let element = elementFromNode(node);
+    while (element && element.parentElement !== editor) element = element.parentElement;
+    return element && element.parentElement === editor ? element : null;
+  };
+  if (range.collapsed) {
+    const block = top(range.startContainer);
+    return block ? [block] : [];
+  }
+  return Array.from(editor.children).filter((child) => range.intersectsNode(child)) as HTMLElement[];
+}
+
+function selectionList(editor: HTMLElement) {
+  const selection = window.getSelection();
+  const element = selection?.rangeCount ? elementFromNode(selection.getRangeAt(0).startContainer) : null;
+  const list = element?.closest("ul, ol");
+  return list && editor.contains(list) ? list as HTMLElement : null;
+}
+
+/** Cor do texto onde está o cursor. */
+function selectionColor(editor: HTMLElement): RichTextColor | null {
+  const selection = window.getSelection();
+  let element = selection?.rangeCount ? elementFromNode(selection.getRangeAt(0).startContainer) : null;
+  while (element && element !== editor) {
+    if (element.dataset.color || element.getAttribute("color") || element.style.color) return elementColor(element) ?? null;
+    element = element.parentElement;
+  }
+  return null;
+}
+
+function selectionFormat(editor: HTMLElement): RichTextSelectionFormat {
+  const block = selectedBlocks(editor)[0];
+  const list = selectionList(editor);
+  const type = list ? (list.tagName === "UL" ? "bullet-list" : "ordered-list") : null;
+  return {
+    color: selectionColor(editor),
+    align: richTextAlign(block?.style.textAlign) ?? "left",
+    box: richTextBox(block?.dataset.box) ?? null,
+    list: type ? { type, variant: richTextListVariant(type, list!.dataset.variant) } : null,
+  };
+}
+
+/** Cor da paleta (ou a cor normal) no trecho selecionado; sem seleção, vale para o que for digitado. */
+function applyColor(color: RichTextColor | null) {
+  document.execCommand("styleWithCSS", false, "false");
+  document.execCommand("foreColor", false, color ? RICH_TEXT_COLORS[color].hex : DEFAULT_TEXT_HEX);
+}
+
+function applyAlign(editor: HTMLElement, align: RichTextAlign | "left") {
+  for (const block of selectedBlocks(editor)) {
+    if (align === "left") block.style.removeProperty("text-align");
+    else block.style.textAlign = align;
+    if (!block.getAttribute("style")?.trim()) block.removeAttribute("style");
+  }
+}
+
+function applyBox(editor: HTMLElement, box: RichTextBox | null) {
+  for (const block of selectedBlocks(editor)) {
+    if (box) block.dataset.box = box;
+    else delete block.dataset.box;
+  }
+}
+
+/**
+ * Transforma as linhas selecionadas em lista (ou volta a texto) e aplica a aparência escolhida. A lista é montada
+ * aqui, sem o comando do navegador: ele coloca a lista dentro de títulos, e os itens acabariam salvos numa linha só.
+ */
+function applyList(editor: HTMLElement, choice: RichTextListChoice) {
+  const blocks = selectedBlocks(editor);
+  if (!blocks.length) return;
+  const isList = (element: Element) => element.tagName === "UL" || element.tagName === "OL";
+  const selectContents = (first: Node, last: Node) => {
+    const range = document.createRange();
+    range.setStart(first, 0);
+    range.setEnd(last, last.childNodes.length);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  };
+  if (!choice) {
+    // Lista para texto: cada item vira um parágrafo, na mesma moldura.
+    const paragraphs: HTMLElement[] = [];
+    for (const block of blocks) {
+      if (!isList(block)) continue;
+      const created = Array.from(block.children).map((item) => {
+        const paragraph = document.createElement("p");
+        paragraph.append(...Array.from(item.childNodes));
+        if (!paragraph.childNodes.length) paragraph.innerHTML = "<br>";
+        if (block.dataset.box) paragraph.dataset.box = block.dataset.box;
+        return paragraph;
+      });
+      block.replaceWith(...created);
+      paragraphs.push(...created);
+    }
+    if (paragraphs.length) selectContents(paragraphs[0], paragraphs.at(-1)!);
+    return;
+  }
+  const tag = choice.type === "bullet-list" ? "UL" : "OL";
+  const list = document.createElement(tag);
+  const box = blocks[0].dataset.box;
+  for (const block of blocks) {
+    if (isList(block)) {
+      list.append(...Array.from(block.children));
+      continue;
+    }
+    const item = document.createElement("li");
+    item.append(...Array.from(block.childNodes));
+    if (!item.textContent) item.innerHTML = "<br>";
+    list.append(item);
+  }
+  blocks[0].replaceWith(list);
+  blocks.slice(1).forEach((block) => block.remove());
+  if (choice.variant) list.dataset.variant = choice.variant;
+  if (box) list.dataset.box = box;
+  if (list.firstChild && list.lastChild) selectContents(list.firstChild, list.lastChild);
+}
+
+/** Lista dentro de um parágrafo ou título (criada pelo navegador ou colada) sobe para o primeiro nível do editor. */
+function liftNestedLists(editor: HTMLElement) {
+  for (const block of Array.from(editor.children)) {
+    if (block.tagName === "UL" || block.tagName === "OL") continue;
+    const nested = Array.from(block.children).filter((child) => child.tagName === "UL" || child.tagName === "OL");
+    if (!nested.length) continue;
+    let anchor: Element = block;
+    for (const list of nested) {
+      anchor.after(list);
+      anchor = list;
+    }
+    if (!block.textContent?.trim()) block.remove();
+  }
+}
+
 /** Estilo do parágrafo onde está o cursor. */
 function selectionParagraphStyle(editor: HTMLElement) {
   const selection = window.getSelection();
@@ -430,15 +599,18 @@ function applyParagraphStyle(editor: HTMLElement, style: RichTextParagraphStyle 
   });
 }
 
-export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, onSelectionSize, onSelectionStyle, onKeyDown, ariaLabel, className, placeholder, maxCharacters = 4_000 }: InlineEditorProps) {
+export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, command, onSelectionSize, onSelectionStyle, onSelectionFormat, onKeyDown, ariaLabel, className, placeholder, maxCharacters = 4_000 }: InlineEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const pendingSizeRef = useRef<number | null>(null);
   const onSelectionSizeRef = useRef(onSelectionSize);
   onSelectionSizeRef.current = onSelectionSize;
   const onSelectionStyleRef = useRef(onSelectionStyle);
+  const onSelectionFormatRef = useRef(onSelectionFormat);
+  onSelectionFormatRef.current = onSelectionFormat;
   onSelectionStyleRef.current = onSelectionStyle;
   const initialDocumentRef = useRef<RichTextDocument | null>(null);
-  const lastCommandIdRef = useRef(0);
+  // Um editor montado depois do último comando (ex.: o texto criado ao inserir um componente) não o repete.
+  const lastCommandIdRef = useRef(command?.id ?? 0);
   if (!initialDocumentRef.current) initialDocumentRef.current = parseRichText(initialValue);
   // O React 19 compara dangerouslySetInnerHTML pela identidade do objeto: um objeto novo a cada renderização
   // reescreve o conteúdo e apaga o que está sendo digitado. O HTML inicial é criado uma única vez.
@@ -450,6 +622,7 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
     if (!editor) return;
     if ((event?.nativeEvent as InputEvent | undefined)?.inputType === "insertParagraph") cleanNewLine(editor);
     ensureParagraphs(editor);
+    liftNestedLists(editor);
     // O tamanho escolhido numa linha vazia vira <font> só quando o primeiro caractere é digitado.
     if (pendingSizeRef.current && editor.querySelector("font[size='7']")) {
       convertFontMarkers(editor, pendingSizeRef.current);
@@ -470,6 +643,7 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
     const size = pendingSizeRef.current ?? selectionSize(editor);
     if (size) onSelectionSizeRef.current?.(size);
     onSelectionStyleRef.current?.(selectionParagraphStyle(editor));
+    onSelectionFormatRef.current?.(selectionFormat(editor));
   }
 
   useEffect(() => {
@@ -494,10 +668,19 @@ export function InlineRichTextEditor({ initialValue, onChange, onFocus, onBlur, 
       clearFormatting(editor);
       onSelectionStyleRef.current?.(selectionParagraphStyle(editor));
       onSelectionSizeRef.current?.(selectionSize(editor) ?? RICH_TEXT_BASE_SIZE);
+    } else if (command.value === "color") {
+      applyColor(command.color ?? null);
+    } else if (command.value === "align") {
+      applyAlign(editor, command.align ?? "left");
+    } else if (command.value === "box") {
+      applyBox(editor, command.box ?? null);
+    } else if (command.value === "list") {
+      applyList(editor, command.list ?? null);
     } else {
       document.execCommand(command.value, false);
     }
     syncValue();
+    onSelectionFormatRef.current?.(selectionFormat(editor));
   }, [command]);
 
   function handleFocus() {
@@ -523,6 +706,7 @@ export function ServiceProposalEditor({ name, initialValue, onChange }: Props) {
     if (command === "removeFormat" && editor) clearFormatting(editor);
     else document.execCommand(command, false);
     if (!editor) return;
+    liftNestedLists(editor);
     const value = serializeRichText(documentFromEditor(editor));
     if (hiddenFieldRef.current) hiddenFieldRef.current.value = value ?? "";
     onChange?.(value);

@@ -1,12 +1,14 @@
 import { Document, Font, G, Image, Page, Path, StyleSheet, Svg, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import { BRAND_MARK_PATHS, BRAND_MARK_TRANSFORM, BRAND_MARK_VIEWBOX, COVER_COLORS, coverTitleLayout } from "@/features/quotes/types/brand-mark";
-import type { ReactElement } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, richTextLineHeight, type RichTextRun } from "@/lib/rich-text";
+import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_COLORS, richTextLineHeight, type RichTextBlock, type RichTextBox, type RichTextList, type RichTextRun } from "@/lib/rich-text";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
 import { TextDocumentCover } from "@/features/quotes/services/pdf-covers";
 import { QUOTE_PAGE_CONTENT_WIDTH, quoteDocumentBlockRole, quoteImageWidthShare, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
+
+type Style = Exclude<ComponentProps<typeof View>["style"], unknown[] | undefined>;
 
 const colors = {
   black: "#000000",
@@ -181,26 +183,84 @@ function websiteForDisplay(value?: string | null) {
 
 function PdfRuns({ runs }: { runs: RichTextRun[] }) {
   // Sem negrito explícito o trecho herda o peso do parágrafo (títulos já são negritos).
-  return <>{runs.map((run, index) => <Text key={`${index}-${run.text.slice(0, 12)}`} style={{ ...(run.bold ? { fontWeight: 700 } : {}), fontStyle: run.italic ? "italic" : "normal", textDecoration: run.underline ? "underline" : "none", ...(run.size ? { fontSize: run.size, lineHeight: richTextLineHeight(run.size) } : {}) }}>{run.text}</Text>)}</>;
+  return <>{runs.map((run, index) => <Text key={`${index}-${run.text.slice(0, 12)}`} style={{ ...(run.bold ? { fontWeight: 700 } : {}), fontStyle: run.italic ? "italic" : "normal", textDecoration: run.underline ? "underline" : "none", ...(run.size ? { fontSize: run.size, lineHeight: richTextLineHeight(run.size) } : {}), ...(run.color ? { color: RICH_TEXT_COLORS[run.color].hex } : {}) }}>{run.text}</Text>)}</>;
 }
+
+/** Cores dos recursos visuais do texto (molduras, marcadores, etiquetas), as mesmas da folha do editor. */
+const DECOR = { green: RICH_TEXT_COLORS.green.hex, forest: RICH_TEXT_COLORS.forest.hex, tint: "#EAF2EC", outline: "#C9D6CF", line: "#D9DEDA" };
+
+const boxStyles: Record<RichTextBox, Style> = {
+  tint: { backgroundColor: DECOR.tint, borderRadius: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6, marginBottom: 10 },
+  outline: { borderWidth: 1, borderColor: DECOR.outline, borderRadius: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6, marginBottom: 10 },
+  accent: { borderLeftWidth: 3, borderLeftColor: DECOR.green, paddingLeft: 14, paddingTop: 2, marginBottom: 10 },
+};
 
 /** Parágrafos e itens curtos não se dividem entre folhas, como no editor; só textos muito longos podem quebrar no meio. */
 function keepsWhole(runs: RichTextRun[]) {
   return runs.reduce((total, run) => total + run.text.length, 0) < 1_500;
 }
 
+function itemText(item: RichTextRun[]) {
+  return item.map((run) => run.text).join("");
+}
+
+/** Lista com a aparência escolhida no editor. */
+function PdfList({ block, clause }: { block: RichTextList; clause: number }) {
+  const variant = block.variant;
+  if (variant === "tags" || variant === "tags-square") {
+    return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 }} wrap={block.items.length > 24}>{block.items.map((item, index) => <View key={`${index}-${itemText(item).slice(0, 8)}`} style={{ backgroundColor: DECOR.tint, borderRadius: variant === "tags" ? 10 : 2, paddingHorizontal: 9, paddingVertical: 3.5 }} wrap={false}><Text style={{ color: DECOR.forest, fontSize: 8.5, lineHeight: 1.3 }}><PdfRuns runs={item} /></Text></View>)}</View>;
+  }
+  if (variant === "grid") {
+    // Como no editor, a grade inteira passa junta para a folha seguinte (só grades muito longas se dividem).
+    // As linhas ficam só entre as fileiras, sem linha acima da primeira.
+    return <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 8 }} wrap={block.items.length > 12}>{block.items.map((item, index) => <View key={`${index}-${itemText(item).slice(0, 8)}`} style={{ width: "50%", paddingRight: index % 2 === 0 ? 14 : 0, paddingLeft: index % 2 === 1 ? 14 : 0, paddingTop: index < 2 ? 0 : 8, paddingBottom: 8, borderTopWidth: index < 2 ? 0 : 1, borderTopColor: DECOR.line }} wrap={false}><Text style={styles.editorRichTextListText}><PdfRuns runs={item} /></Text></View>)}</View>;
+  }
+  if (variant === "steps") {
+    return <View style={{ flexDirection: "row", marginTop: 4, marginBottom: 12 }} wrap={false}>{block.items.map((item, index) => <View key={`${index}-${itemText(item).slice(0, 8)}`} style={{ flexBasis: 0, flexGrow: 1, paddingRight: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+        <View style={{ width: 11, height: 11, borderRadius: 5.5, borderWidth: 1.5, borderColor: DECOR.green, backgroundColor: "#FFFFFF" }} />
+        {index < block.items.length - 1 ? <View style={{ flexGrow: 1, height: 1, backgroundColor: DECOR.outline, marginLeft: 4, marginRight: -10 }} /> : null}
+      </View>
+      <Text style={{ color: "#1F1F1F", fontSize: 9, lineHeight: 1.45 }}><PdfRuns runs={item} /></Text>
+    </View>)}</View>;
+  }
+  return <View style={styles.editorRichTextList}>{block.items.map((item, index) => {
+    const marker = block.type === "ordered-list"
+      ? <Text style={[styles.editorRichTextBullet, variant === "clause" ? { width: 26, color: DECOR.green, fontWeight: 700 } : {}]}>{variant === "clause" ? `${clause}.${index + 1}` : `${index + 1}.`}</Text>
+      : variant === "square" ? <View style={{ width: 12, paddingTop: 6 }}><View style={{ width: 5, height: 5, backgroundColor: DECOR.green }} /></View>
+      : <Text style={[styles.editorRichTextBullet, { color: variant === "dot" ? "#1F1F1F" : DECOR.green }]}>{variant === "dot" ? "•" : "–"}</Text>;
+    return <View key={`${index}-${itemText(item).slice(0, 8)}`} style={[styles.editorRichTextListItem, variant === "clause" ? { marginTop: 6 } : {}]} wrap={!keepsWhole(item)}>{marker}<Text style={styles.editorRichTextListText}><PdfRuns runs={item} /></Text></View>;
+  })}</View>;
+}
+
+function DocumentRichTextBlock({ block, first, clause }: { block: RichTextBlock; first: boolean; clause: number }) {
+  // Linha em branco ocupa uma linha só, na altura do tamanho escolhido, como no editor.
+  if (block.type !== "paragraph") return <PdfList block={block} clause={clause} />;
+  const align = block.align ? { textAlign: block.align } : {};
+  if (block.style === "section") return <SectionHeading compact>{block.runs.map((run) => run.text).join("").replace(/\n/g, " ").trim()}</SectionHeading>;
+  if (block.style) return <Text style={[block.style === "title" ? styles.editorRichTextTitle : styles.editorRichTextSubtitle, first ? { marginTop: 0 } : {}, align]} minPresenceAhead={40}><PdfRuns runs={block.runs} /></Text>;
+  if (isBlankRichTextRuns(block.runs)) return <Text style={styles.editorRichTextParagraph}><PdfRuns runs={[{ ...block.runs[0], text: " " }]} /></Text>;
+  return <Text style={[styles.editorRichTextParagraph, align]} wrap={!keepsWhole(block.runs)}><PdfRuns runs={block.runs} /></Text>;
+}
+
 function DocumentRichText({ value }: { value: string }) {
   const document = parseRichText(value);
   if (!document.blocks.length) return null;
-
-  return <View style={styles.editorRichText}>{mergeAdjacentRichTextLists(document.blocks).map((block, index) => {
-    // Linha em branco ocupa uma linha só, na altura do tamanho escolhido, como no editor.
-    if (block.type === "paragraph" && block.style === "section") return <SectionHeading key={`paragraph-${index}`} compact>{block.runs.map((run) => run.text).join("").replace(/\n/g, " ").trim()}</SectionHeading>;
-    if (block.type === "paragraph" && block.style) return <Text key={`paragraph-${index}`} style={[block.style === "title" ? styles.editorRichTextTitle : styles.editorRichTextSubtitle, index === 0 ? { marginTop: 0 } : {}]} minPresenceAhead={40}><PdfRuns runs={block.runs} /></Text>;
-    if (block.type === "paragraph" && isBlankRichTextRuns(block.runs)) return <Text key={`paragraph-${index}`} style={styles.editorRichTextParagraph}><PdfRuns runs={[{ ...block.runs[0], text: " " }]} /></Text>;
-    if (block.type === "paragraph") return <Text key={`paragraph-${index}`} style={styles.editorRichTextParagraph} wrap={!keepsWhole(block.runs)}><PdfRuns runs={block.runs} /></Text>;
-    return <View key={`${block.type}-${index}`} style={styles.editorRichTextList}>{block.items.map((item, itemIndex) => <View key={`${index}-${itemIndex}`} style={styles.editorRichTextListItem} wrap={!keepsWhole(item)}><Text style={styles.editorRichTextBullet}>{block.type === "ordered-list" ? `${itemIndex + 1}.` : "-"}</Text><Text style={styles.editorRichTextListText}><PdfRuns runs={item} /></Text></View>)}</View>;
-  })}</View>;
+  const blocks = mergeAdjacentRichTextLists(document.blocks);
+  // Listas de cláusulas numeram 1.1, 1.2...; a segunda lista de cláusulas do texto vira 2.1, 2.2...
+  let clauseCount = 0;
+  const rendered = blocks.map((block, index) => {
+    if (block.type === "ordered-list" && block.variant === "clause") clauseCount += 1;
+    return { box: block.box, element: <DocumentRichTextBlock key={`block-${index}`} block={block} first={index === 0} clause={clauseCount} /> };
+  });
+  // Blocos vizinhos com a mesma moldura formam uma só moldura.
+  const groups: Array<{ box?: RichTextBox; elements: ReactElement[] }> = [];
+  for (const item of rendered) {
+    const previous = groups.at(-1);
+    if (previous && item.box && previous.box === item.box) previous.elements.push(item.element);
+    else groups.push({ box: item.box, elements: [item.element] });
+  }
+  return <View style={styles.editorRichText}>{groups.map((group, index) => group.box ? <View key={`group-${index}`} style={boxStyles[group.box]}>{group.elements}</View> : group.elements)}</View>;
 }
 
 /** Rótulo de seção: marcador, texto espaçado e linha fina até a margem. Não fica órfão no pé da página. */
@@ -220,6 +280,7 @@ function DocumentImage({ block, file }: { block: QuoteDocumentBlock; file?: Quot
 function DocumentBlock({ block, previous, images }: { block: QuoteDocumentBlock; previous?: QuoteDocumentBlock; images?: Record<string, QuotePdfImage> }) {
   // Quebra de página inserida no editor: o conteúdo seguinte começa numa nova folha.
   if (block.type === "page-break") return <View break />;
+  if (block.type === "divider") return block.divider === "accent" ? <View style={{ width: 48, height: 3, backgroundColor: DECOR.green, marginTop: 6, marginBottom: 16 }} /> : <View style={{ height: 1, backgroundColor: DECOR.line, marginTop: 8, marginBottom: 16 }} />;
   if (block.type === "image") return <DocumentImage block={block} file={block.image ? images?.[block.image.id] : undefined} />;
   if (block.type === "rich-text") return <DocumentRichText value={block.text} />;
   const role = quoteDocumentBlockRole(block);

@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { SidebarToggle } from "@/components/sidebar-toggle";
-import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest } from "@/features/services/components/service-proposal-editor";
+import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest, type RichTextListChoice, type RichTextSelectionFormat } from "@/features/services/components/service-proposal-editor";
 import { DocumentSignaturePreview, QuoteClosingPreview, QuoteCoverPreview, type DocumentCoverData, type QuotePreviewData, type SignaturePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
-import { hasQuoteServicesComponent, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
-import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_SIZES, serializeRichText, type RichTextBlock, type RichTextParagraphStyle } from "@/lib/rich-text";
+import { hasQuoteServicesComponent, type QuoteDividerStyle, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
+import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_COLORS, RICH_TEXT_SIZES, serializeRichText, type RichTextAlign, type RichTextBlock, type RichTextBox, type RichTextColor, type RichTextParagraphStyle } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
   name: string;
@@ -80,7 +80,7 @@ const alignLabels: Record<QuoteDocumentAlign, string> = { left: "À esquerda", c
 
 /** Itens indivisíveis do texto rico: cada parágrafo e cada item de lista. */
 function richTextAtoms(text: string): RichTextBlock[] {
-  return parseRichText(text).blocks.flatMap((item): RichTextBlock[] => item.type === "paragraph" ? [item] : item.items.map((runs) => ({ type: item.type, items: [runs] })));
+  return parseRichText(text).blocks.flatMap((item): RichTextBlock[] => item.type === "paragraph" ? [item] : item.items.map((runs) => ({ type: item.type, items: [runs], ...(item.variant ? { variant: item.variant } : {}), ...(item.box ? { box: item.box } : {}) })));
 }
 
 function serializeAtoms(atoms: RichTextBlock[]) {
@@ -219,6 +219,8 @@ async function prepareImageFile(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("encode")), "image/jpeg", 0.88));
 }
 
+const COMPOUND_LIST_VARIANTS = new Set(["tags", "tags-square", "grid", "steps"]);
+
 /**
  * Item medido para a paginação. `selector` identifica o elemento por CSS: o espaço entre as folhas é aplicado por
  * uma regra de estilo, sem alterar o HTML do texto que está sendo editado.
@@ -233,6 +235,11 @@ function flowItems(content: HTMLElement): FlowItem[] {
     const before = items.length;
     Array.from(editor?.children ?? []).forEach((child, index) => {
       const path = `${base} [contenteditable] > :nth-child(${index + 1})`;
+      // Etiquetas, grade e etapas não são empilhadas item a item: a lista inteira conta como um bloco.
+      if ((child.tagName === "UL" || child.tagName === "OL") && COMPOUND_LIST_VARIANTS.has((child as HTMLElement).dataset.variant ?? "")) {
+        items.push({ element: child as HTMLElement, selector: path, keepWithNext: false, breakAfter: false });
+        return;
+      }
       if (child.tagName === "UL" || child.tagName === "OL") {
         Array.from(child.children).forEach((item, itemIndex) => items.push({ element: item as HTMLElement, selector: `${path} > :nth-child(${itemIndex + 1})`, keepWithNext: false, breakAfter: false }));
         return;
@@ -262,10 +269,12 @@ function measureFlow(sheet: HTMLElement, content: HTMLElement, end: HTMLElement,
   const contentTop = content.getBoundingClientRect().top;
   const sheetOffset = contentTop - sheet.getBoundingClientRect().top;
   // Posição real de cada item sem o espaço entre folhas, e posição "consumida" (a quebra manual não ocupa altura no PDF).
+  // O espaço entre folhas é uma borda transparente no topo do item: ela não move o próprio item, só o que vem depois.
   let shift = 0;
   const actual = items.map((item) => {
+    const top = item.element.getBoundingClientRect().top - contentTop - shift;
     shift += applied.get(item.selector) ?? 0;
-    return item.element.getBoundingClientRect().top - contentTop - shift;
+    return top;
   });
   const endActual = end.getBoundingClientRect().top - contentTop - shift;
   const consumed: number[] = [];
@@ -316,6 +325,8 @@ function useToolbarMenu(menuClass: string) {
     if (!position) return;
     const close = (event: Event) => {
       if (event instanceof globalThis.KeyboardEvent && event.key !== "Escape") return;
+      // Rolar dentro do próprio menu (listas longas) não o fecha.
+      if (event.type === "scroll" && event.target instanceof Element && event.target.closest(`.${menuClass}`)) return;
       if (event.type === "pointerdown" && ((event.target as Element | null)?.closest(`.${menuClass}`) || triggerRef.current?.contains(event.target as Node))) return;
       setPosition(null);
     };
@@ -375,7 +386,7 @@ function ParagraphStyleControl({ style, onSelect }: { style: RichTextParagraphSt
   </>;
 }
 
-type ComponentOption = { key: "services" | "template" | "images" | "page-break"; label: string; detail: string; disabled?: boolean };
+type ComponentOption = { key: "services" | "template" | "images" | "page-break" | "divider-line" | "divider-accent"; label: string; detail: string; disabled?: boolean };
 
 /** Componentes: blocos prontos inseridos no ponto do cursor (ou depois do bloco selecionado). */
 function ComponentsMenu({ options, onOpen, onSelect }: { options: ComponentOption[]; onOpen: () => void; onSelect: (key: ComponentOption["key"]) => void }) {
@@ -402,8 +413,60 @@ const imageSizeOptions: Array<{ value: QuoteDocumentFontSize; label: string }> =
 
 /** Ícone de alinhamento: linhas encostadas à esquerda, ao centro ou à direita. */
 function AlignIcon({ align }: { align: QuoteDocumentAlign }) {
-  return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">{[14, 9, 14, 7].map((width, index) => <rect key={index} x={align === "left" ? 1 : align === "right" ? 15 - width : (16 - width) / 2} y={2 + index * 3.5} width={width} height="1.5" fill="currentColor" />)}</svg>;
+  return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">{(align === "justify" ? [14, 14, 14, 9] : [14, 9, 14, 7]).map((width, index) => <rect key={index} x={align === "left" || align === "justify" ? 1 : align === "right" ? 15 - width : (16 - width) / 2} y={2 + index * 3.5} width={width} height="1.5" fill="currentColor" />)}</svg>;
 }
+
+type DropdownOption<T> = { key: string; value: T; label: string; detail?: string; preview?: ReactNode };
+
+/** Menu da barra com opções e uma pré-visualização à esquerda de cada uma. Não tira o foco do texto em edição. */
+function DropdownControl<T>({ menuClass, width, trigger, title, options, current, onSelect }: { menuClass: string; width: number; trigger: ReactNode; title: string; options: Array<DropdownOption<T> | "divider">; current: string; onSelect: (value: T) => void }) {
+  const menu = useToolbarMenu(menuClass);
+  return <>
+    <button type="button" ref={menu.triggerRef} className="quote-docs-dropdown-trigger" aria-haspopup="listbox" aria-expanded={menu.position !== null} title={title} aria-label={title} onMouseDown={(event) => event.preventDefault()} onClick={() => menu.toggle(width)}>{trigger}</button>
+    {menu.position ? <div className={`quote-docs-dropdown-menu ${menuClass}`} role="listbox" aria-label={title} style={{ top: menu.position.top, left: menu.position.left, width }}>
+      {options.map((option, index) => option === "divider" ? <i key={`divider-${index}`} aria-hidden="true" /> : <button type="button" role="option" aria-selected={option.key === current} key={option.key} className={option.key === current ? "is-active" : undefined} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option.value); menu.close(); }}>{option.preview ? <span className="quote-docs-dropdown-preview" aria-hidden="true">{option.preview}</span> : null}<span><b>{option.label}</b>{option.detail ? <small>{option.detail}</small> : null}</span></button>)}
+    </div> : null}
+  </>;
+}
+
+const colorOptions: Array<DropdownOption<RichTextColor | null>> = [
+  { key: "none", value: null, label: "Cor normal", preview: <i className="quote-docs-swatch" style={{ background: "#1f1f1f" }} /> },
+  ...(Object.keys(RICH_TEXT_COLORS) as RichTextColor[]).map((color) => ({ key: color, value: color, label: RICH_TEXT_COLORS[color].label, preview: <i className="quote-docs-swatch" style={{ background: RICH_TEXT_COLORS[color].hex }} /> })),
+];
+
+const alignOptions: Array<DropdownOption<RichTextAlign | "left">> = [
+  { key: "left", value: "left", label: "À esquerda", preview: <AlignIcon align="left" /> },
+  { key: "center", value: "center", label: "Centralizado", preview: <AlignIcon align="center" /> },
+  { key: "right", value: "right", label: "À direita", preview: <AlignIcon align="right" /> },
+  { key: "justify", value: "justify", label: "Justificado", preview: <AlignIcon align="justify" /> },
+];
+
+function listKey(choice: RichTextListChoice) {
+  return choice ? `${choice.type}:${choice.variant ?? ""}` : "none";
+}
+
+const listOptions: Array<DropdownOption<RichTextListChoice> | "divider"> = [
+  { key: "none", value: null, label: "Sem lista", detail: "Texto corrido" },
+  "divider",
+  { key: "bullet-list:", value: { type: "bullet-list" }, label: "Traço", detail: "Marcador em traço verde", preview: <span className="quote-docs-list-preview is-dash"><i /><i /></span> },
+  { key: "bullet-list:dot", value: { type: "bullet-list", variant: "dot" }, label: "Ponto", detail: "Marcador clássico", preview: <span className="quote-docs-list-preview is-dot"><i /><i /></span> },
+  { key: "bullet-list:square", value: { type: "bullet-list", variant: "square" }, label: "Quadrado", detail: "Marcador quadrado verde", preview: <span className="quote-docs-list-preview is-square"><i /><i /></span> },
+  "divider",
+  { key: "ordered-list:", value: { type: "ordered-list" }, label: "Numerada", detail: "1. 2. 3.", preview: <span className="quote-docs-list-text">1.</span> },
+  { key: "ordered-list:clause", value: { type: "ordered-list", variant: "clause" }, label: "Cláusulas", detail: "1.1, 1.2 · ideal para contratos", preview: <span className="quote-docs-list-text is-accent">1.1</span> },
+  { key: "ordered-list:steps", value: { type: "ordered-list", variant: "steps" }, label: "Etapas", detail: "Linha do tempo na horizontal", preview: <span className="quote-docs-list-preview is-steps"><i /><i /><i /></span> },
+  "divider",
+  { key: "bullet-list:tags", value: { type: "bullet-list", variant: "tags" }, label: "Etiquetas arredondadas", detail: "Itens curtos lado a lado", preview: <span className="quote-docs-list-preview is-tags"><i /><i /></span> },
+  { key: "bullet-list:tags-square", value: { type: "bullet-list", variant: "tags-square" }, label: "Etiquetas retas", detail: "Itens curtos lado a lado", preview: <span className="quote-docs-list-preview is-tags is-square-tags"><i /><i /></span> },
+  { key: "bullet-list:grid", value: { type: "bullet-list", variant: "grid" }, label: "Grade em 2 colunas", detail: "Itens com linhas de separação", preview: <span className="quote-docs-list-preview is-grid"><i /><i /><i /><i /></span> },
+];
+
+const boxOptions: Array<DropdownOption<RichTextBox | null>> = [
+  { key: "none", value: null, label: "Sem moldura", preview: <i className="quote-docs-box-preview" /> },
+  { key: "tint", value: "tint", label: "Fundo verde", detail: "Bloco destacado com cantos arredondados", preview: <i className="quote-docs-box-preview is-tint" /> },
+  { key: "outline", value: "outline", label: "Contorno", detail: "Moldura fina com cantos arredondados", preview: <i className="quote-docs-box-preview is-outline" /> },
+  { key: "accent", value: "accent", label: "Barra lateral", detail: "Destaque para observações", preview: <i className="quote-docs-box-preview is-accent" /> },
+];
 
 function pastePlainLine(event: ClipboardEvent<HTMLDivElement>) {
   event.preventDefault();
@@ -430,9 +493,13 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
   const contentRef = useRef(content);
   const documentContentFieldRef = useRef<HTMLInputElement>(null);
   const [activeBlockId, setActiveBlockId] = useState("");
-  const [richTextCommand, setRichTextCommand] = useState<RichTextEditorCommandRequest | null>(null);
+  // O comando guarda o texto em que foi dado: um texto que fica ativo depois (ex.: o criado ao inserir um componente) não o repete.
+  const [richTextCommand, setRichTextCommand] = useState<(RichTextEditorCommandRequest & { blockId: string }) | null>(null);
   const [richTextSize, setRichTextSize] = useState(RICH_TEXT_BASE_SIZE);
   const [richTextStyle, setRichTextStyle] = useState<RichTextParagraphStyle | null>(null);
+  const [richTextFormat, setRichTextFormat] = useState<RichTextSelectionFormat>({ color: null, align: "left", box: null, list: null });
+  // O cursor muda a todo instante: o estado só é atualizado quando a formatação realmente muda.
+  const updateRichTextFormat = useCallback((next: RichTextSelectionFormat) => setRichTextFormat((current) => current.color === next.color && current.align === next.align && current.box === next.box && listKey(current.list) === listKey(next.list) ? current : next), []);
   // Textos são editores não controlados: só são recriados quando o texto muda por fora (inserir um componente no meio, por exemplo).
   const [versions, setVersions] = useState<Record<string, number>>({});
   const [restoreVersion, setRestoreVersion] = useState(0);
@@ -723,6 +790,16 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     if (inserted.length) insertBlocks(point, inserted, { blockId: inserted[0].id, edge: "start" });
   }
 
+  /** Linha divisória no ponto do cursor; o texto continua logo abaixo dela. */
+  function insertDivider(point: InsertionPoint | null, style: QuoteDividerStyle) {
+    const divider: QuoteDocumentBlock = { id: `divider-${crypto.randomUUID().slice(0, 8)}`, type: "divider", divider: style, text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
+    const slot = insertionSlot(point);
+    slot.blocks.splice(slot.index, 0, divider);
+    const following = slot.blocks[slot.index + 1];
+    applyBlocks(slot.blocks, following?.type === "rich-text" ? { blockId: following.id, edge: "start" } : { blockId: divider.id, edge: "start" });
+    if (!following) requestAnimationFrame(() => focusNeighbor(divider.id, 1));
+  }
+
   function insertPageBreak(point: InsertionPoint | null) {
     const pageBreak: QuoteDocumentBlock = { id: `page-break-${crypto.randomUUID().slice(0, 8)}`, type: "page-break", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
     const slot = insertionSlot(point);
@@ -801,6 +878,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     insertionPointRef.current = null;
     if (key === "services") insertServices(point);
     else if (key === "template") insertTemplate(point);
+    else if (key === "divider-line" || key === "divider-accent") insertDivider(point, key === "divider-accent" ? "accent" : "line");
     else insertPageBreak(point);
   }
 
@@ -866,13 +944,19 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
   }
 
   function applyRichTextCommand(value: RichTextEditorCommand, size?: number, paragraphStyle?: RichTextParagraphStyle | null) {
-    setRichTextCommand((current) => ({ id: (current?.id ?? 0) + 1, value, size, paragraphStyle }));
+    setRichTextCommand((current) => ({ id: (current?.id ?? 0) + 1, blockId: activeBlockId, value, size, paragraphStyle }));
+  }
+
+  function applyRichTextFormat(value: RichTextEditorCommand, patch: Pick<RichTextEditorCommandRequest, "color" | "align" | "box" | "list">) {
+    setRichTextCommand((current) => ({ id: (current?.id ?? 0) + 1, blockId: activeBlockId, value, ...patch }));
   }
 
   const componentOptions: ComponentOption[] = [
     { key: "services", label: "Serviços incluídos", detail: hasServices ? "Já está no documento." : services.length ? "Título, categoria e descrição de cada serviço do orçamento." : "O orçamento não tem serviços.", disabled: hasServices || !services.length },
     { key: "template", label: "Texto padrão", detail: templateText ? "Seu texto padrão salvo, no ponto do cursor." : "Nenhum texto padrão salvo. Crie em TEXTO PADRÃO.", disabled: !templateText },
     { key: "images", label: "Imagens", detail: "PNG, JPEG ou WEBP. Uma ou várias de uma vez." },
+    { key: "divider-line", label: "Linha divisória", detail: "Linha fina para separar assuntos." },
+    { key: "divider-accent", label: "Linha de destaque", detail: "Traço curto e grosso, na cor verde." },
     { key: "page-break", label: "Quebra de página", detail: "O conteúdo seguinte começa numa nova página." },
   ];
 
@@ -899,7 +983,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
       // A orientação de texto vazio ocupa espaço de verdade (fica na mesma célula do editor): em telas estreitas
       // ela quebra em várias linhas sem vazar da folha, e clicar sobre ela posiciona o cursor no texto.
       return <div key={`${block.id}:${versions[block.id] ?? 0}`} data-block-id={block.id} data-flow="text" className="quote-sheet-block is-text">
-        <InlineRichTextEditor initialValue={block.text} maxCharacters={QUOTE_TEXT_MAX_CHARACTERS} className="quote-sheet-text" ariaLabel={block.id.startsWith("service-description-") ? "Descrição do serviço" : "Texto da proposta"} onFocus={activate} onBlur={() => setContent(contentRef.current)} onChange={(value) => updateBlockText(block.id, value ?? "")} onKeyDown={(event) => handleTextKeys(event, block)} command={activeBlockId === block.id ? richTextCommand : null} onSelectionSize={setRichTextSize} onSelectionStyle={setRichTextStyle} />
+        <InlineRichTextEditor initialValue={block.text} maxCharacters={QUOTE_TEXT_MAX_CHARACTERS} className="quote-sheet-text" ariaLabel={block.id.startsWith("service-description-") ? "Descrição do serviço" : "Texto da proposta"} onFocus={activate} onBlur={() => setContent(contentRef.current)} onChange={(value) => updateBlockText(block.id, value ?? "")} onKeyDown={(event) => handleTextKeys(event, block)} command={activeBlockId === block.id && richTextCommand?.blockId === block.id ? richTextCommand : null} onSelectionSize={setRichTextSize} onSelectionStyle={setRichTextStyle} onSelectionFormat={updateRichTextFormat} />
         <span className="quote-sheet-placeholder" aria-hidden="true">{placeholder}</span>
       </div>;
     }
@@ -908,6 +992,9 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
         {/* eslint-disable-next-line @next/next/no-img-element -- arquivo servido pela API do orçamento, já reduzido no envio */}
         <img src={`${apiBase}/imagens/${block.image.id}`} alt="" draggable={false} style={{ aspectRatio: `${block.image.width} / ${block.image.height}` }} />
       </div>
+    </div>;
+    if (block.type === "divider") return <div key={block.id} data-block-id={block.id} data-flow="block" className={`quote-sheet-block is-divider is-${block.divider ?? "line"}${selected}`}>
+      <div className="quote-sheet-divider" tabIndex={0} role="separator" aria-label="Linha divisória. Backspace ou Delete remove." onFocus={activate} onKeyDown={(event) => handleComponentKeys(event, block)}><i /></div>
     </div>;
     if (block.type === "page-break") return <div key={block.id} data-block-id={block.id} data-flow="page-break" className={`quote-sheet-block is-page-break${selected}`}>
       <div className="quote-sheet-page-break" tabIndex={0} role="separator" aria-label="Quebra de página. Backspace ou Delete remove." onFocus={activate} onKeyDown={(event) => handleComponentKeys(event, block)}><span>QUEBRA DE PÁGINA</span></div>
@@ -923,7 +1010,8 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
   }
 
   const activeRole = activeBlock ? quoteDocumentBlockRole(activeBlock) : null;
-  const gapCss = layout.gaps.map((gap) => `${gap.selector}{margin-top:${gap.gap}px!important}`).join("");
+  // Borda transparente (não margem): não se combina com margens vizinhas, e o fundo das molduras não a preenche.
+  const gapCss = layout.gaps.map((gap) => `${gap.selector}{border-top:${gap.gap}px solid transparent!important}`).join("");
   const bottomSpace = layout.bottom;
 
   const saveLabel = saveState === "saving" ? "Salvando..." : saveState === "pending" ? "Alterações ainda não salvas." : saveState === "error" ? "Não foi possível salvar automaticamente. Tentando de novo; se persistir, clique em SALVAR." : savedTime ? `Salvo automaticamente às ${savedTime}.` : justSaved ? "Alterações salvas." : "Salvamento automático ativado.";
@@ -945,6 +1033,12 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
           {imageSizeOptions.map((option) => <button type="button" key={option.value} aria-pressed={activeBlock.fontSize === option.value} className={`quote-docs-image-size${activeBlock.fontSize === option.value ? " is-active" : ""}`} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { fontSize: option.value })}>{option.label}</button>)}
           <span className="quote-docs-divider" />
           <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>REMOVER IMAGEM</button>
+        </> : activeBlock?.type === "divider" ? <>
+          <span className="quote-docs-tool-context">LINHA</span>
+          <button type="button" aria-pressed={activeBlock.divider !== "accent"} className={activeBlock.divider !== "accent" ? "is-active" : undefined} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { divider: "line" })}>FINA</button>
+          <button type="button" aria-pressed={activeBlock.divider === "accent"} className={activeBlock.divider === "accent" ? "is-active" : undefined} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { divider: "accent" })}>DESTAQUE</button>
+          <span className="quote-docs-divider" />
+          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>REMOVER LINHA</button>
         </> : activeBlock?.type === "page-break" ? <>
           <span className="quote-docs-tool-context">QUEBRA DE PÁGINA</span>
           <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>REMOVER QUEBRA</button>
@@ -964,9 +1058,11 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
           <span className="quote-docs-divider" />
           <ParagraphStyleControl style={richTextStyle} onSelect={(style) => applyRichTextCommand("paragraphStyle", undefined, style)} />
           <FontSizeControl size={richTextSize} onStep={(direction) => applyRichTextCommand(direction > 0 ? "increaseFontSize" : "decreaseFontSize")} onSelect={(size) => applyRichTextCommand("fontSize", size)} />
+          <DropdownControl menuClass="quote-docs-color-menu" width={210} title="Cor do texto" current={richTextFormat.color ?? "none"} options={colorOptions} onSelect={(color) => applyRichTextFormat("color", { color })} trigger={<><span className="quote-docs-color-trigger">A<i style={{ background: richTextFormat.color ? RICH_TEXT_COLORS[richTextFormat.color].hex : "#1f1f1f" }} /></span><span className="quote-docs-caret" /></>} />
+          <DropdownControl menuClass="quote-docs-align-menu" width={190} title="Alinhamento" current={richTextFormat.align} options={alignOptions} onSelect={(align) => applyRichTextFormat("align", { align })} trigger={<><AlignIcon align={richTextFormat.align} /><span className="quote-docs-caret" /></>} />
           <span className="quote-docs-divider" />
-          <button type="button" title="Lista com marcadores" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("insertUnorderedList")}>LISTA</button>
-          <button type="button" aria-label="Lista numerada" title="Lista numerada" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("insertOrderedList")}>1.</button>
+          <DropdownControl menuClass="quote-docs-list-menu" width={280} title="Lista" current={listKey(richTextFormat.list)} options={listOptions} onSelect={(list) => applyRichTextFormat("list", { list })} trigger={<>{richTextFormat.list ? (listOptions.find((option) => option !== "divider" && option.key === listKey(richTextFormat.list)) as DropdownOption<RichTextListChoice> | undefined)?.label.toUpperCase() ?? "LISTA" : "LISTA"}<span className="quote-docs-caret" /></>} />
+          <DropdownControl menuClass="quote-docs-box-menu" width={260} title="Moldura" current={richTextFormat.box ?? "none"} options={boxOptions} onSelect={(box) => applyRichTextFormat("box", { box })} trigger={<>{richTextFormat.box ? boxOptions.find((option) => option.key === richTextFormat.box)?.label.toUpperCase() : "MOLDURA"}<span className="quote-docs-caret" /></>} />
           <span className="quote-docs-divider" />
           <button type="button" title="Remove negrito, itálico, sublinhado, tamanho e estilo de título da linha ou do trecho selecionado" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("removeFormat")}>LIMPAR FORMATAÇÃO</button>
         </>}
