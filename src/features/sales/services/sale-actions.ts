@@ -34,7 +34,7 @@ export async function confirmQuoteSaleAction(formData: FormData) {
     const existing = await tx.financialEntry.findUnique({ where: { sourceKey: `quote:${quote.id}` }, select: { id: true } });
     if (existing) return;
     // Os pagamentos já registrados na proposta entram como recebimentos; o restante fica a receber.
-    const entry = await tx.financialEntry.create({ data: { sourceKey: `quote:${quote.id}`, origin: FinancialEntryOrigin.QUOTE, type: FinancialEntryType.INCOME, status: FinancialEntryStatus.PENDING, description: `${quote.code} · ${quote.title}`, category: "Vendas", counterparty: quote.client.name, amountCents: quote.amountCents, dueDate: now, notes: "Entrada criada automaticamente na confirmação do orçamento.", payments: { create: quote.payments.map((payment) => ({ amountCents: payment.amountCents, paidAt: payment.paidAt, notes: "Registrado na proposta." })) } }, select: { id: true } });
+    const entry = await tx.financialEntry.create({ data: { sourceKey: `quote:${quote.id}`, origin: FinancialEntryOrigin.QUOTE, type: FinancialEntryType.INCOME, status: FinancialEntryStatus.PENDING, description: `${quote.code} · ${quote.title}`, category: "Vendas", counterparty: quote.client.name, amountCents: quote.amountCents, dueDate: now, notes: "Entrada criada automaticamente na confirmação do orçamento.", payments: { create: quote.payments.map((payment) => ({ amountCents: payment.amountCents, paidAt: payment.paidAt, notes: "Registrado na proposta.", fromQuote: true })) } }, select: { id: true } });
     await recalculateFinancialEntry(tx, entry.id, { syncSale: true });
   });
 

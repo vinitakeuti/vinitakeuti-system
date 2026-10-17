@@ -213,7 +213,7 @@ export async function getFinancialEntryDetail(id: string) {
       id: true, type: true, status: true, origin: true, sourceKey: true, isFixed: true, description: true, category: true, counterparty: true, amountCents: true, paidCents: true, dueDate: true, settledAt: true, notes: true, createdAt: true, paymentCondition: true,
       recurringEntry: { select: { id: true, description: true } },
       installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { id: true, number: true, dueDate: true, amountCents: true } },
-      payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 200, select: { id: true, amountCents: true, paidAt: true, notes: true, fromSale: true } },
+      payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 200, select: { id: true, amountCents: true, paidAt: true, notes: true, fromSale: true, fromQuote: true } },
     },
   });
 }
@@ -315,4 +315,11 @@ export async function getConditionSummary(filters: ConditionFilters = {}) {
   const expected = totals._sum.amountCents ?? 0;
   const received = totals._sum.paidCents ?? 0;
   return { count: totals._count._all, expected, received, remaining: expected - received, lateCount: Number(late?.count ?? 0), lateAmount: Number(late?.amount ?? 0) };
+}
+
+/** Pagamentos registrados na proposta da venda, para trazer à entrada quando ainda não estão lá. */
+export async function getQuotePaymentsForEntry(sourceKey: string | null) {
+  const quoteId = sourceKey?.startsWith("quote:") ? sourceKey.slice("quote:".length) : null;
+  if (!quoteId) return [];
+  return prisma.quotePayment.findMany({ where: { quoteId }, orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 50, select: { amountCents: true, paidAt: true } });
 }

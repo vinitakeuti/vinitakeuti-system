@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { MAX_FINANCIAL_PAYMENTS, recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
 import { ensureRecurringEntries, monthKeyOf, monthStart, syncExpensePayment } from "@/features/finance/services/recurring-entries";
 import { MAX_INSTALLMENTS, buildInstallmentPlan, nextOpenInstallment } from "@/features/finance/services/installments";
+import { rebuildInstallments, syncQuotePayments } from "@/features/finance/services/payment-plan";
+import { isMonthKey } from "@/features/finance/services/recurring-entries";
 
 function text(formData: FormData, name: string, max: number) {
   const value = formData.get(name);
@@ -148,13 +150,14 @@ export async function updateFinancialEntryAction(formData: FormData) {
   const entry = await prisma.financialEntry.findUnique({ where: { id }, select: { type: true, paidCents: true, amountCents: true, dueDate: true, _count: { select: { installments: true } } } });
   if (!entry) back({ error: "Lançamento não encontrado." });
   // Parcelado: o valor esperado é a soma das parcelas e o vencimento é o da próxima parcela.
-  const planned = entry._count.installments > 0;
+  // Sem os campos de valor e vencimento no formulário (entradas: ficam na condição de pagamento), mantém os atuais.
+  const planned = entry._count.installments > 0 || !formData.has("amount");
   const dueDate = planned ? entry.dueDate : dateValue(text(formData, "dueDate", 10));
   const expected = planned ? entry.amountCents : amountCents;
   if (!description || expected < 1 || !dueDate) backToEntry(id, { error: "Preencha descrição, valor esperado e vencimento." });
   if (entry.type === FinancialEntryType.INCOME && expected < entry.paidCents) backToEntry(id, { error: "O valor esperado não pode ser menor que o total já recebido. Ajuste ou remova recebimentos primeiro." });
   await prisma.$transaction(async (tx) => {
-    await tx.financialEntry.update({ where: { id }, data: { description, category: text(formData, "category", 80) || "Outros", counterparty: text(formData, "counterparty", 160) || null, amountCents: expected, dueDate, notes: text(formData, "notes", 500) || null, paymentCondition: entry.type === FinancialEntryType.INCOME ? text(formData, "paymentCondition", 80) || null : null } });
+    await tx.financialEntry.update({ where: { id }, data: { description, category: text(formData, "category", 80) || "Outros", counterparty: text(formData, "counterparty", 160) || null, amountCents: expected, dueDate, notes: text(formData, "notes", 500) || null, ...(formData.has("paymentCondition") ? { paymentCondition: entry.type === FinancialEntryType.INCOME ? text(formData, "paymentCondition", 80) || null : null } : {}) } });
     if (entry.type === FinancialEntryType.EXPENSE) await syncExpensePayment(tx, id);
     else await recalculateFinancialEntry(tx, id, { syncSale: true });
   });
@@ -229,27 +232,6 @@ export async function deleteFinancialPaymentAction(formData: FormData) {
   backToEntry(current.entryId, { notice: "payment-deleted" });
 }
 
-/** Divide o que falta receber em parcelas mensais a partir da data da primeira. Substitui as parcelas anteriores. */
-export async function planInstallmentsAction(formData: FormData) {
-  const entryId = text(formData, "entryId", 50);
-  if (!entryId) back({ error: "Lançamento inválido." });
-  const firstDue = text(formData, "firstDue", 10);
-  const count = Math.floor(Number(text(formData, "count", 3)));
-  if (!dateValue(firstDue)) backToEntry(entryId, { error: "Informe a data da primeira parcela." });
-  if (!Number.isInteger(count) || count < 1 || count > MAX_INSTALLMENTS) backToEntry(entryId, { error: `Escolha de 1 a ${MAX_INSTALLMENTS} parcelas.` });
-  const entry = await prisma.financialEntry.findUnique({ where: { id: entryId }, select: { type: true, status: true, amountCents: true, paidCents: true, payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 1, select: { paidAt: true } } } });
-  if (!entry || entry.type !== FinancialEntryType.INCOME || entry.status !== FinancialEntryStatus.PENDING) backToEntry(entryId, { error: "Só entradas em aberto podem ser parceladas." });
-  if (entry.amountCents - entry.paidCents < count) backToEntry(entryId, { error: "O valor que falta é pequeno demais para tantas parcelas." });
-  const plan = buildInstallmentPlan({ amountCents: entry.amountCents, paidCents: entry.paidCents, firstPaidAt: entry.payments[0]?.paidAt ?? null, count, firstDue });
-  await prisma.$transaction(async (tx) => {
-    await tx.financialInstallment.deleteMany({ where: { entryId } });
-    await tx.financialInstallment.createMany({ data: plan.map((installment) => ({ entryId, ...installment })) });
-    await recalculateFinancialEntry(tx, entryId, { syncSale: true });
-  });
-  revalidateFinance(entryId);
-  backToEntry(entryId, { notice: "installments-planned" });
-}
-
 /** Ajusta a data e o valor de uma parcela; o valor esperado passa a ser a soma das parcelas. */
 export async function updateInstallmentAction(formData: FormData) {
   const id = text(formData, "installmentId", 50);
@@ -271,15 +253,6 @@ export async function updateInstallmentAction(formData: FormData) {
   });
   revalidateFinance(installment.entryId);
   backToEntry(installment.entryId, { notice: "installment-updated" });
-}
-
-/** Volta a cobrança única: o lançamento vence de uma vez na data da próxima parcela em aberto. */
-export async function clearInstallmentsAction(formData: FormData) {
-  const entryId = text(formData, "entryId", 50);
-  if (!entryId) back({ error: "Lançamento inválido." });
-  await prisma.financialInstallment.deleteMany({ where: { entryId } });
-  revalidateFinance(entryId);
-  backToEntry(entryId, { notice: "installments-cleared" });
 }
 
 /**
@@ -307,4 +280,50 @@ export async function markNextInstallmentPaidAction(formData: FormData) {
   revalidatePath("/financeiro/condicoes");
   if (returnTo === "conditions") redirect("/financeiro/condicoes?notice=paid");
   backToEntry(entryId, { notice: "installment-paid" });
+}
+
+/**
+ * Condição de pagamento da entrada: valor total, condição, dia do vencimento, primeiro mês e quantas parcelas
+ * (ou o valor de cada uma). O que já foi pago vira parcelas pagas; o restante é dividido nas parcelas seguintes.
+ */
+export async function savePaymentPlanAction(formData: FormData) {
+  const entryId = text(formData, "entryId", 50);
+  if (!entryId) back({ error: "Lançamento inválido." });
+  const totalCents = amountToCents(text(formData, "total", 24));
+  const monthlyCents = amountToCents(text(formData, "monthly", 24)) || null;
+  const count = Math.floor(Number(text(formData, "count", 3)));
+  const dayOfMonth = Math.floor(Number(text(formData, "dayOfMonth", 2)));
+  const firstMonth = text(formData, "firstMonth", 7);
+  const entry = await prisma.financialEntry.findUnique({ where: { id: entryId }, select: { type: true, status: true, paidCents: true } });
+  if (!entry || entry.type !== FinancialEntryType.INCOME || entry.status === FinancialEntryStatus.CANCELLED) backToEntry(entryId, { error: "Só entradas ativas têm condição de pagamento." });
+  if (totalCents < 1) backToEntry(entryId, { error: "Informe o valor total da venda." });
+  if (totalCents < entry.paidCents) backToEntry(entryId, { error: `O valor total não pode ficar abaixo do que já foi pago (${(entry.paidCents / 100).toFixed(2).replace(".", ",")}).` });
+  const remaining = totalCents - entry.paidCents;
+  if (remaining > 0 && (!Number.isInteger(count) || count < 1 || count > MAX_INSTALLMENTS)) backToEntry(entryId, { error: `Escolha de 1 a ${MAX_INSTALLMENTS} parcelas.` });
+  if (remaining > 0 && count > remaining) backToEntry(entryId, { error: "O valor que falta é pequeno demais para tantas parcelas." });
+  if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) backToEntry(entryId, { error: "Escolha o dia do vencimento (1 a 31)." });
+  if (!isMonthKey(firstMonth)) backToEntry(entryId, { error: "Escolha o mês da primeira parcela." });
+  await prisma.$transaction(async (tx) => {
+    await tx.financialEntry.update({ where: { id: entryId }, data: { paymentCondition: text(formData, "paymentCondition", 80) || null } });
+    await rebuildInstallments(tx, entryId, { count: Math.max(1, count), monthlyCents, dayOfMonth, firstMonth }, totalCents);
+    await recalculateFinancialEntry(tx, entryId, { syncSale: true });
+  });
+  revalidateFinance(entryId);
+  revalidatePath("/financeiro/condicoes");
+  backToEntry(entryId, { notice: "plan-saved" });
+}
+
+/** Traz para a entrada os pagamentos registrados na proposta comercial da venda. */
+export async function importQuotePaymentsAction(formData: FormData) {
+  const entryId = text(formData, "entryId", 50);
+  if (!entryId) back({ error: "Lançamento inválido." });
+  const entry = await prisma.financialEntry.findUnique({ where: { id: entryId }, select: { sourceKey: true } });
+  const quoteId = entry?.sourceKey?.startsWith("quote:") ? entry.sourceKey.slice("quote:".length) : null;
+  if (!quoteId) backToEntry(entryId, { error: "Este lançamento não veio de uma proposta." });
+  await prisma.$transaction(async (tx) => {
+    await syncQuotePayments(tx, quoteId);
+    await recalculateFinancialEntry(tx, entryId, { syncSale: true });
+  });
+  revalidateFinance(entryId);
+  backToEntry(entryId, { notice: "quote-payments" });
 }

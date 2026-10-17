@@ -217,3 +217,67 @@
   .financeHeaderActions > :global(.primary-action) { flex:1 1 100%; justify-content:center; text-align:center; }
 }
 @media (max-width:380px) { .summary strong { font-size:1.2rem; }.summary b { font-size:.98rem; } }
+/* Tela da entrada: condição de pagamento no topo, parcelas e pagamentos abaixo. */
+.headerTag { margin-top:12px; }
+.quoteImport { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 20px; padding:14px 18px; border:1px solid #cbd6cf; border-left:3px solid var(--accent); background:var(--accent-surface); }
+.quoteImport p { margin:0; color:#3f4943; font-size:.8rem; line-height:1.5; }
+.planPanel { margin-bottom:20px; }
+.planForm { display:grid; gap:14px; padding:4px 22px 22px; }
+.planGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.planGrid label { display:grid; align-content:start; gap:7px; color:#4a4d49; font-family:var(--mono); font-size:.63rem; }
+.planGrid input,.planGrid select { width:100%; min-width:0; height:40px; border:1px solid #cfd3cf; border-radius:0; padding:0 10px; background:var(--white); color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.88rem; outline-color:var(--accent); }
+.planGrid input:disabled { background:#f3f5f3; color:var(--muted); }
+.planPreview { margin:0; padding:11px 14px; border:1px solid var(--finance-line); background:#f8faf8; color:var(--ink); font-size:.86rem; font-weight:600; }
+.planActions { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.scheduleList { margin:0; padding:0; list-style:none; border-top:1px solid var(--finance-line); }
+.scheduleList li { display:grid; grid-template-columns:52px 96px 110px minmax(0,1fr) auto; align-items:center; gap:14px; padding:11px 22px; border-bottom:1px solid var(--finance-line); }
+.scheduleList li:last-child { border-bottom:0; }
+.scheduleList li > b { font-family:var(--mono); font-size:.68rem; }
+.scheduleList li > span { font-size:.8rem; }
+.scheduleList li > strong { font-size:.84rem; }
+.scheduleList li > i { justify-self:start; font-style:normal; }
+.schedulePaid { color:var(--muted); }
+.schedulePaid > strong,.schedulePaid > span { color:var(--muted); }
+.scheduleNext { background:var(--accent-surface); }
+.scheduleActions { display:flex; align-items:center; justify-content:flex-end; gap:12px; }
+.adjust summary { color:var(--ink); font-family:var(--mono); font-size:.55rem; letter-spacing:.04em; cursor:pointer; list-style:none; }
+.adjust summary::-webkit-details-marker { display:none; }
+.adjust[open] summary { color:var(--accent); }
+.adjust form { display:flex; flex-wrap:wrap; align-items:end; gap:8px; margin-top:8px; }
+.adjust label { display:grid; gap:4px; color:var(--muted); font-family:var(--mono); font-size:.52rem; }
+.adjust input { width:130px; height:32px; border:1px solid #cfd3cf; border-radius:0; padding:0 7px; background:var(--white); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.76rem; }
+.adjust button { height:32px; border:1px solid var(--black); background:var(--black); color:var(--white); padding:0 10px; font-family:var(--mono); font-size:.53rem; letter-spacing:.04em; cursor:pointer; }
+.adjust button.cancelAction { border-color:#9a5638; background:var(--white); color:#9a5638; }
+.receiptList { margin:0; padding:0; list-style:none; border-top:1px solid var(--finance-line); }
+.receiptList li { display:grid; grid-template-columns:96px 110px minmax(0,1fr) auto; align-items:start; gap:14px; padding:11px 22px; border-bottom:1px solid var(--finance-line); }
+.receiptList li > span { font-size:.8rem; }
+.receiptList li > strong { font-size:.84rem; }
+.receiptList li > small { color:var(--muted); font-size:.76rem; }
+.receiptList li > details { justify-self:end; }
+.receiptList li > details[open] { grid-column:1 / -1; justify-self:stretch; }
+.originTag { margin-left:8px; padding:2px 5px; border:1px solid #b9cfc2; color:var(--accent); font-family:var(--mono); font-size:.5rem; font-style:normal; letter-spacing:.05em; }
+@media (max-width:860px) { .planGrid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:640px) {
+  .quoteImport { display:grid; padding:13px 14px; }
+  .planForm { padding:4px 15px 17px; }
+  .planGrid { grid-template-columns:1fr; }
+  .planActions { display:grid; }
+  .planActions button { width:100%; }
+  .scheduleList li { grid-template-columns:auto minmax(0,1fr) auto; gap:6px 10px; padding:12px 15px; }
+  .scheduleList li > i { grid-column:1 / -1; }
+  .scheduleActions { grid-column:1 / -1; justify-content:space-between; }
+  .scheduleActions .markPaid { flex:1 1 auto; }
+  .scheduleActions .markPaid input { flex:1 1 auto; min-width:0; width:auto; }
+  .receiptList li { grid-template-columns:auto minmax(0,1fr) auto; gap:4px 10px; padding:12px 15px; }
+  .receiptList li > small { grid-column:1 / -1; grid-row:2; }
+  .adjust input { width:100%; }
+  .adjust label { flex:1 1 120px; }
+}
+@media (max-width:640px) {
+  .scheduleList li > i { grid-column:1 / 3; }
+  .scheduleList li > .scheduleActions { grid-column:3; justify-content:flex-end; }
+  .scheduleList li.scheduleNext > .scheduleActions { grid-column:1 / -1; justify-content:space-between; }
+  .scheduleList li > .scheduleActions .adjust[open] { position:static; }
+  .scheduleList li:has(.adjust[open]) > .scheduleActions { grid-column:1 / -1; }
+}
+@media (max-width:640px) { .planActions { justify-content:stretch; } }
