@@ -1,4 +1,5 @@
 import { FinancialEntryStatus, Prisma, SaleStatus } from "@prisma/client";
+import { nextOpenInstallment } from "@/features/finance/services/installments";
 
 type Tx = Prisma.TransactionClient;
 
@@ -12,15 +13,18 @@ export const MAX_FINANCIAL_PAYMENTS = 200;
 export async function recalculateFinancialEntry(tx: Tx, entryId: string, { syncSale = false } = {}) {
   const entry = await tx.financialEntry.findUnique({ where: { id: entryId }, select: { id: true, status: true, amountCents: true, sourceKey: true } });
   if (!entry) return null;
-  const [sum, last] = await Promise.all([
+  const [sum, last, installments] = await Promise.all([
     tx.financialPayment.aggregate({ where: { entryId }, _sum: { amountCents: true } }),
     tx.financialPayment.findFirst({ where: { entryId }, orderBy: [{ paidAt: "desc" }, { id: "desc" }], select: { paidAt: true } }),
+    tx.financialInstallment.findMany({ where: { entryId }, orderBy: { number: "asc" }, take: 120, select: { number: true, dueDate: true, amountCents: true } }),
   ]);
   const paidCents = sum._sum.amountCents ?? 0;
   const settled = entry.amountCents > 0 && paidCents >= entry.amountCents;
   const status = entry.status === FinancialEntryStatus.CANCELLED ? FinancialEntryStatus.CANCELLED : settled ? FinancialEntryStatus.SETTLED : FinancialEntryStatus.PENDING;
   const settledAt = status === FinancialEntryStatus.SETTLED ? last?.paidAt ?? new Date() : null;
-  await tx.financialEntry.update({ where: { id: entryId }, data: { paidCents, status, settledAt } });
+  // Parcelado: o vencimento do lançamento acompanha a próxima parcela em aberto.
+  const next = installments.length ? nextOpenInstallment(installments, paidCents) : null;
+  await tx.financialEntry.update({ where: { id: entryId }, data: { paidCents, status, settledAt, ...(next ? { dueDate: next.dueDate } : {}) } });
 
   const quoteId = entry.sourceKey?.startsWith("quote:") ? entry.sourceKey.slice("quote:".length) : null;
   if (syncSale && quoteId && status !== FinancialEntryStatus.CANCELLED) {

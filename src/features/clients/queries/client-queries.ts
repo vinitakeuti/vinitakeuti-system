@@ -27,11 +27,17 @@ export async function listClients(input: { cursor?: string; query?: string }) {
   return { data, nextCursor: hasMore ? data.at(-1)?.id ?? null : null };
 }
 
+/** Dados do cadastro para o formulário de edição. */
+export async function getClientForEdit(id: string) {
+  if (!id || id.length > 50) return null;
+  return prisma.client.findUnique({ where: { id }, select: { id: true, name: true, company: true, cpf: true, cnpj: true, email: true, phone: true, city: true, address: true, notes: true } });
+}
+
 export async function getClientProfile(id: string) {
   return prisma.client.findUnique({
     where: { id },
     select: {
-      id: true, name: true, company: true, email: true, phone: true, document: true, address: true, city: true, notes: true, createdAt: true,
+      id: true, name: true, company: true, email: true, phone: true, document: true, cpf: true, cnpj: true, address: true, city: true, notes: true, createdAt: true,
       quotes: { take: 25, orderBy: { createdAt: "desc" }, select: { id: true, code: true, title: true, amountCents: true, status: true, createdAt: true, validUntil: true, completedAt: true } },
       documents: { take: 100, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], select: { id: true, code: true, title: true, kind: true, completedAt: true, updatedAt: true } },
       projects: { where: { status: { in: [ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS, ProjectStatus.WAITING_CLIENT] } }, take: 25, orderBy: { updatedAt: "desc" }, select: { id: true, name: true, status: true, deliveryAt: true, budgetCents: true } },

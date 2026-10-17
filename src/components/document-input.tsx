@@ -1,28 +1,23 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
+import { formatCnpj, formatCpf, formatCpfOrCnpj, isValidCnpj, isValidCpf, onlyDigits } from "@/lib/br-documents";
 
-function formatCpf(digits: string) {
-  const first = digits.slice(0, 3);
-  const second = digits.slice(3, 6);
-  const third = digits.slice(6, 9);
-  const check = digits.slice(9, 11);
-  return [first, second && `.${second}`, third && `.${third}`, check && `-${check}`].filter(Boolean).join("");
-}
+type DocumentKind = "cpf" | "cnpj" | "any";
 
-function formatCnpj(digits: string) {
-  const first = digits.slice(0, 2);
-  const second = digits.slice(2, 5);
-  const third = digits.slice(5, 8);
-  const branch = digits.slice(8, 12);
-  const check = digits.slice(12, 14);
-  return [first, second && `.${second}`, third && `.${third}`, branch && `/${branch}`, check && `-${check}`].filter(Boolean).join("");
-}
+const formatters: Record<DocumentKind, (value: string) => string> = { cpf: formatCpf, cnpj: formatCnpj, any: formatCpfOrCnpj };
+const placeholders: Record<DocumentKind, string> = { cpf: "000.000.000-00", cnpj: "00.000.000/0000-00", any: "CPF ou CNPJ" };
+const maxLengths: Record<DocumentKind, number> = { cpf: 14, cnpj: 18, any: 18 };
 
-function formatDocument(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 14);
-  return digits.length > 11 ? formatCnpj(digits) : formatCpf(digits);
+/** Mensagem do navegador para CPF ou CNPJ incompleto ou com dígitos verificadores errados (vazio é permitido). */
+function validityMessage(kind: DocumentKind, value: string) {
+  const digits = onlyDigits(value);
+  if (!digits || kind === "any") return "";
+  const label = kind === "cpf" ? "CPF" : "CNPJ";
+  const length = kind === "cpf" ? 11 : 14;
+  if (digits.length < length) return `${label} incompleto: informe os ${length} dígitos.`;
+  return (kind === "cpf" ? isValidCpf(digits) : isValidCnpj(digits)) ? "" : `${label} inválido. Confira os números.`;
 }
 
 function cursorPosition(value: string, digitCount: number) {
@@ -35,14 +30,18 @@ function cursorPosition(value: string, digitCount: number) {
   return value.length;
 }
 
-export function DocumentInput({ defaultValue = "" }: { defaultValue?: string }) {
-  const [value, setValue] = useState(() => formatDocument(defaultValue));
+/** Campo de CPF e/ou CNPJ com a máscara aplicada durante a digitação, mantendo o cursor no lugar. */
+export function DocumentInput({ name = "document", kind = "any", defaultValue = "", placeholder, ariaLabel }: { name?: string; kind?: DocumentKind; defaultValue?: string | null; placeholder?: string; ariaLabel?: string }) {
+  const format = formatters[kind];
+  const [value, setValue] = useState(() => format(defaultValue ?? ""));
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.setCustomValidity(validityMessage(kind, value)); }, [kind, value]);
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const raw = event.currentTarget.value;
     const digitsBeforeCursor = raw.slice(0, event.currentTarget.selectionStart ?? raw.length).replace(/\D/g, "").length;
-    const formatted = formatDocument(raw);
+    const formatted = format(raw);
     setValue(formatted);
     requestAnimationFrame(() => {
       const position = cursorPosition(formatted, Math.min(digitsBeforeCursor, formatted.replace(/\D/g, "").length));
@@ -50,5 +49,5 @@ export function DocumentInput({ defaultValue = "" }: { defaultValue?: string }) 
     });
   }
 
-  return <input ref={inputRef} name="document" type="text" inputMode="numeric" autoComplete="off" maxLength={18} value={value} onChange={handleChange} placeholder="CPF ou CNPJ" />;
+  return <input ref={inputRef} name={name} type="text" inputMode="numeric" autoComplete="off" maxLength={maxLengths[kind]} value={value} onChange={handleChange} placeholder={placeholder ?? placeholders[kind]} aria-label={ariaLabel} />;
 }

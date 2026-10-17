@@ -2,6 +2,7 @@ import { DocumentStatus, FinancialEntryStatus, FinancialEntryType } from "@prism
 import { prisma } from "@/lib/prisma";
 import { getFinanceSummary } from "@/features/finance/queries/finance-queries";
 import { getMonitoringSummary } from "@/features/monitoring/queries/monitoring-queries";
+import { ensureRecurringEntries } from "@/features/finance/services/recurring-entries";
 
 function currentMonthRange() {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Maceio", year: "numeric", month: "numeric" }).formatToParts(new Date());
@@ -19,6 +20,8 @@ function currentMonthRange() {
 export async function getOverviewData() {
   const period = currentMonthRange();
   const now = new Date();
+  // Os custos fixos do mês precisam existir antes do resumo.
+  await ensureRecurringEntries();
   const [finance, payments, monitoredApps, monitoring, openQuotes] = await Promise.all([
     getFinanceSummary({ from: period.from, to: period.to }),
     prisma.financialEntry.findMany({

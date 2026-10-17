@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     if (!body.chargeId || !body.billingType) return NextResponse.json({ error: "Cobrança e método são obrigatórios." }, { status: 422 });
     const charge = await prisma.charge.findUnique({ where: { id: body.chargeId }, include: { client: true } });
     if (!charge) return NextResponse.json({ error: "Cobrança não encontrada." }, { status: 404 });
-    const customer = await ensureAsaasCustomer({ clientId: charge.client.id, name: charge.client.name, email: charge.client.email, document: charge.client.document, phone: charge.client.phone });
+    const customer = await ensureAsaasCustomer({ clientId: charge.client.id, name: charge.client.name, email: charge.client.email, document: charge.client.cnpj ?? charge.client.cpf ?? charge.client.document, phone: charge.client.phone });
     const remote = await createAsaasCharge({ customerId: customer.id, amountCents: charge.amountCents, description: charge.description, dueDate: charge.dueDate, billingType: body.billingType, externalReference: charge.id });
     await prisma.charge.update({ where: { id: charge.id }, data: { asaasPaymentId: remote.id, paymentMethod: body.billingType, status: "PENDING", invoiceUrl: remote.invoiceUrl } });
     return NextResponse.json({ paymentId: remote.id, invoiceUrl: remote.invoiceUrl });

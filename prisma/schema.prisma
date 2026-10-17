@@ -116,7 +116,12 @@ model Client {
   id             String          @id @default(cuid())
   name           String
   email          String?
+  /// Identificação exibida nos documentos e PDFs ("CNPJ … · CPF …"), montada a partir de cpf e cnpj ao salvar.
   document       String?
+  /// Só dígitos.
+  cpf            String?
+  /// Só dígitos.
+  cnpj           String?
   phone          String?
   address        String?
   city           String?
@@ -421,13 +426,63 @@ model FinancialEntry {
   notes        String?
   /// Soma dos recebimentos (entradas) ou pagamentos (saídas) já registrados. Atualizada junto com FinancialPayment.
   paidCents    Int                  @default(0)
+  /// Recorrência que gerou este lançamento (uma ocorrência por mês).
+  recurringEntryId String?
+  /// Condição especial de pagamento combinada ("Mensal no Pix", "Boleto em 10x"). Lançamentos com condição
+  /// aparecem na área Condições especiais, independentemente da data.
+  paymentCondition String?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   payments     FinancialPayment[]
+  installments FinancialInstallment[]
+  recurringEntry RecurringEntry?    @relation(fields: [recurringEntryId], references: [id], onDelete: SetNull)
 
   @@index([status, dueDate, id])
   @@index([type, dueDate, id])
   @@index([createdAt, id])
+  @@index([recurringEntryId, dueDate])
+  @@index([paymentCondition, status, dueDate])
+}
+
+/// Parcelas de uma entrada: datas e valores combinados para receber. Os recebimentos registrados quitam as parcelas
+/// em ordem (a primeira parcela primeiro). Sem parcelas, a entrada vence de uma vez no seu vencimento.
+model FinancialInstallment {
+  id          String         @id @default(cuid())
+  entryId     String
+  number      Int
+  dueDate     DateTime
+  amountCents Int
+  createdAt   DateTime       @default(now())
+  entry       FinancialEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, number])
+  @@index([dueDate])
+}
+
+/// Entrada ou saída que se repete todo mês (custo fixo, mensalidade). Cada mês vira um FinancialEntry,
+/// gerado sob demanda até o mês consultado. Dias que não existem no mês (31 em novembro) caem no último dia.
+model RecurringEntry {
+  id               String             @id @default(cuid())
+  type             FinancialEntryType
+  description      String
+  category         String
+  counterparty     String?
+  amountCents      Int
+  /// Dia do vencimento (1 a 31).
+  dayOfMonth       Int
+  /// Primeiro mês (dia 1, meio-dia UTC).
+  startsOn         DateTime
+  /// Último mês, quando encerrada.
+  endsOn           DateTime?
+  /// Último mês já gerado.
+  generatedThrough DateTime?
+  notes            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  entries          FinancialEntry[]
+
+  @@index([endsOn, generatedThrough])
+  @@index([type, createdAt, id])
 }
 
 /// Valores efetivamente recebidos ou pagos de um lançamento. Um lançamento pode ser quitado em várias partes;

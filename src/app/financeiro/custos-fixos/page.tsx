@@ -1,40 +1,74 @@
 import Link from "next/link";
-import { FinancialEntryStatus, FinancialEntryType } from "@prisma/client";
+import { FinancialEntryType } from "@prisma/client";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarToggle } from "@/components/sidebar-toggle";
-import { listFixedFinancialEntries, getFixedFinanceSummary, financeEntryStatusLabel, financeTypeLabel } from "@/features/finance/queries/finance-queries";
-import { cancelFinancialEntryAction, settleFinancialEntryAction } from "@/features/finance/services/finance-actions";
+import { FINANCE_CATEGORIES, financeTypeLabel, getRecurringSummary, listRecurringEntries } from "@/features/finance/queries/finance-queries";
+import { createRecurringEntryAction } from "@/features/finance/services/recurring-actions";
+import { currentMonthKey, ensureRecurringEntries, monthKeyOf, recurringDayLabel } from "@/features/finance/services/recurring-entries";
 import styles from "../financeiro.module.css";
 
 export const dynamic = "force-dynamic";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const date = new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: "America/Maceio" });
-type FixedCostsPageProps = { searchParams: Promise<{ cursor?: string; type?: string; status?: string; from?: string; to?: string }> };
+const month = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric", timeZone: "UTC" });
+const DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
+type FixedCostsPageProps = { searchParams: Promise<{ error?: string; notice?: string }> };
 
-function statusClass(entry: { status: string; paidCents: number }) { return entry.status === FinancialEntryStatus.SETTLED ? styles.settled : entry.status === FinancialEntryStatus.CANCELLED ? styles.cancelled : entry.paidCents > 0 ? styles.partial : styles.pending; }
-/** Quanto já entrou (ou saiu) de um lançamento em aberto e quanto falta. */
-function progress(entry: { type: string; status: string; amountCents: number; paidCents: number }) {
-  if (entry.status !== FinancialEntryStatus.PENDING || entry.paidCents < 1) return null;
-  return <small className={styles.progress}>{entry.type === FinancialEntryType.INCOME ? "Recebido" : "Pago"} {money.format(entry.paidCents / 100)} · falta {money.format((entry.amountCents - entry.paidCents) / 100)}</small>;
-}
-const editHref = (id: string) => `/financeiro/lancamentos/${id}`;
-function periodLabel(from?: string, to?: string) {
-  const format = (value: string) => { const [year, month, day] = value.split("-"); return `${day}/${month}/${year}`; };
-  if (from && to) return `DE ${format(from)} ATÉ ${format(to)}`;
-  if (from) return `A PARTIR DE ${format(from)}`;
-  if (to) return `ATÉ ${format(to)}`;
-  return "TODO O HISTÓRICO";
+function monthLabel(date: Date) {
+  return month.format(date).replace(".", "").replace(" de ", "/");
 }
 
 export default async function FixedCostsPage({ searchParams }: FixedCostsPageProps) {
   const params = await searchParams;
-  const [{ data: entries, nextCursor }, summary] = await Promise.all([listFixedFinancialEntries({ cursor: params.cursor, type: params.type, status: params.status, from: params.from, to: params.to }), getFixedFinanceSummary({ from: params.from, to: params.to })]);
-  const dashboardPeriod = periodLabel(params.from, params.to);
+  await ensureRecurringEntries();
+  const [entries, summary] = await Promise.all([listRecurringEntries(), getRecurringSummary()]);
+  const current = currentMonthKey();
+  const active = (entry: { endsOn: Date | null }) => !entry.endsOn || monthKeyOf(entry.endsOn) >= current;
+  const feedback = params.error ?? (params.notice === "created" ? "Recorrência criada. Os meses aparecem sozinhos no Financeiro." : null);
   return <main className="app-shell"><AppSidebar current="finance" /><div className="workspace"><section className={"directory-page " + styles.page + " " + styles.fixedPage}>
-    <header className="directory-header"><div><p className="eyebrow">GESTÃO / FINANCEIRO / RECORRÊNCIA</p><h1>Custos fixos.</h1><p>Veja as entradas e saídas que se repetem na operação e entenda o compromisso recorrente do negócio.</p></div><div className={"header-actions " + styles.fixedHeaderActions}><div className={styles.fixedHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">VOLTAR AO FINANCEIRO</Link></div><Link className="primary-action" href="/financeiro?fixed=1#novo-lancamento">NOVO FIXO</Link></div></header>
-    <form className={styles.periodFilter} action="/financeiro/custos-fixos"><div><span>PERÍODO DOS CUSTOS FIXOS · VENCIMENTOS</span><small>{dashboardPeriod}</small></div><label>DE<input name="from" type="date" defaultValue={params.from} /></label><label>ATÉ<input name="to" type="date" defaultValue={params.to} /></label><button type="submit">ATUALIZAR</button>{params.from || params.to ? <Link className="text-link" href="/financeiro/custos-fixos">TODO O HISTÓRICO</Link> : null}</form>
-    <div className={styles.dashboardHeading}><span>VISÃO DOS RECORRENTES</span><small>{dashboardPeriod}</small></div><section className={styles.fixedSummary} aria-label="Resumo de custos fixos"><div><span>SAÍDAS FIXAS</span><strong className={styles.expense}>{money.format(summary.expense / 100)}</strong><small>{summary.expenseCount} lançamentos cadastrados</small></div><div><span>ENTRADAS FIXAS</span><strong className={styles.income}>{money.format(summary.income / 100)}</strong><small>{summary.incomeCount} lançamentos cadastrados</small></div><div><span>SALDO RECORRENTE</span><strong>{money.format((summary.income - summary.expense) / 100)}</strong><small>Entradas menos saídas fixas</small></div><div><span>PENDENTE</span><strong>{money.format((summary.pendingIncome - summary.pendingExpense) / 100)}</strong><small>Projeção ainda não realizada</small></div></section>
-    <section className={styles.ledger}><div className={styles.ledgerHeading}><div><p className="eyebrow">VISÃO RECORRENTE</p><h2>Entradas e saídas fixas.</h2><small>Movimentações marcadas como recorrentes.</small></div><span>{entries.length} exibidos</span></div><form className={styles.filters} action="/financeiro/custos-fixos"><input type="hidden" name="from" value={params.from ?? ""} /><input type="hidden" name="to" value={params.to ?? ""} /><label>TIPO<select name="type" defaultValue={params.type ?? ""}><option value="">Todos</option><option value="INCOME">Entradas</option><option value="EXPENSE">Saídas</option></select></label><label>STATUS<select name="status" defaultValue={params.status ?? ""}><option value="">Todos</option><option value="PENDING">Pendentes</option><option value="SETTLED">Realizados</option><option value="CANCELLED">Cancelados</option></select></label><button type="submit">FILTRAR</button>{params.type || params.status ? <Link className="text-link" href={"/financeiro/custos-fixos" + (params.from || params.to ? "?" + (params.from ? "from=" + encodeURIComponent(params.from) : "") + (params.from && params.to ? "&" : "") + (params.to ? "to=" + encodeURIComponent(params.to) : "") : "")}>LIMPAR</Link> : null}</form>{entries.length ? <><div className={styles.tableScroll}><table><thead><tr><th>MOVIMENTAÇÃO</th><th>CATEGORIA</th><th>PRÓXIMO VENCIMENTO</th><th>VALOR</th><th>STATUS</th><th /></tr></thead><tbody>{entries.map((entry) => <tr key={entry.id}><td><b className={entry.type === FinancialEntryType.INCOME ? styles.incomeText : styles.expenseText}>{financeTypeLabel[entry.type]}</b><Link className={styles.entryLink} href={editHref(entry.id)}>{entry.description}</Link><small>{entry.counterparty ?? "Sem contraparte"}</small></td><td>{entry.category}</td><td>{date.format(entry.dueDate)}</td><td><strong>{money.format(entry.amountCents / 100)}</strong>{progress(entry)}</td><td><span className={styles.status + " " + statusClass(entry)}>{financeEntryStatusLabel(entry)}</span></td><td><div className={styles.actions}>{entry.status === FinancialEntryStatus.PENDING ? <><form action={settleFinancialEntryAction}><input type="hidden" name="id" value={entry.id} /><button type="submit">MARCAR REALIZADO</button></form><form action={cancelFinancialEntryAction}><input type="hidden" name="id" value={entry.id} /><button className={styles.cancelAction} type="submit">CANCELAR</button></form></> : null}<Link className={styles.editAction} href={editHref(entry.id)}>EDITAR</Link></div></td></tr>)}</tbody></table></div><div className={styles.mobileList}>{entries.map((entry) => <article key={entry.id}><div className={styles.mobileTop}><b className={entry.type === FinancialEntryType.INCOME ? styles.incomeText : styles.expenseText}>{financeTypeLabel[entry.type]}</b><span className={styles.status + " " + statusClass(entry)}>{financeEntryStatusLabel(entry)}</span></div><Link className={styles.entryLink} href={editHref(entry.id)}>{entry.description}</Link><small>{entry.counterparty ?? "Sem contraparte"} · {entry.category}</small>{progress(entry)}<div className={styles.mobileBottom}><b>{money.format(entry.amountCents / 100)}</b><span>Próximo vencimento {date.format(entry.dueDate)}</span></div><div className={styles.mobileActions}>{entry.status === FinancialEntryStatus.PENDING ? <><form action={settleFinancialEntryAction}><input type="hidden" name="id" value={entry.id} /><button type="submit">MARCAR REALIZADO</button></form><form action={cancelFinancialEntryAction}><input type="hidden" name="id" value={entry.id} /><button className={styles.cancelAction} type="submit">CANCELAR</button></form></> : null}<Link className={styles.editAction} href={editHref(entry.id)}>EDITAR</Link></div></article>)}</div></> : <div className="directory-empty"><p>Nenhuma movimentação fixa cadastrada.</p><span>Crie uma entrada ou saída no Financeiro e marque-a como recorrente.</span><Link className="text-link" href="/financeiro?fixed=1#novo-lancamento">ADICIONAR CUSTO FIXO</Link></div>}{nextCursor ? <div className="table-footer"><Link className="text-link" href={"/financeiro/custos-fixos?cursor=" + encodeURIComponent(nextCursor) + (params.from ? "&from=" + encodeURIComponent(params.from) : "") + (params.to ? "&to=" + encodeURIComponent(params.to) : "") + (params.type ? "&type=" + encodeURIComponent(params.type) : "") + (params.status ? "&status=" + encodeURIComponent(params.status) : "")}>CARREGAR PRÓXIMOS 50</Link></div> : null}</section>
+    <header className="directory-header"><div><p className="eyebrow">GESTÃO / FINANCEIRO / RECORRÊNCIA</p><h1>Custos fixos.</h1><p>Custos e entradas que se repetem todo mês. Cada mês é lançado sozinho no Financeiro; saídas contam como pagas na data do vencimento.</p></div><div className={"header-actions " + styles.fixedHeaderActions}><div className={styles.fixedHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">VOLTAR AO FINANCEIRO</Link></div><a className="primary-action" href="#nova-recorrencia">NOVO CUSTO FIXO</a></div></header>
+    {feedback ? <p className={params.error ? "form-error" : "form-success"} role={params.error ? "alert" : "status"}>{feedback}</p> : null}
+
+    <section className={styles.fixedSummary} aria-label="Resumo mensal das recorrências">
+      <div><span>CUSTOS FIXOS POR MÊS</span><strong className={styles.expense}>{money.format(summary.expense / 100)}</strong><small>{summary.expenseCount} {summary.expenseCount === 1 ? "custo ativo" : "custos ativos"}</small></div>
+      <div><span>ENTRADAS FIXAS POR MÊS</span><strong className={styles.income}>{money.format(summary.income / 100)}</strong><small>{summary.incomeCount} {summary.incomeCount === 1 ? "entrada ativa" : "entradas ativas"}</small></div>
+      <div><span>SALDO FIXO MENSAL</span><strong>{money.format((summary.income - summary.expense) / 100)}</strong><small>Entradas fixas menos custos fixos</small></div>
+      <div><span>CUSTO FIXO ANUAL</span><strong>{money.format((summary.expense * 12) / 100)}</strong><small>Custos ativos multiplicados por 12</small></div>
+    </section>
+
+    <details className={styles.entryPanel} id="nova-recorrencia" open={Boolean(params.error) || !entries.length}><summary><span><b>NOVO CUSTO FIXO OU ENTRADA MENSAL</b><small>Cadastre uma vez; todo mês ele entra no Financeiro.</small></span><strong>ABRIR</strong></summary>
+      <form action={createRecurringEntryAction} className={styles.entryForm}>
+        <label>Tipo<select name="type" defaultValue={FinancialEntryType.EXPENSE}><option value="EXPENSE">Saída (custo)</option><option value="INCOME">Entrada</option></select></label>
+        <label>Descrição<input name="description" maxLength={180} required placeholder="Ex.: Assinatura do servidor" /></label>
+        <label>Categoria<select name="category" defaultValue="Ferramentas">{FINANCE_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
+        <label>Contraparte<input name="counterparty" maxLength={160} placeholder="Fornecedor, cliente ou pessoa" /></label>
+        <label>Valor mensal<input name="amount" inputMode="decimal" required placeholder="0,00" /></label>
+        <label>Dia do vencimento<select name="dayOfMonth" defaultValue="5">{DAYS.map((day) => <option key={day} value={day}>{day}</option>)}</select><small className={styles.fieldHint}>Dia 29, 30 ou 31 cai no último dia nos meses mais curtos.</small></label>
+        <label>Primeiro mês<input name="startsOn" type="month" required defaultValue={current} /></label>
+        <label>Observação<input name="notes" maxLength={500} placeholder="Opcional" /></label>
+        <div className={styles.formActions}><button className="primary-action" type="submit">SALVAR RECORRÊNCIA</button></div>
+      </form>
+    </details>
+
+    <section className={styles.ledger}>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">CADASTRADOS</p><h2>Recorrências.</h2><small>Ativas primeiro. Abra uma para mudar valor ou dia, ou para encerrar.</small></div><span>{entries.length} {entries.length === 1 ? "cadastrada" : "cadastradas"}</span></div>
+      {entries.length ? <>
+        <div className={styles.tableScroll}><table><thead><tr><th>RECORRÊNCIA</th><th>CATEGORIA</th><th>VENCIMENTO</th><th>VALOR MENSAL</th><th>SITUAÇÃO</th><th /></tr></thead><tbody>{entries.map((entry) => <tr key={entry.id}>
+          <td><b className={entry.type === FinancialEntryType.INCOME ? styles.incomeText : styles.expenseText}>{financeTypeLabel[entry.type]}</b><Link className={styles.entryLink} href={`/financeiro/custos-fixos/${entry.id}`}>{entry.description}</Link><small>{entry.counterparty ?? "Sem contraparte"}</small></td>
+          <td>{entry.category}</td>
+          <td>{recurringDayLabel(entry.dayOfMonth)}</td>
+          <td><strong>{money.format(entry.amountCents / 100)}</strong></td>
+          <td><span className={styles.status + " " + (active(entry) ? styles.settled : styles.cancelled)}>{active(entry) ? `Ativa desde ${monthLabel(entry.startsOn)}` : `Encerrada em ${monthLabel(entry.endsOn!)}`}</span></td>
+          <td><div className={styles.actions}><Link className={styles.editAction} href={`/financeiro/custos-fixos/${entry.id}`}>EDITAR</Link></div></td>
+        </tr>)}</tbody></table></div>
+        <div className={styles.mobileList}>{entries.map((entry) => <article key={entry.id}>
+          <div className={styles.mobileTop}><b className={entry.type === FinancialEntryType.INCOME ? styles.incomeText : styles.expenseText}>{financeTypeLabel[entry.type]}</b><span className={styles.status + " " + (active(entry) ? styles.settled : styles.cancelled)}>{active(entry) ? "Ativa" : "Encerrada"}</span></div>
+          <Link className={styles.entryLink} href={`/financeiro/custos-fixos/${entry.id}`}>{entry.description}</Link>
+          <small>{entry.category} · {recurringDayLabel(entry.dayOfMonth)}</small>
+          <div className={styles.mobileBottom}><b>{money.format(entry.amountCents / 100)}</b><span>{active(entry) ? `desde ${monthLabel(entry.startsOn)}` : `até ${monthLabel(entry.endsOn!)}`}</span></div>
+          <div className={styles.mobileActions}><Link className={styles.editAction} href={`/financeiro/custos-fixos/${entry.id}`}>EDITAR</Link></div>
+        </article>)}</div>
+      </> : <div className="directory-empty"><p>Nenhum custo fixo cadastrado.</p><span>Use o formulário acima: depois de salvo, ele entra no Financeiro todo mês.</span></div>}
+    </section>
   </section></div></main>;
 }

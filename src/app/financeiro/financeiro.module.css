@@ -75,3 +75,145 @@
   .entryEdit .formActions { justify-content:space-between; }
   .entryEdit .formActions .primary-action { width:100%; }
 }
+/* Período do painel: atalhos e intervalo personalizado. */
+.periodBar { display:grid; grid-template-columns:minmax(180px,1fr) auto auto; align-items:center; gap:14px 22px; margin:0 0 12px; padding:14px 17px; border:1px solid #cbd6cf; background:var(--accent-surface); }
+.periodHead { display:grid; gap:5px; min-width:0; }
+/* Atalhos e datas alinhados pela base: rótulo em cima, controles de 37px na mesma linha. */
+.periodBar { align-items:end; }
+.periodHead { align-self:center; }
+.periodShortcutsGroup { display:grid; gap:4px; min-width:0; }
+.periodShortcutsGroup > span,.periodRange label { color:#59635d; font-family:var(--mono); font-size:.54rem; font-weight:600; letter-spacing:.06em; line-height:1.2; }
+.periodShortcuts,.periodRange input,.periodRange button { box-sizing:border-box; height:37px; }
+.periodHead span { color:var(--accent); font-family:var(--mono); font-size:.57rem; font-weight:600; letter-spacing:.08em; }
+.periodHead small { overflow:hidden; color:var(--ink); font-size:.88rem; font-weight:650; letter-spacing:-.01em; text-overflow:ellipsis; white-space:nowrap; }
+.periodShortcuts { display:flex; border:1px solid #c4cec7; background:var(--white); }
+.periodShortcuts a { display:inline-flex; align-items:center; justify-content:center; height:100%; padding:0 13px; border-right:1px solid #c4cec7; color:#3f4943; font-family:var(--mono); font-size:.58rem; font-weight:600; letter-spacing:.06em; text-decoration:none; white-space:nowrap; }
+.periodShortcuts a:last-child { border-right:0; }
+.periodShortcuts a:hover { background:#f1f6f3; color:var(--accent); }
+.periodShortcuts a[aria-current="true"] { background:var(--accent); color:var(--white); }
+.periodRange { display:flex; align-items:end; gap:8px; }
+.periodRange label { display:grid; gap:4px; color:#59635d; font-family:var(--mono); font-size:.54rem; font-weight:600; letter-spacing:.06em; }
+.periodRange input { width:138px; height:37px; border:1px solid #c4cec7; border-radius:0; padding:0 8px; background:var(--white); color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.76rem; outline:0; }
+.periodRange input:focus { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+.periodRange button { height:37px; border:1px solid var(--black); background:var(--black); color:var(--white); padding:0 12px; font-family:var(--mono); font-size:.56rem; letter-spacing:.05em; cursor:pointer; }
+.periodRange button[aria-current="true"] { border-color:var(--accent); background:var(--accent); }
+@media (max-width:1180px) { .periodBar { grid-template-columns:auto auto; justify-content:start; }.periodHead { grid-column:1 / -1; }.periodRange { justify-content:flex-start; } }
+@media (max-width:760px) {
+  .periodBar { grid-template-columns:1fr; gap:11px; padding:12px; }
+  .periodHead small { white-space:normal; }
+  .periodShortcuts { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); }
+  .periodShortcuts a { padding:0 4px; font-size:.53rem; letter-spacing:.03em; }
+  .periodRange { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; }
+  .periodRange input { width:100%; min-width:0; }
+}
+@media (max-width:380px) { .periodRange { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }.periodRange button { grid-column:1 / -1; } }
+/* Vendas confirmadas: total de todo o histórico, separado do painel por período. */
+.confirmedSales { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:18px 28px; margin:0 0 20px; padding:18px 22px; border:1px solid var(--finance-line); background:#fbfcfb; }
+.confirmedSales > div { display:grid; gap:6px; min-width:0; }
+.confirmedSales span { color:var(--accent); font-family:var(--mono); font-size:.59rem; font-weight:600; letter-spacing:.07em; }
+.confirmedSales strong { font-size:1.45rem; letter-spacing:-.05em; }
+.confirmedSales small { color:var(--muted); font-size:.72rem; line-height:1.4; }
+.confirmedSales dl { display:flex; gap:26px; margin:0; }
+.confirmedSales dl div { display:grid; gap:5px; }
+.confirmedSales dt { color:var(--muted); font-family:var(--mono); font-size:.57rem; letter-spacing:.06em; }
+.confirmedSales dd { margin:0; font-size:1rem; font-weight:650; letter-spacing:-.03em; }
+@media (max-width:860px) { .confirmedSales { grid-template-columns:1fr auto; }.confirmedSales > :global(.text-link) { grid-column:1 / -1; justify-self:start; } }
+@media (max-width:640px) { .confirmedSales { grid-template-columns:1fr; gap:12px; padding:15px 14px; }.confirmedSales strong { font-size:1.2rem; }.confirmedSales dl { gap:20px; } }
+.scheduled { color:#4a5a52; background:#eef1ef; }
+.fieldHint { color:var(--muted); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.7rem; line-height:1.35; }
+.entrySummaryWide { grid-column:span 2; }
+.recurringNote { margin:0 0 20px; padding:13px 16px; border:1px solid #cbd6cf; background:var(--accent-surface); color:#3f4943; font-size:.8rem; line-height:1.5; }
+.recurringNote a { color:var(--accent); font-weight:650; }
+@media (max-width:860px) { .entrySummaryWide { grid-column:1 / -1; border-right:0!important; } }
+.occurrenceList { margin:0; padding:0; list-style:none; border-top:1px solid var(--finance-line); }
+.occurrenceList li { border-bottom:1px solid var(--finance-line); }
+.occurrenceList li:last-child { border-bottom:0; }
+.occurrenceList a { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:16px; padding:12px 22px; color:var(--ink); text-decoration:none; }
+.occurrenceList a:hover { background:#f8faf8; }
+.occurrenceList span { font-size:.8rem; }
+.occurrenceList b { font-size:.82rem; }
+.occurrenceList i { font-style:normal; justify-self:end; }
+@media (max-width:640px) { .occurrenceList a { padding:12px 15px; gap:10px; } }
+/* Primeira coluna como célula de tabela comum (a grade quebrava a linha divisória da linha). */
+.tableScroll td:first-child { display:table-cell; }
+.tableScroll td:first-child > * { display:block; }
+.tableScroll td:first-child > * + * { margin-top:3px; }
+/* Campos alinhados pelo topo: o texto de ajuda de um campo não estica os vizinhos. */
+.entryForm label { align-content:start; }
+/* Compromissos (saídas) e cobranças (entradas) dos próximos 7 dias, ao lado do fluxo realizado. */
+.insights { grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr); }
+.upcomingBlock { display:grid; align-content:start; padding:22px; border:1px solid var(--finance-line); border-top-width:3px; background:var(--white); }
+.upcomingExpense { border-top-color:#9a5638; }
+.upcomingIncome { border-top-color:var(--accent); }
+.upcomingValue { display:grid; gap:4px; margin:22px 0 14px; }
+.upcomingValue strong { font-size:1.75rem; letter-spacing:-.06em; }
+.upcomingExpense .upcomingValue strong { color:#9a5638; }
+.upcomingIncome .upcomingValue strong { color:var(--accent); }
+.upcomingValue span { color:var(--muted); font-size:.74rem; }
+.upcomingValue .upcomingOverdue { color:#9a5638; font-weight:600; }
+.upcomingList { margin:0; padding:0; list-style:none; border-top:1px solid var(--finance-line); }
+.upcomingList li { border-bottom:1px solid var(--finance-line); }
+.upcomingList li:last-child { border-bottom:0; }
+.upcomingList a { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:baseline; gap:10px; padding:9px 0; color:var(--ink); text-decoration:none; }
+.upcomingList a:hover b { color:var(--accent); }
+.upcomingList span { color:var(--muted); font-family:var(--mono); font-size:.58rem; letter-spacing:.03em; }
+.upcomingList .upcomingLate { color:#9a5638; font-weight:600; }
+.upcomingList b { overflow:hidden; font-size:.76rem; font-weight:550; text-overflow:ellipsis; white-space:nowrap; }
+.upcomingList em { font-size:.76rem; font-style:normal; font-weight:650; white-space:nowrap; }
+@media (max-width:1180px) { .insights { grid-template-columns:repeat(2,minmax(0,1fr)); }.insights > :first-child { grid-column:1 / -1; } }
+@media (max-width:640px) { .insights { grid-template-columns:1fr; }.upcomingBlock { padding:17px 15px; }.upcomingValue strong { font-size:1.4rem; } }
+/* Parcelas de uma entrada. */
+.installmentsSection { margin-bottom:20px; }
+.installmentHead,.installmentRow { grid-template-columns:70px minmax(130px,170px) minmax(110px,150px) minmax(0,1fr) auto; }
+.installmentNumber { align-self:center; font-family:var(--mono); font-size:.7rem; }
+.installmentRow > i { align-self:center; justify-self:start; font-style:normal; }
+.cancelledLate { color:#9a5638; background:#f8eeea; }
+.installmentPlan { border-top:1px solid var(--finance-line); }
+.installmentPlan summary { padding:13px 22px; color:var(--accent); font-family:var(--mono); font-size:.58rem; letter-spacing:.05em; cursor:pointer; list-style:none; }
+.installmentPlan summary::-webkit-details-marker { display:none; }
+.installmentPlan .paymentRow { grid-template-columns:minmax(140px,170px) minmax(110px,140px) minmax(0,1fr) auto; }
+.installmentPlan .fieldHint { align-self:center; margin:0; }
+.installmentClear { display:flex; justify-content:flex-end; padding:8px 22px 12px; border-top:1px solid var(--finance-line); }
+.readonlyField { display:flex; align-items:center; min-height:39px; padding:0 10px; border:1px solid var(--finance-line); background:#f8faf8; color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.82rem; }
+@media (max-width:640px) {
+  .installmentHead { display:none; }
+  .installmentRow,.installmentPlan .paymentRow { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  .installmentNumber,.installmentRow > i,.installmentPlan .fieldHint { grid-column:1 / -1; }
+  .installmentPlan summary { padding:12px 15px; }
+  .installmentClear { padding:8px 15px 12px; }
+}
+@media (max-width:640px) {
+  .installmentRow { grid-template-columns:minmax(0,1fr) minmax(0,1fr); row-gap:8px; }
+  .installmentRow .installmentNumber { grid-column:1; grid-row:1; }
+  .installmentRow > i { grid-column:2; grid-row:1; justify-self:end; }
+  .installmentRow > label { grid-row:2; }
+  .installmentRow .paymentActions { grid-column:1 / -1; grid-row:3; justify-content:flex-end; min-height:0; }
+}
+/* Condições especiais de pagamento. */
+.conditionChips { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 20px; }
+.conditionChips a { display:inline-flex; align-items:center; gap:8px; min-height:34px; padding:0 12px; border:1px solid #c4cec7; background:var(--white); color:#3f4943; font-family:var(--mono); font-size:.6rem; font-weight:600; letter-spacing:.04em; text-decoration:none; }
+.conditionChips a:hover { color:var(--accent); background:#f1f6f3; }
+.conditionChips a[aria-current="true"] { border-color:var(--accent); background:var(--accent); color:var(--white); }
+.conditionChips i { font-style:normal; opacity:.7; }
+.conditionTag { display:inline-flex; padding:4px 8px; border:1px solid #b9cfc2; background:var(--accent-surface); color:var(--accent); font-family:var(--mono); font-size:.56rem; font-weight:600; letter-spacing:.03em; white-space:nowrap; }
+.lateText { display:block; margin-top:3px; color:#9a5638!important; font-weight:600; }
+.markPaid { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+.markPaid input { width:140px; height:32px; border:1px solid #cfd3cf; border-radius:0; padding:0 7px; background:var(--white); color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.74rem; }
+.markPaid button { height:32px; border:1px solid var(--accent); background:var(--accent); color:var(--white); padding:0 10px; font-family:var(--mono); font-size:.54rem; letter-spacing:.04em; white-space:nowrap; cursor:pointer; }
+.mobileList .markPaid { justify-content:stretch; padding-top:6px; border-top:1px solid var(--finance-line); }
+.mobileList .markPaid input { flex:1 1 auto; min-width:0; width:auto; }
+.nextInstallment { display:grid; grid-template-columns:minmax(0,1fr) minmax(140px,170px) auto; align-items:end; gap:14px; padding:14px 22px; border-top:1px solid var(--finance-line); background:var(--accent-surface); }
+.nextInstallment > div { display:grid; gap:3px; }
+.nextInstallment > div span,.nextInstallment label span { color:var(--accent); font-family:var(--mono); font-size:.56rem; font-weight:600; letter-spacing:.06em; }
+.nextInstallment > div b { font-size:1.05rem; letter-spacing:-.03em; }
+.nextInstallment > div small { color:var(--muted); font-size:.72rem; }
+.nextInstallment label { display:grid; gap:5px; }
+.nextInstallment input { width:100%; height:37px; border:1px solid #cfd3cf; border-radius:0; padding:0 9px; background:var(--white); color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.8rem; }
+@media (max-width:640px) { .nextInstallment { grid-template-columns:minmax(0,1fr); padding:14px 15px; }.nextInstallment button { width:100%; } }
+/* Topo do Financeiro no celular: links quebram linha e o botão principal fica inteiro embaixo. */
+@media (max-width:640px) {
+  .financeHeaderActions { flex-wrap:wrap; gap:12px; }
+  .financeHeaderNavigation { flex:1 1 100%; flex-wrap:wrap; row-gap:8px; }
+  .financeHeaderActions > :global(.primary-action) { flex:1 1 100%; justify-content:center; text-align:center; }
+}
+@media (max-width:380px) { .summary strong { font-size:1.2rem; }.summary b { font-size:.98rem; } }

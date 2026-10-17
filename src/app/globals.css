@@ -1082,3 +1082,7 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 .quote-docs-box-preview.is-tint { border:0; background:#EAF2EC; }
 .quote-docs-box-preview.is-outline { border:1px solid #C9D6CF; }
 .quote-docs-box-preview.is-accent { border:0; border-left:3px solid #2F7A55; border-radius:0; }
+/* Painel de edição da venda flutuando sobre a página (fora da área de rolagem da tabela). */
+.sale-edit-panel.is-floating { position:fixed; z-index:60; right:auto; bottom:auto; min-width:0; box-sizing:border-box; }
+.sale-edit-panel.is-floating form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:5px; }
+.sale-edit-panel.is-floating select { width:100%; min-width:0; }

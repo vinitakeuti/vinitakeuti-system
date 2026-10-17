@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { formatCnpj, formatCpf } from "@/lib/br-documents";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { getClientProfile } from "@/features/clients/queries/client-queries";
 import { DOCUMENT_KINDS, documentKindFromEnum } from "@/features/documents/types/document-kinds";
@@ -39,14 +40,6 @@ function initialsOf(name: string) {
   return ((words[0]?.[0] ?? "") + (words.length > 1 ? words.at(-1)![0] : words[0]?.[1] ?? "")).toUpperCase();
 }
 
-/** CPF (11 dígitos) e CNPJ (14 dígitos) com a pontuação habitual; outros valores ficam como foram cadastrados. */
-function formatDocument(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 11) return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-  if (digits.length === 14) return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
-  return value;
-}
-
 /** Link do WhatsApp para telefones brasileiros com DDD. */
 function whatsappHref(phone: string | null) {
   const digits = phone?.replace(/\D/g, "") ?? "";
@@ -55,9 +48,9 @@ function whatsappHref(phone: string | null) {
   return null;
 }
 
-export default async function ClientProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ section?: string }> }) {
+export default async function ClientProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ section?: string; updated?: string }> }) {
   const { id } = await params;
-  const { section: requestedSection } = await searchParams;
+  const { section: requestedSection, updated } = await searchParams;
   // "quotes" era o nome antigo da seção de documentos.
   const activeSection = requestedSection === "quotes" ? "documents" : isProfileSection(requestedSection) ? requestedSection : "overview";
   const client = await getClientProfile(id);
@@ -77,7 +70,10 @@ export default async function ClientProfilePage({ params, searchParams }: { para
   const contact: Array<{ label: string; value: ReactNode }> = [
     { label: "E-mail", value: client.email ? <a href={`mailto:${client.email}`}>{client.email}</a> : null },
     { label: "Telefone", value: client.phone ? <><a href={`tel:${client.phone.replace(/[^\d+]/g, "")}`}>{client.phone}</a>{whatsapp ? <a className="client-fact-action" href={whatsapp} target="_blank" rel="noreferrer">WHATSAPP</a> : null}</> : null },
-    { label: "CPF / CNPJ", value: client.document ? formatDocument(client.document) : null },
+    { label: "CPF", value: client.cpf ? formatCpf(client.cpf) : null },
+    { label: "CNPJ", value: client.cnpj ? formatCnpj(client.cnpj) : null },
+    // Cadastro antigo que não era CPF nem CNPJ completo: mostra como foi digitado.
+    ...(!client.cpf && !client.cnpj && client.document ? [{ label: "Documento", value: client.document }] : []),
     { label: "Cidade", value: client.city },
     { label: "Endereço", value: client.address },
   ];
@@ -89,9 +85,10 @@ export default async function ClientProfilePage({ params, searchParams }: { para
         <div className="client-hero-main">
           <span className="client-hero-mark" aria-hidden="true">{initialsOf(client.name)}</span>
           <div className="client-hero-identity"><h1>{client.name}</h1><p>{client.company ?? "Pessoa física"}<span aria-hidden="true"> · </span>Cliente desde {date.format(client.createdAt)}</p></div>
-          <div className="client-hero-actions"><Link className="primary-action" href={`/documentos?clientId=${client.id}`}>PRODUZIR DOCUMENTO</Link>{whatsapp ? <a className="secondary-action" href={whatsapp} target="_blank" rel="noreferrer">WHATSAPP</a> : null}</div>
+          <div className="client-hero-actions"><Link className="primary-action" href={`/documentos?clientId=${client.id}`}>PRODUZIR DOCUMENTO</Link><Link className="secondary-action" href={`/clientes/${client.id}/editar`}>EDITAR CADASTRO</Link>{whatsapp ? <a className="secondary-action" href={whatsapp} target="_blank" rel="noreferrer">WHATSAPP</a> : null}</div>
         </div>
       </header>
+      {updated ? <p className="form-success" role="status">Cadastro atualizado.</p> : null}
       <nav className="client-tabs" aria-label="Seções do cliente">{sections.map((section) => <Link key={section} className={activeSection === section ? "active" : undefined} aria-current={activeSection === section ? "page" : undefined} href={profileHref(client.id, section)}>{sectionLabels[section]}{section === "overview" ? null : <b>{sectionCounts[section]}</b>}</Link>)}</nav>
       {activeSection === "overview" ? <section className="client-panel client-overview">
         <div className="client-stats">{(["documents", "projects", "subscriptions", "systems"] as const).map((section) => <Link key={section} className="client-stat" href={profileHref(client.id, section)}><b>{sectionCounts[section]}</b><span>{section === "projects" ? "Serviços ativos" : sectionLabels[section]}</span></Link>)}</div>

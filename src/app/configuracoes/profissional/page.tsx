@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { PhoneInput } from "@/features/clients/components/phone-input";
-import { DocumentInput } from "@/features/professional-profile/components/document-input";
+import { DocumentInput } from "@/components/document-input";
 import { saveProfessionalProfile } from "@/features/professional-profile/services/professional-profile-actions";
 import { DEFAULT_PROFESSIONAL, getProfessionalProfile } from "@/features/professional-profile/queries/professional-profile-queries";
 
