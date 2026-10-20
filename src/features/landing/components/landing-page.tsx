@@ -3,8 +3,8 @@ function portalUrl(host: string) {
 }
 
 export function LandingPage() {
-  const managementHost = process.env.MANAGEMENT_HOST?.trim() || "gestao.vinitakeuti.com";
-  const clientHost = process.env.CLIENT_PORTAL_HOST?.trim() || "clientes.vinitakeuti.com";
+  const managementHost = process.env.MANAGEMENT_HOST?.trim() || "gestao.viniciusriudi.com";
+  const clientHost = process.env.CLIENT_PORTAL_HOST?.trim() || "clientes.viniciusriudi.com";
 
   return <main className="landing-shell">
     <header className="landing-header"><div className="landing-brand"><img src="/assets/images/logo-vr.svg" alt="Vinicius Riudi" /><span className="landing-brand-copy"><strong>Vinicius Riudi</strong><small>Desenvolvedor de Software</small></span></div><p>ESTRATÉGIA, TECNOLOGIA E OPERAÇÃO</p></header>

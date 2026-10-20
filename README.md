@@ -22,13 +22,13 @@ Cadastre as variáveis de `.env.example`. Gere uma senha forte para `POSTGRES_PA
 
 O app reconhece três superfícies pelo host configurado:
 
-- `gestao.vinitakeuti.com`: operação interna para profissional, comercial, marketing, afiliado e contador.
-- `clientes.vinitakeuti.com`: portal do cliente, já preparado para pagamentos, serviços e documentos.
-- `vinitakeuti.com`: landing pública.
+- `gestao.viniciusriudi.com`: operação interna para profissional, comercial, marketing, afiliado e contador.
+- `clientes.viniciusriudi.com`: portal do cliente, já preparado para pagamentos, serviços e documentos.
+- `viniciusriudi.com`: landing pública (depois: `portfolio.` e `links.`).
 
 Defina `MANAGEMENT_HOST` e `CLIENT_PORTAL_HOST` de acordo com os domínios configurados no EasyPanel. `AUTH_SECRET` deve ser uma chave aleatória de pelo menos 32 caracteres; ela assina as sessões e não pode ser trocada sem invalidar os acessos atuais.
 
-Em produção, os usuários são cadastrados diretamente no banco de dados. No ambiente local, o primeiro login cria ou atualiza a conta de teste `teste@vinitakeuti.com` com a senha `Teste@Gestao2026`; essa conta não é criada em produção.
+Em produção, as contas da gestão são cadastradas diretamente no banco de dados. O acesso de cada cliente ao portal é criado pela gestão, no perfil do cliente (seção "Acesso ao portal do cliente"): uma senha provisória é gerada para enviar ao cliente, que a troca em "Sua conta" no portal. No ambiente local, o primeiro login cria ou atualiza a conta de teste `teste@vinitakeuti.com` com a senha `Teste@Gestao2026`; essa conta não é criada em produção.
 
 As migrações iniciais já estão versionadas e são aplicadas automaticamente ao iniciar o container. A URL de saúde é `/api/health` e o webhook do Asaas é `/api/webhooks/asaas`.
 

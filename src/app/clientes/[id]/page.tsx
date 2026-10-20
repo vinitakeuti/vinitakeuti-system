@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { formatCnpj, formatCpf } from "@/lib/br-documents";
+import { clientPortalUrl } from "@/features/auth/services/auth-host";
+import { PortalAccessPanel } from "@/features/client-portal/components/portal-access-panel";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { getClientProfile } from "@/features/clients/queries/client-queries";
 import { DOCUMENT_KINDS, documentKindFromEnum } from "@/features/documents/types/document-kinds";
@@ -103,6 +105,7 @@ export default async function ClientProfilePage({ params, searchParams }: { para
             {recentDocuments.length ? <ul className="client-recent">{recentDocuments.map((document) => <li key={document.id}><Link href={document.href}><b>{document.title}</b><small>{document.kind} · {document.code} · {date.format(document.date)}</small></Link><span className={document.done ? "documents-status is-done" : "documents-status"}>{document.done ? "Concluído" : "Pendente"}</span></li>)}</ul> : <div className="client-recent-empty"><p>Nenhum documento ainda.</p><Link className="text-link" href={`/documentos?clientId=${client.id}`}>PRODUZIR O PRIMEIRO DOCUMENTO</Link></div>}
           </section>
         </div>
+        <PortalAccessPanel clientId={client.id} clientName={client.name} clientEmail={client.email} portalUrl={clientPortalUrl()} access={client.portalUsers[0] ? { ...client.portalUsers[0], lastLoginAt: client.portalUsers[0].lastLoginAt?.toISOString() ?? null, createdAt: client.portalUsers[0].createdAt.toISOString() } : null} />
       </section> : null}
       {activeSection === "documents" ? <ProfileSection title="Documentos" description="Proposta comercial, contrato, cessão e memorial técnico produzidos para este cliente."><div className="client-documents">{DOCUMENT_KINDS.map((info) => {
         const rows = info.kind === "proposal"

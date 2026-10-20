@@ -73,3 +73,10 @@ export async function requireClientUser() {
   if (!current || current.audience !== "client" || current.user.role !== UserRole.CLIENT || !current.user.clientId) redirect("/entrar?erro=acesso");
   return current.user;
 }
+
+/** Encerra as outras sessões do usuário (outros navegadores e aparelhos), mantendo a atual. */
+export async function revokeOtherSessions(userId: string) {
+  const cookieStore = await cookies();
+  const payload = await readSessionToken(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
+  await prisma.authSession.deleteMany({ where: { userId, ...(payload ? { id: { not: payload.sessionId } } : {}) } });
+}
