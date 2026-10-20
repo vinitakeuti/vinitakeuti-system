@@ -7,7 +7,7 @@ export const DEFAULT_PROFESSIONAL = { name: "Vinicius Riudi", document: "54.565.
 /** Perfil para PDFs e pré-visualizações: nome e CNPJ nunca ficam em branco. */
 export async function getProfessionalProfileForDocuments() {
   const profile = await getProfessionalProfile();
-  const empty = { professionalTitle: null, email: null, phone: null, address: null, city: null, state: null, website: null };
+  const empty = { professionalTitle: null, email: null, phone: null, address: null, city: null, state: null, website: null, pixKey: null, paymentInstructions: null };
   return {
     ...empty,
     ...profile,
@@ -31,6 +31,8 @@ export async function getProfessionalProfile() {
       city: true,
       state: true,
       website: true,
+      pixKey: true,
+      paymentInstructions: true,
     },
   });
 }

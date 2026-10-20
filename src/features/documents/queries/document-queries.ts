@@ -4,6 +4,9 @@ import { documentKindEnum, type DocumentKind } from "@/features/documents/types/
 const PAGE_SIZE = 50;
 
 /** Documentos produzidos (contrato, cessão e memorial), do mais recente para o mais antigo, com paginação por cursor. */
+/** Última via assinada enviada pelo cliente no portal (sem o arquivo). */
+const latestSignedCopy = { orderBy: [{ createdAt: "desc" as const }, { id: "desc" as const }], take: 1, select: { id: true, createdAt: true, signatureDetected: true } };
+
 export async function listClientDocuments(input: { cursor?: string; kind?: Exclude<DocumentKind, "proposal"> | null; pending?: boolean }) {
   const cursor = input.cursor?.slice(0, 50);
   const records = await prisma.clientDocument.findMany({
@@ -11,7 +14,7 @@ export async function listClientDocuments(input: { cursor?: string; kind?: Exclu
     take: PAGE_SIZE + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-    select: { id: true, code: true, title: true, kind: true, completedAt: true, createdAt: true, updatedAt: true, client: { select: { id: true, name: true, company: true } } },
+    select: { id: true, code: true, title: true, kind: true, completedAt: true, createdAt: true, updatedAt: true, client: { select: { id: true, name: true, company: true } }, signedCopies: latestSignedCopy },
   });
   const hasMore = records.length > PAGE_SIZE;
   const data = hasMore ? records.slice(0, PAGE_SIZE) : records;
@@ -52,7 +55,7 @@ export async function listQuotesForDocuments(input: { cursor?: string; pending?:
     take: PAGE_SIZE + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-    select: { id: true, code: true, title: true, amountCents: true, completedAt: true, createdAt: true, updatedAt: true, client: { select: { id: true, name: true, company: true } } },
+    select: { id: true, code: true, title: true, amountCents: true, completedAt: true, createdAt: true, updatedAt: true, client: { select: { id: true, name: true, company: true } }, signedCopies: latestSignedCopy },
   });
   const hasMore = records.length > PAGE_SIZE;
   const data = hasMore ? records.slice(0, PAGE_SIZE) : records;

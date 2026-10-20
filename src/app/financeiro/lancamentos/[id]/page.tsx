@@ -7,8 +7,9 @@ import { ConfirmSubmitButton } from "@/features/finance/components/confirm-submi
 import { PaymentPlanCalculator } from "@/features/finance/components/payment-plan-calculator";
 import { allocateInstallments, installmentPaidDates } from "@/features/finance/services/installments";
 import { currentPlanParams } from "@/features/finance/services/payment-plan";
-import { FINANCE_CATEGORIES, financeEntryStatusKey, financeEntryStatusLabel, financeTypeLabel, getFinancialEntryDetail, getQuotePaymentsForEntry, listPaymentConditions } from "@/features/finance/queries/finance-queries";
+import { FINANCE_CATEGORIES, financeEntryStatusKey, financeEntryStatusLabel, financeTypeLabel, getFinancialEntryDetail, getQuotePaymentsForEntry, listEntryPaymentNotices, listPaymentConditions } from "@/features/finance/queries/finance-queries";
 import { addFinancialPaymentAction, cancelFinancialEntryAction, deleteFinancialPaymentAction, importQuotePaymentsAction, markNextInstallmentPaidAction, reopenFinancialEntryAction, savePaymentPlanAction, settleFinancialEntryAction, updateFinancialEntryAction, updateFinancialPaymentAction, updateInstallmentAction } from "@/features/finance/services/finance-actions";
+import { dismissPaymentNoticeAction, registerPaymentNoticeAction } from "@/features/client-portal/services/payment-notice-actions";
 import styles from "../../financeiro.module.css";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,8 @@ const notices: Record<string, string> = {
   "installment-paid": "Parcela marcada como paga.",
   "plan-saved": "Condição de pagamento salva. As parcelas foram refeitas.",
   "quote-payments": "Pagamentos da proposta trazidos para cá.",
+  "notice-registered": "Aviso do cliente registrado como pagamento.",
+  "notice-dismissed": "Aviso do cliente descartado.",
 };
 
 type EntryPageProps = { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; notice?: string }> };
@@ -72,6 +75,8 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
   const quotePayments = income && !cancelled ? await getQuotePaymentsForEntry(entry.sourceKey) : [];
   const missingQuotePayments = quotePayments.length > 0 && !entry.payments.some((payment) => payment.fromQuote);
   const quotePaid = quotePayments.reduce((sum, payment) => sum + payment.amountCents, 0);
+  // Avisos de pagamento enviados pelo cliente no portal, aguardando conferência.
+  const clientNotices = income ? await listEntryPaymentNotices(entry.id) : [];
 
   const header = <header className="directory-header"><div><p className="eyebrow">GESTÃO / FINANCEIRO / {income ? "ENTRADA" : "SAÍDA"}</p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} · {entry.counterparty ?? "Sem contraparte"} · {entry.category}{entry.origin === "QUOTE" ? " · venda confirmada" : ""}</p>{entry.paymentCondition ? <span className={styles.conditionTag + " " + styles.headerTag}>{entry.paymentCondition}</span> : null}</div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">VOLTAR AO FINANCEIRO</Link></div></div></header>;
 
@@ -121,6 +126,14 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
       <div><span>FALTA</span><strong>{money.format((cancelled ? 0 : remaining) / 100)}</strong><small>{cancelled ? "Lançamento cancelado" : remaining ? `${installments.filter((installment) => installment.state !== "paid").length || 1} em aberto` : "Tudo recebido"}</small></div>
       <div><span>PRÓXIMA PARCELA</span>{open && nextDue ? <><strong className={late ? styles.expense : undefined}>{money.format(nextAmount / 100)}</strong><small className={late ? styles.lateText : undefined}>{late ? "Atrasada · venceu em " : "Vence em "}{shortDate.format(nextDue)}</small></> : <><b className={styles.status + " " + styles[financeEntryStatusKey(entry)]}>{financeEntryStatusLabel(entry)}</b><small>{cancelled ? "Sem cobranças" : "Nenhuma parcela em aberto"}</small></>}</div>
     </section>
+
+    {clientNotices.length ? <section className={styles.clientNotices} aria-label="Avisos de pagamento do cliente">
+      <p><b>{clientNotices.length === 1 ? "O cliente avisou um pagamento pelo portal." : `O cliente avisou ${clientNotices.length} pagamentos pelo portal.`}</b> Confira o recebimento antes de registrar.</p>
+      <ul>{clientNotices.map((notice) => <li key={notice.id}>
+        <div><strong>{money.format(notice.amountCents / 100)}</strong><span>pago em {shortDate.format(notice.paidOn)}{notice.installmentNumber ? ` · parcela ${notice.installmentNumber}` : ""} · avisado por {notice.client.name} em {shortDate.format(notice.createdAt)}</span>{notice.message ? <small>“{notice.message}”</small> : null}</div>
+        <form><input type="hidden" name="noticeId" value={notice.id} /><button className={styles.textAction} type="submit" formAction={dismissPaymentNoticeAction}>DESCARTAR</button><button className="primary-action" type="submit" formAction={registerPaymentNoticeAction}>REGISTRAR PAGAMENTO</button></form>
+      </li>)}</ul>
+    </section> : null}
 
     {missingQuotePayments ? <form action={importQuotePaymentsAction} className={styles.quoteImport}><input type="hidden" name="entryId" value={entry.id} /><p>A proposta desta venda tem <b>{quotePayments.length} {quotePayments.length === 1 ? "pagamento registrado" : "pagamentos registrados"} ({money.format(quotePaid / 100)})</b> que ainda não estão aqui. Pagamentos iguais já lançados à mão não são duplicados.</p><button className="primary-action" type="submit">TRAZER DA PROPOSTA</button></form> : null}
 

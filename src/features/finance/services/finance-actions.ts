@@ -9,6 +9,7 @@ import { ensureRecurringEntries, monthKeyOf, monthStart, syncExpensePayment } fr
 import { MAX_INSTALLMENTS, buildInstallmentPlan, nextOpenInstallment } from "@/features/finance/services/installments";
 import { rebuildInstallments, syncQuotePayments } from "@/features/finance/services/payment-plan";
 import { isMonthKey } from "@/features/finance/services/recurring-entries";
+import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function text(formData: FormData, name: string, max: number) {
   const value = formData.get(name);
@@ -67,6 +68,7 @@ function returnsToEntry(formData: FormData) {
 }
 
 export async function createFinancialEntryAction(formData: FormData) {
+  await requireManagementUser();
   const type = text(formData, "type", 20) === FinancialEntryType.EXPENSE ? FinancialEntryType.EXPENSE : FinancialEntryType.INCOME;
   const description = text(formData, "description", 180);
   const category = text(formData, "category", 80) || "Outros";
@@ -103,6 +105,7 @@ export async function createFinancialEntryAction(formData: FormData) {
 
 /** Registra o que falta receber (ou pagar) e deixa o lançamento realizado. */
 export async function settleFinancialEntryAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData, "id", 50);
   if (!id) back({ error: "Lançamento inválido." });
   await prisma.$transaction(async (tx) => {
@@ -118,6 +121,7 @@ export async function settleFinancialEntryAction(formData: FormData) {
 }
 
 export async function cancelFinancialEntryAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData, "id", 50);
   if (!id) back({ error: "Lançamento inválido." });
   // Entradas em aberto e saídas (que já contam como pagas) podem ser canceladas.
@@ -129,6 +133,7 @@ export async function cancelFinancialEntryAction(formData: FormData) {
 
 /** Desfaz o cancelamento: o status volta a seguir o que foi recebido. */
 export async function reopenFinancialEntryAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData, "id", 50);
   if (!id) back({ error: "Lançamento inválido." });
   await prisma.$transaction(async (tx) => {
@@ -143,6 +148,7 @@ export async function reopenFinancialEntryAction(formData: FormData) {
 
 /** Edita os dados do lançamento, inclusive o valor esperado. */
 export async function updateFinancialEntryAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData, "id", 50);
   if (!id) back({ error: "Lançamento inválido." });
   const description = text(formData, "description", 180);
@@ -189,6 +195,7 @@ async function paymentFits(entryId: string, amountCents: number, replacingId?: s
 }
 
 export async function addFinancialPaymentAction(formData: FormData) {
+  await requireManagementUser();
   const entryId = text(formData, "entryId", 50);
   if (!entryId) back({ error: "Lançamento inválido." });
   const payment = paymentFromForm(formData);
@@ -204,6 +211,7 @@ export async function addFinancialPaymentAction(formData: FormData) {
 }
 
 export async function updateFinancialPaymentAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData, "paymentId", 50);
   const current = id ? await prisma.financialPayment.findUnique({ where: { id }, select: { entryId: true } }) : null;
   if (!current) back({ error: "Recebimento não encontrado." });
@@ -220,6 +228,7 @@ export async function updateFinancialPaymentAction(formData: FormData) {
 }
 
 export async function deleteFinancialPaymentAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData, "paymentId", 50);
   const current = id ? await prisma.financialPayment.findUnique({ where: { id }, select: { entryId: true, entry: { select: { type: true } } } }) : null;
   if (!current) back({ error: "Recebimento não encontrado." });
@@ -234,6 +243,7 @@ export async function deleteFinancialPaymentAction(formData: FormData) {
 
 /** Ajusta a data e o valor de uma parcela; o valor esperado passa a ser a soma das parcelas. */
 export async function updateInstallmentAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData, "installmentId", 50);
   const installment = id ? await prisma.financialInstallment.findUnique({ where: { id }, select: { entryId: true } }) : null;
   if (!installment) back({ error: "Parcela não encontrada." });
@@ -260,6 +270,7 @@ export async function updateInstallmentAction(formData: FormData) {
  * Volta para a tela de origem: o lançamento ou a lista de condições especiais.
  */
 export async function markNextInstallmentPaidAction(formData: FormData) {
+  await requireManagementUser();
   const entryId = text(formData, "entryId", 50);
   if (!entryId) back({ error: "Lançamento inválido." });
   const returnTo = text(formData, "returnTo", 20);
@@ -287,6 +298,7 @@ export async function markNextInstallmentPaidAction(formData: FormData) {
  * (ou o valor de cada uma). O que já foi pago vira parcelas pagas; o restante é dividido nas parcelas seguintes.
  */
 export async function savePaymentPlanAction(formData: FormData) {
+  await requireManagementUser();
   const entryId = text(formData, "entryId", 50);
   if (!entryId) back({ error: "Lançamento inválido." });
   const totalCents = amountToCents(text(formData, "total", 24));
@@ -315,6 +327,7 @@ export async function savePaymentPlanAction(formData: FormData) {
 
 /** Traz para a entrada os pagamentos registrados na proposta comercial da venda. */
 export async function importQuotePaymentsAction(formData: FormData) {
+  await requireManagementUser();
   const entryId = text(formData, "entryId", 50);
   if (!entryId) back({ error: "Lançamento inválido." });
   const entry = await prisma.financialEntry.findUnique({ where: { id: entryId }, select: { sourceKey: true } });

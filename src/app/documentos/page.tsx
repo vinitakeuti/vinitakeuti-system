@@ -14,7 +14,7 @@ const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Maceio" });
 const listTitles: Record<string, string> = { proposal: "Propostas comerciais", contract: "Contratos", assignment: "Cessões", memorial: "Memoriais técnicos" };
 
-type Row = { id: string; title: string; code: string; detail: string | null; client: { id: string; name: string; company: string | null }; done: boolean; updatedAt: Date; editHref: string; pdfHref: string; secondary?: { href: string; label: string } };
+type Row = { id: string; title: string; code: string; detail: string | null; client: { id: string; name: string; company: string | null }; done: boolean; updatedAt: Date; editHref: string; pdfHref: string; secondary?: { href: string; label: string }; signed: { id: string; createdAt: Date; signatureDetected: boolean } | null };
 
 /**
  * Documentos: um seletor define o tipo (proposta, contrato, cessão ou memorial). O painel de produção e a lista
@@ -30,11 +30,11 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
   if (info.kind === "proposal") {
     const result = await listQuotesForDocuments({ cursor, pending });
     nextCursor = result.nextCursor;
-    rows = result.data.map((quote) => ({ id: quote.id, title: quote.title, code: quote.code, detail: money.format(quote.amountCents / 100), client: quote.client, done: Boolean(quote.completedAt), updatedAt: quote.updatedAt, editHref: `/orcamentos/${quote.id}/editor`, pdfHref: `/api/orcamentos/${quote.id}/pdf`, secondary: { href: `/orcamentos/${quote.id}/editar`, label: "VALORES" } }));
+    rows = result.data.map((quote) => ({ id: quote.id, title: quote.title, code: quote.code, detail: money.format(quote.amountCents / 100), client: quote.client, done: Boolean(quote.completedAt), updatedAt: quote.updatedAt, editHref: `/orcamentos/${quote.id}/editor`, pdfHref: `/api/orcamentos/${quote.id}/pdf`, secondary: { href: `/orcamentos/${quote.id}/editar`, label: "VALORES" }, signed: quote.signedCopies[0] ?? null }));
   } else {
     const result = await listClientDocuments({ cursor, kind: info.kind, pending });
     nextCursor = result.nextCursor;
-    rows = result.data.map((document) => ({ id: document.id, title: document.title, code: document.code, detail: null, client: document.client, done: Boolean(document.completedAt), updatedAt: document.updatedAt, editHref: `/documentos/${document.id}/editor`, pdfHref: `/api/documentos/${document.id}/pdf` }));
+    rows = result.data.map((document) => ({ id: document.id, title: document.title, code: document.code, detail: null, client: document.client, done: Boolean(document.completedAt), updatedAt: document.updatedAt, editHref: `/documentos/${document.id}/editor`, pdfHref: `/api/documentos/${document.id}/pdf`, signed: document.signedCopies[0] ?? null }));
   }
   const href = (params: Record<string, string | null>) => {
     const query = new URLSearchParams();
@@ -68,9 +68,9 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
           {rows.map((row) => <tr key={row.id}>
             <td className="quote-pending-title"><Link className="client-name" href={row.editHref}>{row.title}</Link><small>{row.code}{row.detail ? ` · ${row.detail}` : ""}</small></td>
             <td className="quote-pending-client"><Link className="table-link" href={`/clientes/${row.client.id}?section=documents`}>{row.client.name}</Link><small>{row.client.company ?? "Pessoa física"}</small></td>
-            <td><span className={row.done ? "documents-status is-done" : "documents-status"}>{row.done ? "Concluído" : "Pendente"}</span></td>
+            <td><span className={row.done ? "documents-status is-done" : "documents-status"}>{row.done ? "Concluído" : "Pendente"}</span>{row.signed ? <small className={row.signed.signatureDetected ? "documents-signed" : "documents-signed is-warning"}>{row.signed.signatureDetected ? "Assinado pelo cliente" : "Enviado sem assinatura digital"} · {dateTime.format(row.signed.createdAt)}</small> : null}</td>
             <td className="quote-pending-date"><span>{dateTime.format(row.updatedAt)}</span></td>
-            <td className="quote-pending-actions"><div><Link className="primary-action" href={row.editHref}>{row.done ? "ABRIR" : "CONTINUAR"}</Link>{row.secondary ? <Link className="table-link" href={row.secondary.href}>{row.secondary.label}</Link> : null}<a className="table-link" href={row.pdfHref}>PDF</a>{info.kind === "proposal" ? null : <DeleteDocumentButton documentId={row.id} action={deleteClientDocumentAction} />}</div></td>
+            <td className="quote-pending-actions"><div><Link className="primary-action" href={row.editHref}>{row.done ? "ABRIR" : "CONTINUAR"}</Link>{row.secondary ? <Link className="table-link" href={row.secondary.href}>{row.secondary.label}</Link> : null}<a className="table-link" href={row.pdfHref}>PDF</a>{row.signed ? <a className="table-link" href={`/api/documentos/assinados/${row.signed.id}`}>ASSINADO</a> : null}{info.kind === "proposal" ? null : <DeleteDocumentButton documentId={row.id} action={deleteClientDocumentAction} />}</div></td>
           </tr>)}
         </tbody></table></div> : <div className="documents-empty"><p>{pending ? `Nenhum documento pendente.` : `Nenhum documento produzido ainda.`}</p><span>{info.kind === "proposal" ? "As propostas que você criar aparecerão aqui." : `Use o painel acima para produzir ${info.kind === "contract" ? "o primeiro contrato" : info.kind === "assignment" ? "a primeira cessão" : "o primeiro memorial"}.`}</span></div>}
         {nextCursor ? <div className="table-footer"><Link className="text-link" href={href({ cursor: nextCursor })}>CARREGAR PRÓXIMOS 50</Link></div> : null}

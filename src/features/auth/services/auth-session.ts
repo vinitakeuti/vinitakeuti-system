@@ -68,6 +68,18 @@ export async function requireManagementUser() {
   return current.user;
 }
 
+/** Usuário da gestão, ou null. Para rotas de API, que respondem 403 em vez de redirecionar. */
+export async function getManagementUser() {
+  const current = await getAuthenticatedUser();
+  return current && current.audience === "management" && isManagementRole(current.user.role) ? current.user : null;
+}
+
+/** Usuário do portal do cliente, ou null. Para rotas de API do portal. */
+export async function getClientUser() {
+  const current = await getAuthenticatedUser();
+  return current && current.audience === "client" && current.user.role === UserRole.CLIENT && current.user.clientId ? current.user : null;
+}
+
 export async function requireClientUser() {
   const current = await getAuthenticatedUser();
   if (!current || current.audience !== "client" || current.user.role !== UserRole.CLIENT || !current.user.clientId) redirect("/entrar?erro=acesso");

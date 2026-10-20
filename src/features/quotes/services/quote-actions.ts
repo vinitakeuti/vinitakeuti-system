@@ -9,6 +9,7 @@ import { saveQuoteDocument } from "@/features/quotes/services/quote-document-ser
 import { parseQuotePayments } from "@/features/quotes/schemas/quote-payments";
 import { syncQuotePayments } from "@/features/finance/services/payment-plan";
 import { recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
+import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function text(formData: FormData, name: string, max: number) { const value = formData.get(name); return typeof value === "string" ? value.trim().slice(0, max) : ""; }
 function amountToCents(value: string) { const parsed = Number(value.replace(",", ".")); return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0; }
@@ -58,6 +59,7 @@ function discountFromForm(formData: FormData, subtotalCents: number, errorHref: 
 }
 
 export async function createQuoteAction(formData: FormData) {
+  await requireManagementUser();
   const clientId = text(formData, "clientId", 40);
   const title = text(formData, "title", 180);
   const invalidBase = !clientId || !title;
@@ -79,6 +81,7 @@ export async function createQuoteAction(formData: FormData) {
 }
 
 export async function updateQuoteDocumentAction(formData: FormData) {
+  await requireManagementUser();
   const quoteId = text(formData, "quoteId", 50);
   // O documento é lido inteiro: cortar o JSON no meio o tornaria inválido e o conteúdo seria perdido.
   const rawField = formData.get("documentContent");
@@ -105,6 +108,7 @@ export async function updateQuoteDocumentAction(formData: FormData) {
 
 /** Conclui o orçamento sem alterar o documento; usado na página de detalhe. */
 export async function completeQuoteAction(formData: FormData) {
+  await requireManagementUser();
   const quoteId = text(formData, "quoteId", 50);
   if (!quoteId) redirect("/orcamentos/pendentes");
   const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, clientId: true } });
@@ -115,6 +119,7 @@ export async function completeQuoteAction(formData: FormData) {
 }
 
 export async function updateQuoteAction(formData: FormData) {
+  await requireManagementUser();
   const quoteId = text(formData, "quoteId", 50);
   const clientId = text(formData, "clientId", 50);
   if (!quoteId || !clientId) redirect("/orcamentos");
@@ -145,6 +150,7 @@ export async function updateQuoteAction(formData: FormData) {
 }
 
 export async function deleteQuoteAction(formData: FormData) {
+  await requireManagementUser();
   const quoteId = text(formData, "quoteId", 50);
   if (!quoteId) redirect("/orcamentos");
   const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, clientId: true } });

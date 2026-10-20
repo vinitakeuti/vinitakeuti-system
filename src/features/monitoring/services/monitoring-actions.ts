@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { checkMonitoredApp } from "@/features/monitoring/services/monitoring-service";
 import { monitoringEnvironments } from "@/features/monitoring/types/monitoring-labels";
+import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function text(value: FormDataEntryValue | null, maxLength: number) {
   const result = typeof value === "string" ? value.trim() : "";
@@ -54,6 +55,7 @@ function revalidateSystem(clientIds: Array<string | null | undefined>) {
 }
 
 export async function createMonitoredApp(formData: FormData) {
+  await requireManagementUser();
   const filterClientId = text(formData.get("filterClientId"), 50);
   const fail = (message: string): never => redirect(withParams("/monitoramento/novo", { cliente: filterClientId, error: message }));
   const fields = systemFields(formData);
@@ -69,6 +71,7 @@ export async function createMonitoredApp(formData: FormData) {
 }
 
 export async function updateMonitoredApp(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData.get("id"), 50);
   if (!id) redirect("/monitoramento");
   const fail = (message: string): never => redirect(withParams(`/monitoramento/${id}`, { aba: "configuracao", error: message }));
@@ -98,6 +101,7 @@ export async function updateMonitoredApp(formData: FormData) {
 }
 
 export async function checkMonitoredAppAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData.get("id"), 50);
   const filterClientId = text(formData.get("filterClientId"), 50);
   if (!id) redirect(withParams("/monitoramento", { cliente: filterClientId, error: "Sistema inválido." }));
@@ -114,6 +118,7 @@ export async function checkMonitoredAppAction(formData: FormData) {
 }
 
 export async function deleteMonitoredApp(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData.get("id"), 50);
   if (!id) redirect("/monitoramento");
   const app = await prisma.monitoredApp.findUnique({ where: { id }, select: { id: true, clientId: true } });

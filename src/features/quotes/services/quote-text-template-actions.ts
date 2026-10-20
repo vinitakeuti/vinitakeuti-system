@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { documentKindFromSlug } from "@/features/documents/types/document-kinds";
+import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function contentFromForm(formData: FormData) {
   const value = formData.get("content");
@@ -17,6 +18,7 @@ function idParam(formData: FormData, name: string) {
 
 /** Salva o texto padrão do tipo de documento escolhido e mantém o caminho de volta ao PDF de onde ele foi aberto. */
 export async function saveQuoteTextTemplateAction(formData: FormData) {
+  await requireManagementUser();
   const info = documentKindFromSlug(typeof formData.get("tipo") === "string" ? String(formData.get("tipo")) : "proposta") ?? documentKindFromSlug("proposta")!;
   const content = contentFromForm(formData);
   await prisma.quoteTextTemplate.upsert({

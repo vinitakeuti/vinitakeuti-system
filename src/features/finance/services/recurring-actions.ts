@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { applyRecurringChanges, currentMonthKey, ensureRecurringEntries, isMonthKey, monthKeyOf, monthStart, removeOccurrencesAfter } from "@/features/finance/services/recurring-entries";
+import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 const LIST_HREF = "/financeiro/custos-fixos";
 
@@ -48,6 +49,7 @@ function recurringFromForm(formData: FormData): RecurringInput | { error: string
 }
 
 export async function createRecurringEntryAction(formData: FormData) {
+  await requireManagementUser();
   const input = recurringFromForm(formData);
   if ("error" in input) go(LIST_HREF, { error: input.error });
   const start = text(formData, "startsOn", 7);
@@ -60,6 +62,7 @@ export async function createRecurringEntryAction(formData: FormData) {
 
 /** Salva a recorrência e leva as mudanças para as ocorrências a partir do mês escolhido. */
 export async function updateRecurringEntryAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData, "id", 50);
   if (!id) redirect(LIST_HREF);
   const input = recurringFromForm(formData);
@@ -78,6 +81,7 @@ export async function updateRecurringEntryAction(formData: FormData) {
 
 /** Encerra a recorrência no mês escolhido: os meses seguintes deixam de existir. */
 export async function endRecurringEntryAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData, "id", 50);
   if (!id) redirect(LIST_HREF);
   const last = text(formData, "endsOn", 7);
@@ -95,6 +99,7 @@ export async function endRecurringEntryAction(formData: FormData) {
 
 /** Reativa: os meses depois do encerramento voltam a ser gerados. */
 export async function reactivateRecurringEntryAction(formData: FormData) {
+  await requireManagementUser();
   const id = text(formData, "id", 50);
   if (!id) redirect(LIST_HREF);
   const template = await prisma.recurringEntry.findUnique({ where: { id }, select: { endsOn: true, generatedThrough: true } });

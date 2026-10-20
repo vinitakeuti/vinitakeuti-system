@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
+import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function text(formData: FormData, name: string, max: number) {
   const value = formData.get(name);
@@ -21,6 +22,7 @@ function saleCode() {
 }
 
 export async function confirmQuoteSaleAction(formData: FormData) {
+  await requireManagementUser();
   const quoteId = text(formData, "quoteId", 50);
   if (!quoteId) redirect("/vendas");
 
@@ -47,6 +49,7 @@ export async function confirmQuoteSaleAction(formData: FormData) {
 }
 
 export async function createDirectSaleAction(formData: FormData) {
+  await requireManagementUser();
   const clientId = text(formData, "clientId", 50);
   const title = text(formData, "title", 180);
   const amountCents = amountToCents(text(formData, "amount", 20));
@@ -66,6 +69,7 @@ export async function createDirectSaleAction(formData: FormData) {
 }
 
 export async function deletePendingSaleAction(formData: FormData) {
+  await requireManagementUser();
   const saleId = text(formData, "saleId", 50);
   if (!saleId) redirect("/vendas");
   const sale = await prisma.sale.findUnique({ where: { id: saleId }, select: { id: true, clientId: true, status: true } });
@@ -77,6 +81,7 @@ export async function deletePendingSaleAction(formData: FormData) {
 }
 
 export async function updateSaleStatusAction(formData: FormData) {
+  await requireManagementUser();
   const saleId = text(formData, "saleId", 50);
   const nextStatusValue = text(formData, "status", 20);
   const nextStatus = Object.values(SaleStatus).includes(nextStatusValue as SaleStatus) ? nextStatusValue as SaleStatus : null;
@@ -118,6 +123,7 @@ export async function updateSaleStatusAction(formData: FormData) {
 }
 
 export async function deleteSaleAction(formData: FormData) {
+  await requireManagementUser();
   const saleId = text(formData, "saleId", 50);
   if (!saleId) redirect("/vendas");
   const sale = await prisma.sale.findUnique({ where: { id: saleId }, select: { id: true, clientId: true, quoteId: true, status: true } });

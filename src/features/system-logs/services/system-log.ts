@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { getAuthPortal } from "@/features/auth/services/auth-host";
+import { getAuthPortal, requestHost } from "@/features/auth/services/auth-host";
 
 export type LogSource = "gestao" | "clientes" | "sistema";
 export type LogLevel = "info" | "warning" | "error";
@@ -36,7 +36,7 @@ export async function logEvent(input: LogInput) {
     if (!host || !ip || !userAgent) {
       try {
         const requestHeaders = await headers();
-        host ??= requestHeaders.get("host");
+        host ??= requestHost(requestHeaders);
         ip ??= (requestHeaders.get("x-forwarded-for") ?? requestHeaders.get("x-real-ip") ?? "").split(",")[0].trim() || null;
         userAgent ??= requestHeaders.get("user-agent");
       } catch { /* fora de uma requisição */ }

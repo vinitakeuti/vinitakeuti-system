@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { AsaasError, createAsaasCharge, ensureAsaasCustomer } from "@/lib/asaas";
 import { prisma } from "@/lib/prisma";
+import { getManagementUser } from "@/features/auth/services/auth-session";
 
 export async function POST(request: Request) {
+  if (!(await getManagementUser())) return Response.json({ error: "Não autorizado." }, { status: 403 });
   try {
     const body = await request.json() as { chargeId?: string; billingType?: "PIX" | "CREDIT_CARD" | "BOLETO" };
     if (!body.chargeId || !body.billingType) return NextResponse.json({ error: "Cobrança e método são obrigatórios." }, { status: 422 });

@@ -283,3 +283,14 @@
 @media (max-width:640px) { .planActions { justify-content:stretch; } }
 /* Condição de pagamento ao lado do tipo, na primeira linha da movimentação. */
 .inlineTag { display:inline-flex; margin-left:8px; padding:1px 6px; border:1px solid #b9cfc2; background:var(--accent-surface); color:var(--accent); font-family:var(--mono); font-size:.5rem; font-weight:600; letter-spacing:.03em; vertical-align:1px; white-space:nowrap; }
+/* Avisos de pagamento do cliente (portal), aguardando conferência. */
+.clientNotices { margin:0 0 20px; border:1px solid #e3d3bd; border-left:3px solid #b48347; background:#fbf6ef; }
+.clientNotices > p { margin:0; padding:13px 18px; border-bottom:1px solid #eadcc8; color:#5b4630; font-size:.8rem; line-height:1.5; }
+.clientNotices ul { margin:0; padding:0; list-style:none; }
+.clientNotices li { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 18px; border-bottom:1px solid #eadcc8; }
+.clientNotices li:last-child { border-bottom:0; }
+.clientNotices li > div { display:grid; gap:3px; min-width:0; }
+.clientNotices strong { font-size:.95rem; }
+.clientNotices span,.clientNotices small { color:#6b5a45; font-size:.75rem; line-height:1.4; overflow-wrap:anywhere; }
+.clientNotices form { display:flex; align-items:center; gap:16px; margin:0; }
+@media (max-width:640px) { .clientNotices > p,.clientNotices li { padding:12px 14px; } .clientNotices li { align-items:stretch; flex-direction:column; } .clientNotices form { justify-content:space-between; } .clientNotices .primary-action { flex:1 1 auto; } }

@@ -1,6 +1,8 @@
 import { getDocumentImageFile } from "@/features/quotes/services/quote-images";
+import { getManagementUser } from "@/features/auth/services/auth-session";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string; imageId: string }> }) {
+  if (!(await getManagementUser())) return Response.json({ error: "Não autorizado." }, { status: 403 });
   const { id, imageId } = await params;
   const image = await getDocumentImageFile({ documentId: id.slice(0, 50) }, imageId);
   if (!image) return new Response("Imagem não encontrada.", { status: 404 });

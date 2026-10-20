@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function text(formData: FormData, field: string, maxLength: number, fallback: string | null = null) {
   const value = formData.get(field);
@@ -12,6 +13,7 @@ function text(formData: FormData, field: string, maxLength: number, fallback: st
 }
 
 export async function saveProfessionalProfile(formData: FormData) {
+  await requireManagementUser();
   const name = text(formData, "name", 160);
   if (!name) return;
 
@@ -24,6 +26,8 @@ export async function saveProfessionalProfile(formData: FormData) {
     city: text(formData, "city", 120),
     state: text(formData, "state", 80),
     website: text(formData, "website", 200),
+    pixKey: text(formData, "pixKey", 140),
+    paymentInstructions: text(formData, "paymentInstructions", 1000),
   };
 
   await prisma.professionalProfile.upsert({

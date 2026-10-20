@@ -3,9 +3,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationList, type DashboardNotification } from "@/components/notification-list";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { headers } from "next/headers";
-import { ClientPortalHome } from "@/features/client-portal/components/client-portal-home";
 import { LandingPage } from "@/features/landing/components/landing-page";
-import { getAuthPortal } from "@/features/auth/services/auth-host";
+import { portalForRequest } from "@/features/auth/services/auth-host";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
 import { getOverviewData } from "@/features/overview/queries/overview-queries";
 
@@ -29,17 +28,17 @@ function monitoringDetail(app: { status: string; lastCheckedAt: Date | null; las
 }
 
 export default async function Home() {
-  const portal = getAuthPortal((await headers()).get("host"));
+  const portal = portalForRequest(await headers());
   if (portal === "landing") return <LandingPage />;
-  if (portal === "client") return <ClientPortalHome />;
   await requireManagementUser();
   const data = await getOverviewData();
-  const { finance, monitoring, payments, monitoredApps, openQuotes, period } = data;
+  const { finance, monitoring, payments, monitoredApps, openQuotes, paymentNotices, period } = data;
   const expected = finance.incomeSettled + finance.incomePending;
   const progress = expected ? Math.min(100, Math.round((finance.incomeSettled / expected) * 100)) : 0;
   const periodLabel = month.format(new Date(Date.UTC(period.year, period.month - 1, 15))).replace(" de ", " / ").toUpperCase();
 
   const notifications: DashboardNotification[] = [
+    ...(paymentNotices.count ? [{ id: "payment-notices", title: "Clientes avisaram pagamentos", detail: `${paymentNotices.count} aviso${paymentNotices.count === 1 ? "" : "s"} do portal aguardando conferência`, state: "attention" as const, href: paymentNotices.entryId ? `/financeiro/lancamentos/${paymentNotices.entryId}` : "/financeiro" }] : []),
     ...(finance.overdueCount ? [{ id: "overdue", title: "Recebimentos em atraso", detail: `${finance.overdueCount} lançamento${finance.overdueCount === 1 ? "" : "s"} · ${money.format(finance.overdueAmount / 100)}`, state: "attention" as const }] : []),
     ...(monitoring.down ? [{ id: "monitor-down", title: "Sistemas indisponíveis", detail: `${monitoring.down} monitoramento${monitoring.down === 1 ? "" : "s"} exigindo atenção`, state: "attention" as const }] : []),
     ...(openQuotes ? [{ id: "open-quotes", title: "Orçamentos aguardando decisão", detail: `${openQuotes} proposta${openQuotes === 1 ? "" : "s"} em aberto`, state: "info" as const }] : []),

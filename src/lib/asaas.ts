@@ -6,7 +6,8 @@ import { decryptSecret } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 
 type JsonObject = Record<string, unknown>;
-export type AsaasBillingType = "PIX" | "CREDIT_CARD" | "BOLETO";
+/** UNDEFINED: o pagador escolhe Pix, boleto ou cartão na fatura do Asaas. */
+export type AsaasBillingType = "PIX" | "CREDIT_CARD" | "BOLETO" | "UNDEFINED";
 export type AsaasEnvironment = "sandbox" | "production";
 
 const REQUEST_TIMEOUT_MS = 8_000;
@@ -44,6 +45,12 @@ async function credentials() {
     throw new AsaasError("Integração Asaas ainda não configurada.", 503);
   }
   return { apiKey, environment };
+}
+
+/** Se há chave do Asaas (cadastrada na gestão ou em ASAAS_API_KEY), sem consultar o Asaas. */
+export async function isAsaasConfigured() {
+  const persisted = await prisma.paymentIntegration.findUnique({ where: { provider: "ASAAS" }, select: { apiKeyEncrypted: true } });
+  return Boolean(persisted?.apiKeyEncrypted || process.env.ASAAS_API_KEY?.trim());
 }
 
 async function asaasRequest(path: string, init: RequestInit = {}) {

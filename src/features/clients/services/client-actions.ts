@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { clientDocumentLabel, isValidCnpj, isValidCpf, onlyDigits } from "@/lib/br-documents";
+import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function optionalText(value: FormDataEntryValue | null, maxLength: number) {
   const text = typeof value === "string" ? value.trim() : "";
@@ -20,6 +21,7 @@ function clientDocuments(formData: FormData): { error: string } | { cpf: string 
 }
 
 export async function createClient(formData: FormData) {
+  await requireManagementUser();
   const name = optionalText(formData.get("name"), 160);
   if (!name) redirect("/clientes/novo?error=Informe%20o%20nome%20do%20cliente.");
   const documents = clientDocuments(formData);
@@ -46,6 +48,7 @@ export async function createClient(formData: FormData) {
 }
 
 export async function updateClient(formData: FormData) {
+  await requireManagementUser();
   const id = optionalText(formData.get("id"), 50);
   if (!id) redirect("/clientes");
   const editHref = `/clientes/${encodeURIComponent(id)}/editar`;

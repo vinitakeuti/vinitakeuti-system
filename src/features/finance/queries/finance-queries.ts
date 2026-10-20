@@ -205,6 +205,11 @@ export async function getConfirmedSalesSummary() {
 }
 
 /** Lançamento com seus recebimentos, para a tela de edição. */
+/** Avisos de pagamento do cliente (portal) aguardando conferência neste lançamento. */
+export async function listEntryPaymentNotices(entryId: string) {
+  return prisma.paymentNotice.findMany({ where: { financialEntryId: entryId, status: "PENDING" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 20, select: { id: true, installmentNumber: true, amountCents: true, paidOn: true, message: true, createdAt: true, client: { select: { name: true } } } });
+}
+
 export async function getFinancialEntryDetail(id: string) {
   if (!id || id.length > 50) return null;
   return prisma.financialEntry.findUnique({

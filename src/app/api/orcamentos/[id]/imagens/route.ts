@@ -1,7 +1,9 @@
 import { MAX_QUOTE_IMAGE_BYTES, saveQuoteImage } from "@/features/quotes/services/quote-images";
+import { getManagementUser } from "@/features/auth/services/auth-session";
 
 /** Recebe uma imagem para o PDF do orçamento (multipart, campo "file"). */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await getManagementUser())) return Response.json({ error: "Não autorizado." }, { status: 403 });
   const { id } = await params;
   if (Number(request.headers.get("content-length") ?? 0) > MAX_QUOTE_IMAGE_BYTES + 64 * 1024) return Response.json({ error: "A imagem deve ter até 4 MB." }, { status: 413 });
   const form = await request.formData().catch(() => null);

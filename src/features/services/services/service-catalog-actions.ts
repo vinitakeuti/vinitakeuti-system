@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { richTextForStorage } from "@/lib/rich-text";
+import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function text(value: FormDataEntryValue | null, maxLength: number) {
   const result = typeof value === "string" ? value.trim() : "";
@@ -29,6 +30,7 @@ function pricingMethod(value: FormDataEntryValue | null) {
 }
 
 export async function createServiceCategory(formData: FormData) {
+  await requireManagementUser();
   const name = text(formData.get("name"), 80);
   if (!name) redirect("/servicos/categorias?error=Informe%20o%20nome%20da%20categoria.");
 
@@ -48,6 +50,7 @@ export async function createServiceCategory(formData: FormData) {
 }
 
 export async function createCatalogService(formData: FormData) {
+  await requireManagementUser();
   const categoryId = text(formData.get("categoryId"), 50);
   const name = text(formData.get("name"), 140);
   const billingType = formData.get("billingType") === ServiceBillingType.RECURRING ? ServiceBillingType.RECURRING : ServiceBillingType.ONE_TIME;
@@ -80,6 +83,7 @@ export async function createCatalogService(formData: FormData) {
 }
 
 export async function updateCatalogService(formData: FormData) {
+  await requireManagementUser();
   const serviceId = text(formData.get("serviceId"), 50);
   if (!serviceId) redirect("/servicos");
   const categoryId = text(formData.get("categoryId"), 50);
@@ -116,6 +120,7 @@ export async function updateCatalogService(formData: FormData) {
 }
 
 export async function archiveCatalogService(formData: FormData) {
+  await requireManagementUser();
   const serviceId = text(formData.get("serviceId"), 50);
   if (!serviceId) redirect("/servicos");
   await prisma.serviceCatalogItem.updateMany({ where: { id: serviceId }, data: { isActive: false } });
@@ -126,6 +131,7 @@ export async function archiveCatalogService(formData: FormData) {
 }
 
 export async function deleteCatalogService(formData: FormData) {
+  await requireManagementUser();
   const serviceId = text(formData.get("serviceId"), 50);
   if (!serviceId) redirect("/servicos");
   const service = await prisma.serviceCatalogItem.findUnique({ where: { id: serviceId }, select: { _count: { select: { subscriptions: true } } } });
@@ -138,6 +144,7 @@ export async function deleteCatalogService(formData: FormData) {
 }
 
 export async function assignRecurringService(formData: FormData) {
+  await requireManagementUser();
   const clientId = text(formData.get("clientId"), 50);
   const serviceId = text(formData.get("serviceId"), 50);
   if (!clientId || !serviceId) redirect("/clientes");

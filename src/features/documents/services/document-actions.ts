@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { createDefaultQuoteDocument, QUOTE_DOCUMENT_MAX_JSON_LENGTH } from "@/features/quotes/types/document-content";
 import { documentKindEnum, documentKindFromEnum, documentKindFromSlug } from "@/features/documents/types/document-kinds";
 import { saveClientDocument } from "@/features/documents/services/client-document-service";
+import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function text(formData: FormData, name: string, max: number) { const value = formData.get(name); return typeof value === "string" ? value.trim().slice(0, max) : ""; }
 function errorHref(href: string, message: string) { return `${href}${href.includes("?") ? "&" : "?"}error=${encodeURIComponent(message)}`; }
@@ -17,6 +18,7 @@ function revalidateDocuments(clientId: string) {
 
 /** Cria um contrato, uma cessão ou um memorial para o cliente e abre o editor do documento. */
 export async function createClientDocumentAction(formData: FormData) {
+  await requireManagementUser();
   const info = documentKindFromSlug(text(formData, "tipo", 20));
   const clientId = text(formData, "clientId", 50);
   if (!info || info.kind === "proposal" || !clientId) redirect("/documentos");
@@ -38,6 +40,7 @@ export async function createClientDocumentAction(formData: FormData) {
 }
 
 export async function updateClientDocumentAction(formData: FormData) {
+  await requireManagementUser();
   const documentId = text(formData, "documentId", 50);
   // O documento é lido inteiro: cortar o JSON no meio o tornaria inválido e o conteúdo seria perdido.
   const rawField = formData.get("documentContent");
@@ -64,6 +67,7 @@ export async function updateClientDocumentAction(formData: FormData) {
 }
 
 export async function deleteClientDocumentAction(formData: FormData) {
+  await requireManagementUser();
   const documentId = text(formData, "documentId", 50);
   if (!documentId) redirect("/documentos");
   const document = await prisma.clientDocument.findUnique({ where: { id: documentId }, select: { id: true, clientId: true } });

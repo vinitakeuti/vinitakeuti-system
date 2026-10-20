@@ -139,6 +139,8 @@ model Client {
   subscriptions  Subscription[]
   monitoredApps  MonitoredApp[]
   portalUsers    User[]
+  paymentNotices PaymentNotice[]
+  signedDocuments SignedDocument[]
 
   @@index([name])
   @@index([email])
@@ -206,6 +208,9 @@ model ProfessionalProfile {
   city               String?
   state              String?
   website            String?
+  /// Chave Pix e instruções mostradas ao cliente no portal quando não há pagamento online (Asaas).
+  pixKey             String?
+  paymentInstructions String?
   updatedAt          DateTime @updatedAt
 }
 
@@ -277,6 +282,9 @@ model Charge {
   paymentMethod  String?
   asaasPaymentId String?      @unique
   invoiceUrl     String?
+  /// Lançamento (e parcela) do Financeiro que esta cobrança paga, quando criada pelo portal do cliente.
+  financialEntryId String?
+  installmentNumber Int?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -284,6 +292,7 @@ model Charge {
 
   @@index([status, dueDate])
   @@index([clientId, dueDate])
+  @@index([financialEntryId, installmentNumber])
 }
 
 model Quote {
@@ -319,6 +328,7 @@ model Quote {
   images          QuoteImage[]
   documents       ClientDocument[]
   sale            Sale?
+  signedCopies    SignedDocument[]
 
   @@index([status, validUntil])
   @@index([status, createdAt, id])
@@ -379,6 +389,7 @@ model ClientDocument {
   client          Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
   quote           Quote?             @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   images          QuoteImage[]
+  signedCopies    SignedDocument[]
 
   @@index([clientId, kind, createdAt])
   @@index([kind, updatedAt, id])
@@ -497,6 +508,8 @@ model FinancialPayment {
   fromSale    Boolean        @default(false)
   /// Pagamento registrado na proposta comercial; acompanha as alterações feitas nela.
   fromQuote   Boolean        @default(false)
+  /// Cobrança online (Asaas) que gerou este pagamento; impede registrar o mesmo pagamento duas vezes.
+  chargeId    String?        @unique
   createdAt   DateTime       @default(now())
   entry       FinancialEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
@@ -709,4 +722,48 @@ model SchedulerState {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Aviso do cliente, pelo portal, de que fez um pagamento (Pix ou transferência). Você confere e registra no Financeiro.
+model PaymentNotice {
+  id                String    @id @default(cuid())
+  clientId          String
+  financialEntryId  String
+  installmentNumber Int?
+  amountCents       Int
+  paidOn            DateTime
+  message           String?
+  /// PENDING até você registrar o pagamento ou descartar o aviso.
+  status            String    @default("PENDING")
+  resolvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  client            Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([financialEntryId, status])
+  @@index([clientId, createdAt])
+  @@index([status, createdAt])
+}
+
+/// Via assinada de uma proposta ou documento, enviada pelo cliente no portal (PDF assinado no assinador gov.br).
+/// Arquivo limitado a 8 MB e a 5 envios por documento; o conteúdo só é lido no download.
+model SignedDocument {
+  id                String          @id @default(cuid())
+  clientId          String
+  quoteId           String?
+  documentId        String?
+  fileName          String
+  byteSize          Int
+  sha256            String
+  /// O PDF traz um campo de assinatura digital (/ByteRange), como os assinados no gov.br.
+  signatureDetected Boolean
+  data              Bytes
+  uploadedBy        String?
+  createdAt         DateTime        @default(now())
+  client            Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  quote             Quote?          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  document          ClientDocument? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId, createdAt])
+  @@index([documentId, createdAt])
+  @@index([clientId, createdAt])
 }

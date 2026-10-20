@@ -1,8 +1,10 @@
 import { getClientDocumentUpdatedAt, saveClientDocument } from "@/features/documents/services/client-document-service";
 import { QUOTE_DOCUMENT_MAX_JSON_LENGTH } from "@/features/quotes/types/document-content";
+import { getManagementUser } from "@/features/auth/services/auth-session";
 
 /** Data da última gravação do documento: o editor confere se a versão na tela é a mais recente. */
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await getManagementUser())) return Response.json({ error: "Não autorizado." }, { status: 403 });
   const { id } = await params;
   const updatedAt = await getClientDocumentUpdatedAt(id.slice(0, 50));
   if (!updatedAt) return Response.json({ error: "Documento não encontrado." }, { status: 404 });
@@ -11,6 +13,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 /** Salvamento automático do editor do documento. */
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await getManagementUser())) return Response.json({ error: "Não autorizado." }, { status: 403 });
   const { id } = await params;
   const body = await request.text();
   if (!body || body.length > QUOTE_DOCUMENT_MAX_JSON_LENGTH) return Response.json({ error: "Documento grande demais para salvar." }, { status: 413 });

@@ -4,7 +4,7 @@ import { UserRole } from "@prisma/client";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getAuthPortal } from "@/features/auth/services/auth-host";
+import { portalForRequest } from "@/features/auth/services/auth-host";
 import { createAuthenticatedSession, destroyAuthenticatedSession, getAuthenticatedUser, isManagementRole } from "@/features/auth/services/auth-session";
 import { hashPassword, verifyPassword } from "@/features/auth/services/passwords";
 import { isAuthSecretConfigured } from "@/features/auth/services/session-token";
@@ -42,7 +42,7 @@ async function ensureLocalTestAccount() {
 
 export async function loginAction(formData: FormData) {
   const requestHeaders = await headers();
-  const portal = getAuthPortal(requestHeaders.get("host"));
+  const portal = portalForRequest(requestHeaders);
   if (portal === "landing") redirect("/");
 
   const email = formText(formData, "email", 254).toLowerCase();
@@ -77,7 +77,7 @@ export async function loginAction(formData: FormData) {
 
 export async function logoutAction() {
   const requestHeaders = await headers();
-  const portal = getAuthPortal(requestHeaders.get("host"));
+  const portal = portalForRequest(requestHeaders);
   const current = await getAuthenticatedUser();
   await destroyAuthenticatedSession();
   if (current) await logEvent({ event: "auth.logout", message: `Saída de ${current.user.name}.`, actorEmail: current.user.email });

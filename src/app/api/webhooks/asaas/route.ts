@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { hashToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
+import { reversePortalCharge, settlePortalCharge } from "@/features/client-portal/services/portal-charges";
 
 const MAX_BODY_LENGTH = 128_000;
 const paidEvents = new Set(["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED_IN_CASH"]);
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_LENGTH) return NextResponse.json({ error: "Payload muito grande" }, { status: 413 });
   const raw = await request.text();
   if (Buffer.byteLength(raw, "utf8") > MAX_BODY_LENGTH) return NextResponse.json({ error: "Payload muito grande" }, { status: 413 });
-  let body: { id?: string; event?: string; payment?: { id?: string; value?: number } };
+  let body: { id?: string; event?: string; payment?: { id?: string; value?: number; paymentDate?: string | null; confirmedDate?: string | null; clientPaymentDate?: string | null } };
   try { body = JSON.parse(raw); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
   if (!body.id || !body.event) return NextResponse.json({ error: "Evento inválido" }, { status: 400 });
   const event = await prisma.gatewayEvent.upsert({
@@ -31,6 +32,9 @@ export async function POST(request: Request) {
   if (body.payment?.id) {
     const status = paidEvents.has(body.event) ? "PAID" : cancelledEvents.has(body.event) ? "CANCELLED" : body.event === "PAYMENT_OVERDUE" ? "OVERDUE" : null;
     if (status) await prisma.charge.updateMany({ where: { asaasPaymentId: body.payment.id }, data: { status, ...(status === "PAID" ? { paidAt: new Date() } : {}) } });
+    // Cobranças do portal do cliente também registram (ou desfazem) o recebimento no Financeiro.
+    if (status === "PAID") await settlePortalCharge(body.payment.id, { valueCents: body.payment.value ? Math.round(body.payment.value * 100) : null, paidOn: body.payment.clientPaymentDate ?? body.payment.paymentDate ?? body.payment.confirmedDate });
+    if (status === "CANCELLED") await reversePortalCharge(body.payment.id);
   }
   await prisma.gatewayEvent.update({ where: { id: event.id }, data: { processedAt: new Date() } });
   return NextResponse.json({ received: true });

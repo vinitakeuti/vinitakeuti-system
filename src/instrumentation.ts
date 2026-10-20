@@ -26,7 +26,7 @@ export async function onRequestError(error: unknown, request: { path: string; me
     level: "error",
     event: "server.error",
     message: `${request.method} ${request.path}: ${message}`,
-    host: header("host"),
+    host: header("x-forwarded-host")?.split(",")[0]?.trim() || header("host"),
     ip: (header("x-forwarded-for") ?? "").split(",")[0].trim() || null,
     userAgent: header("user-agent"),
     metadata: { route: context.routePath, routeType: context.routeType, routerKind: context.routerKind, digest: digest || null, name: error instanceof Error ? error.name : null, stack: error instanceof Error ? error.stack?.split("\n").slice(0, 6).join("\n") : null },

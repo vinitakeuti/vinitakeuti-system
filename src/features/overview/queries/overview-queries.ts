@@ -22,7 +22,7 @@ export async function getOverviewData() {
   const now = new Date();
   // Os custos fixos do mês precisam existir antes do resumo.
   await ensureRecurringEntries();
-  const [finance, payments, monitoredApps, monitoring, openQuotes] = await Promise.all([
+  const [finance, payments, monitoredApps, monitoring, openQuotes, paymentNotices] = await Promise.all([
     getFinanceSummary({ from: period.from, to: period.to }),
     prisma.financialEntry.findMany({
       where: { type: FinancialEntryType.INCOME, status: FinancialEntryStatus.PENDING, dueDate: { gte: now } },
@@ -41,7 +41,9 @@ export async function getOverviewData() {
       where: { status: { in: [DocumentStatus.DRAFT, DocumentStatus.SENT] }, sale: null },
       _count: { _all: true },
     }),
+    // Avisos de pagamento do portal do cliente aguardando conferência; o mais antigo leva ao lançamento.
+    Promise.all([prisma.paymentNotice.count({ where: { status: "PENDING" } }), prisma.paymentNotice.findFirst({ where: { status: "PENDING" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { financialEntryId: true } })]).then(([count, oldest]) => ({ count, entryId: oldest?.financialEntryId ?? null })),
   ]);
 
-  return { period, finance, payments, monitoredApps, monitoring, openQuotes: openQuotes._count._all };
+  return { period, finance, payments, monitoredApps, monitoring, openQuotes: openQuotes._count._all, paymentNotices };
 }
