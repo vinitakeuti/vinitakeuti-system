@@ -1201,21 +1201,11 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
   .settings-log-detail { padding:4px 15px 14px; }
   .settings-log-detail > div { grid-template-columns:minmax(0,1fr); gap:3px; }
 }
-/* Monitoramento: guia do endpoint de saúde e resumo da última verificação. */
-.monitoring-guide { margin:0 0 20px; border:1px solid var(--line); background:var(--white); }
-.monitoring-guide summary { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 20px; cursor:pointer; list-style:none; }
-.monitoring-guide summary::-webkit-details-marker { display:none; }
-.monitoring-guide summary > span { display:grid; gap:5px; }
-.monitoring-guide summary b { color:var(--accent); font-family:var(--mono); font-size:.62rem; letter-spacing:.07em; }
-.monitoring-guide summary small { color:var(--muted); font-size:.78rem; }
-.monitoring-guide summary strong { color:var(--accent); font-family:var(--mono); font-size:.6rem; letter-spacing:.05em; }
-.monitoring-guide[open] summary { border-bottom:1px solid var(--line); }
-.monitoring-guide[open] summary strong { visibility:hidden; }
-.monitoring-guide-body { display:grid; gap:14px; padding:16px 20px 20px; }
-.monitoring-guide-actions { display:flex; align-items:center; justify-content:space-between; gap:16px; }
-.monitoring-guide-actions p { max-width:640px; margin:0; color:var(--muted); font-size:.8rem; line-height:1.5; }
-.monitoring-guide pre { max-height:460px; margin:0; overflow:auto; padding:16px; border:1px solid var(--line); background:#f8faf8; color:var(--ink); font-family:var(--mono); font-size:.7rem; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+/* Monitoramento: link discreto para o guia do endpoint, página do guia e resumo da última verificação. */
+.monitor-guide-link { color:var(--muted); font-family:var(--mono); font-size:.55rem; letter-spacing:.05em; text-decoration:none; white-space:nowrap; }
+.monitor-guide-link:hover { color:var(--accent); }
+.monitoring-guide-text { margin:0; padding:20px 22px; border:1px solid var(--line); background:var(--white); color:var(--ink); font-family:var(--mono); font-size:.72rem; line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; }
 .monitor-check-summary { display:block; margin-top:10px; overflow:hidden; color:var(--muted); font-family:var(--mono); font-size:.58rem; letter-spacing:.02em; text-overflow:ellipsis; white-space:nowrap; }
 .monitor-last-check { display:grid; gap:5px; margin:0 0 20px; padding:13px 16px; border:1px solid var(--line); background:var(--white); font-family:var(--mono); font-size:.68rem; overflow-wrap:anywhere; }
 .monitor-last-check span { color:var(--accent); font-size:.56rem; letter-spacing:.06em; }
-@media (max-width:640px) { .monitoring-guide summary { align-items:flex-start; padding:14px 15px; }.monitoring-guide-body { padding:14px 15px 16px; }.monitoring-guide-actions { display:grid; }.monitoring-guide-actions button { width:100%; } }
+@media (max-width:640px) { .monitoring-guide-text { padding:14px 15px; font-size:.66rem; } }

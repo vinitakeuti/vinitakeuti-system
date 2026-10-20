@@ -5,7 +5,6 @@ import { SidebarToggle } from "@/components/sidebar-toggle";
 import { ClientPicker } from "@/features/clients/components/client-picker";
 import { DeleteMonitoredAppButton } from "@/features/monitoring/components/delete-monitored-app-button";
 import { getMonitoredApp } from "@/features/monitoring/queries/monitoring-queries";
-import { MonitoringGuide } from "@/features/monitoring/components/monitoring-guide";
 import { deleteMonitoredApp, updateMonitoredApp } from "@/features/monitoring/services/monitoring-actions";
 import { monitoringEnvironments, monitoringStatusClass, monitoringStatusLabel } from "@/features/monitoring/types/monitoring-labels";
 
@@ -19,7 +18,7 @@ export default async function MonitoredAppPage({ params, searchParams }: { param
   if (!app) notFound();
 
   return <main className="app-shell"><AppSidebar current="monitoring" /><div className="workspace"><section className="directory-page form-page">
-    <header className="directory-header"><div><p className="eyebrow">MONITORAMENTO / SISTEMA</p><h1>{app.name}</h1><p><span className={`monitoring-status monitoring-status-${monitoringStatusClass[app.status]}`}><i />{monitoringStatusLabel[app.status]}</span> · {app.lastCheckedAt ? `Última verificação em ${date.format(app.lastCheckedAt)}${app.lastResponseMs !== null ? ` · ${app.lastResponseMs} ms` : ""}` : "Ainda não verificado"}</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href="/monitoramento">VOLTAR PARA MONITORAMENTO</Link></div></header>
+    <header className="directory-header"><div><p className="eyebrow">MONITORAMENTO / SISTEMA</p><h1>{app.name}</h1><p><span className={`monitoring-status monitoring-status-${monitoringStatusClass[app.status]}`}><i />{monitoringStatusLabel[app.status]}</span> · {app.lastCheckedAt ? `Última verificação em ${date.format(app.lastCheckedAt)}${app.lastResponseMs !== null ? ` · ${app.lastResponseMs} ms` : ""}` : "Ainda não verificado"}</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="monitor-guide-link" href={`/monitoramento/guia?sistema=${app.id}`} title="Guia do endpoint de saúde, preenchido com os dados deste sistema">GUIA DO ENDPOINT</Link><Link className="text-link" href="/monitoramento">VOLTAR PARA MONITORAMENTO</Link></div></header>
     <form className="client-form" action={updateMonitoredApp}>
       <input type="hidden" name="id" value={app.id} />
       {error ? <p className="form-error" role="alert">{error}</p> : null}
@@ -29,7 +28,6 @@ export default async function MonitoredAppPage({ params, searchParams }: { param
       <div className="form-actions"><Link className="text-link" href="/monitoramento">CANCELAR</Link><button className="primary-action" type="submit">SALVAR SISTEMA</button></div>
     </form>
     {app.lastCheckSummary ? <p className="monitor-last-check"><span>ÚLTIMA VERIFICAÇÃO</span>{app.lastCheckSummary}</p> : null}
-    <MonitoringGuide systemName={app.name} siteUrl={app.url} healthUrl={app.healthEndpoint} />
     <section className="service-record-actions"><div><p className="eyebrow">GESTÃO DO REGISTRO</p><p>Ao remover, o sistema deixa de ser monitorado e o histórico de verificações é apagado. O cliente vinculado não é alterado.</p></div><DeleteMonitoredAppButton id={app.id} action={deleteMonitoredApp} /></section>
   </section></div></main>;
 }
