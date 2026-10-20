@@ -1,6 +1,7 @@
 import { MonitoringEventType, MonitoringStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { monitoringRules } from "@/lib/monitoring";
+import { formatDuration, sendMonitoringEmail } from "@/features/monitoring/services/monitoring-alerts";
 
 type CheckResult = {
   status: MonitoringStatus;
@@ -46,6 +47,31 @@ function summarize(result: { statusCode?: number; responseMs: number; report?: H
   return [result.statusCode ? `HTTP ${result.statusCode}` : null, `${result.responseMs} ms`, ...checks, version, result.note].filter(Boolean).join(" · ").slice(0, 500);
 }
 
+const CONNECTION_ERRORS: Record<string, string> = {
+  ENOTFOUND: "domínio não encontrado (DNS)",
+  EAI_AGAIN: "falha temporária de DNS",
+  ECONNREFUSED: "conexão recusada pelo servidor",
+  ECONNRESET: "conexão interrompida pelo servidor",
+  EHOSTUNREACH: "servidor inalcançável",
+  ETIMEDOUT: "tempo de conexão esgotado",
+  UND_ERR_CONNECT_TIMEOUT: "tempo de conexão esgotado",
+  CERT_HAS_EXPIRED: "certificado HTTPS vencido",
+  ERR_TLS_CERT_ALTNAME_INVALID: "certificado HTTPS de outro domínio",
+  DEPTH_ZERO_SELF_SIGNED_CERT: "certificado HTTPS autoassinado",
+  SELF_SIGNED_CERT_IN_CHAIN: "certificado HTTPS autoassinado",
+  UNABLE_TO_VERIFY_LEAF_SIGNATURE: "cadeia do certificado HTTPS incompleta",
+  ERR_SSL_WRONG_VERSION_NUMBER: "o endereço não responde HTTPS nesta porta",
+};
+
+/** Motivo legível de uma falha de conexão ("fetch failed" esconde a causa real em error.cause). */
+function describeConnectionError(error: unknown) {
+  if (!(error instanceof Error)) return "falha ao conectar ao endpoint";
+  if (error.name === "TimeoutError") return `sem resposta em ${monitoringRules.timeoutMs / 1000} s`;
+  const cause = (error as Error & { cause?: { code?: string; message?: string } }).cause;
+  if (cause?.code && CONNECTION_ERRORS[cause.code]) return CONNECTION_ERRORS[cause.code];
+  return (cause?.code ? `${cause.code}${cause.message ? `: ${cause.message}` : ""}` : error.message).slice(0, 200);
+}
+
 /**
  * Verifica o endpoint. Com o relatório do guia, o status vem do campo "status" e das dependências em "checks";
  * sem ele (sistemas antigos), vale o código HTTP. Respostas saudáveis mais lentas que o limite contam como degradadas.
@@ -80,7 +106,7 @@ async function checkEndpoint(endpoint: string): Promise<CheckResult> {
     return { status, responseMs, statusCode: response.status, report, details: summarize({ statusCode: response.status, responseMs, report, note }) };
   } catch (error) {
     const responseMs = Date.now() - startedAt;
-    const reason = error instanceof Error ? (error.name === "TimeoutError" ? `sem resposta em ${monitoringRules.timeoutMs / 1000} s` : error.message.slice(0, 200)) : "falha ao conectar ao endpoint";
+    const reason = describeConnectionError(error);
     return { status: MonitoringStatus.DOWN, responseMs, details: `${responseMs} ms · ${reason}` };
   }
 }
@@ -93,18 +119,32 @@ function eventTitle(status: MonitoringStatus) {
   return status === MonitoringStatus.OPERATIONAL ? "Monitoramento normalizado" : status === MonitoringStatus.DEGRADED ? "Resposta degradada detectada" : "Aplicação indisponível";
 }
 
-export async function checkMonitoredApp(id: string) {
+const CONFIRMATION_DELAY_MS = 15_000;
+
+/**
+ * Verifica um sistema, grava a verificação no histórico e trata mudanças de status: abre e fecha incidentes
+ * (com a duração) e envia os e-mails de "fora do ar" e "voltou". Com `confirmFailures` (verificação automática),
+ * uma queda só é declarada depois de uma segunda tentativa, para evitar alarme falso por oscilação de rede.
+ */
+export async function checkMonitoredApp(id: string, { confirmFailures = false } = {}) {
   const app = await prisma.monitoredApp.findUnique({
     where: { id },
     select: { id: true, name: true, url: true, healthEndpoint: true, status: true },
   });
   if (!app) throw new Error("Aplicação monitorada não encontrada.");
 
-  const result = await checkEndpoint(endpointFor(app));
+  const endpoint = endpointFor(app);
+  let result = await checkEndpoint(endpoint);
+  if (confirmFailures && result.status === MonitoringStatus.DOWN && app.status !== MonitoringStatus.DOWN) {
+    await new Promise((resolve) => setTimeout(resolve, CONFIRMATION_DELAY_MS));
+    result = await checkEndpoint(endpoint);
+  }
   const now = new Date();
   const changed = app.status !== result.status;
+  const metadata = { statusCode: result.statusCode ?? null, responseMs: result.responseMs, checks: (result.report?.checks ?? null) as object | null, version: typeof result.report?.version === "string" ? result.report.version : null };
 
-  await prisma.$transaction(async (transaction) => {
+  const transition = await prisma.$transaction(async (transaction) => {
+    await transaction.monitoringCheck.create({ data: { monitoredAppId: app.id, status: result.status, responseMs: result.responseMs, statusCode: result.statusCode ?? null, summary: result.details ?? null, checkedAt: now } });
     await transaction.monitoredApp.update({
       where: { id: app.id },
       data: {
@@ -115,28 +155,44 @@ export async function checkMonitoredApp(id: string) {
         ...(result.status === MonitoringStatus.DOWN && app.status !== MonitoringStatus.DOWN ? { lastIncidentAt: now } : {}),
       },
     });
+    if (!changed) return null;
 
-    if (!changed) return;
+    // Fecha o incidente em aberto (queda ou degradação) e mede quanto durou.
+    const open = await transaction.monitoringEvent.findFirst({ where: { monitoredAppId: app.id, type: MonitoringEventType.UPTIME, resolvedAt: null, severity: { not: "info" } }, orderBy: { occurredAt: "asc" }, select: { occurredAt: true } });
+    await transaction.monitoringEvent.updateMany({ where: { monitoredAppId: app.id, type: MonitoringEventType.UPTIME, resolvedAt: null }, data: { resolvedAt: now } });
+    const durationMs = open ? now.getTime() - open.occurredAt.getTime() : null;
 
-    if (result.status === MonitoringStatus.OPERATIONAL) {
-      await transaction.monitoringEvent.updateMany({
-        where: { monitoredAppId: app.id, type: MonitoringEventType.UPTIME, resolvedAt: null },
-        data: { resolvedAt: now },
+    // A primeira verificação de um sistema novo (status desconhecido) não é "normalização".
+    if (result.status !== MonitoringStatus.OPERATIONAL || app.status !== MonitoringStatus.UNKNOWN) {
+      await transaction.monitoringEvent.create({
+        data: {
+          monitoredAppId: app.id,
+          type: MonitoringEventType.UPTIME,
+          severity: eventSeverity(result.status),
+          title: eventTitle(result.status),
+          details: [result.details, durationMs !== null && result.status === MonitoringStatus.OPERATIONAL ? `${app.status === MonitoringStatus.DOWN ? "fora do ar" : "degradado"} por ${formatDuration(durationMs)}` : null].filter(Boolean).join(" · ") || null,
+          metadata: { ...metadata, previousStatus: app.status, durationMs },
+          occurredAt: now,
+          ...(result.status === MonitoringStatus.OPERATIONAL ? { resolvedAt: now } : {}),
+        },
       });
     }
-
-    await transaction.monitoringEvent.create({
-      data: {
-        monitoredAppId: app.id,
-        type: MonitoringEventType.UPTIME,
-        severity: eventSeverity(result.status),
-        title: eventTitle(result.status),
-        details: result.details ?? null,
-        metadata: { statusCode: result.statusCode ?? null, responseMs: result.responseMs, checks: (result.report?.checks ?? null) as object | null, version: typeof result.report?.version === "string" ? result.report.version : null },
-        occurredAt: now,
-      },
-    });
+    return { from: app.status, to: result.status, durationMs };
   });
 
+  if (transition) await alertTransition(app, transition, result.details ?? null);
   return result;
+}
+
+/** E-mail de queda (na hora) e de volta (com o tempo fora do ar). Degradações aparecem no resumo diário. */
+async function alertTransition(app: { id: string; name: string; url: string | null }, transition: { from: MonitoringStatus; to: MonitoringStatus; durationMs: number | null }, details: string | null) {
+  const path = `/monitoramento/${app.id}`;
+  if (transition.to === MonitoringStatus.DOWN) {
+    // O lembrete (a cada 6 h enquanto continuar fora) conta a partir desta tentativa de aviso.
+    await sendMonitoringEmail({ critical: true, subject: `Fora do ar: ${app.name}`, title: `${app.name} está fora do ar.`, lines: [app.url ? `Endereço: ${app.url}` : "", details ? `Última verificação: ${details}` : "", "A queda foi confirmada em duas tentativas. Você recebe outro aviso quando o sistema voltar."].filter(Boolean), path });
+    await prisma.monitoredApp.update({ where: { id: app.id }, data: { lastAlertAt: new Date() } });
+  } else if (transition.from === MonitoringStatus.DOWN) {
+    await sendMonitoringEmail({ subject: `Voltou: ${app.name}${transition.durationMs !== null ? ` (fora por ${formatDuration(transition.durationMs)})` : ""}`, title: `${app.name} voltou a responder.`, lines: [transition.durationMs !== null ? `Ficou fora do ar por ${formatDuration(transition.durationMs)}.` : "", details ? `Verificação: ${details}` : "", transition.to === MonitoringStatus.DEGRADED ? "Atenção: voltou, mas ainda está degradado." : ""].filter(Boolean), path });
+    await prisma.monitoredApp.update({ where: { id: app.id }, data: { lastAlertAt: null } });
+  }
 }

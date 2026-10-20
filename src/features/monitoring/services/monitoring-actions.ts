@@ -71,8 +71,8 @@ export async function createMonitoredApp(formData: FormData) {
 export async function updateMonitoredApp(formData: FormData) {
   const id = text(formData.get("id"), 50);
   if (!id) redirect("/monitoramento");
-  const fail = (message: string): never => redirect(withParams(`/monitoramento/${id}`, { error: message }));
-  const current = await prisma.monitoredApp.findUnique({ where: { id }, select: { id: true, clientId: true } });
+  const fail = (message: string): never => redirect(withParams(`/monitoramento/${id}`, { aba: "configuracao", error: message }));
+  const current = await prisma.monitoredApp.findUnique({ where: { id }, select: { id: true, clientId: true, url: true, healthEndpoint: true, domainName: true } });
   if (!current) redirect("/monitoramento?error=Sistema%20n%C3%A3o%20encontrado.");
   const fields = systemFields(formData);
   if (!fields.name) fail("Informe o nome do sistema.");
@@ -81,10 +81,20 @@ export async function updateMonitoredApp(formData: FormData) {
   if (!client.ok) fail("O cliente selecionado não foi encontrado.");
   const clientId = client.ok ? client.clientId : null;
 
-  await prisma.monitoredApp.update({ where: { id: current.id }, data: { ...fields, name: fields.name!, clientId }, select: { id: true } });
+  // Domínio para o aviso de vencimento: o informado à mão ou, vazio, o calculado a partir do endereço.
+  const domainText = text(formData.get("domainName"), 253)?.toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "") ?? null;
+  if (domainText && !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domainText)) fail("Informe o domínio no formato cliente.com.br.");
+  const addressChanged = fields.url !== current.url || fields.healthEndpoint !== current.healthEndpoint;
+  const domainChanged = domainText !== current.domainName;
+  await prisma.monitoredApp.update({ where: { id: current.id }, data: {
+    ...fields, name: fields.name!, clientId, domainName: domainText,
+    // Endereço ou domínio novos: certificado e vencimento são conferidos de novo na próxima rodada.
+    ...(addressChanged ? { sslCheckedAt: null, sslExpiresAt: null, sslIssuer: null, sslError: null, sslAlertedDays: null, nextCheckAt: null } : {}),
+    ...(addressChanged || domainChanged ? { domainCheckedAt: null, domainExpiresAt: null, domainError: null, domainAlertedDays: null } : {}),
+  }, select: { id: true } });
   revalidateSystem([current.clientId, clientId]);
   revalidatePath(`/monitoramento/${current.id}`);
-  redirect(withParams(`/monitoramento/${current.id}`, { updated: "1" }));
+  redirect(withParams(`/monitoramento/${current.id}`, { aba: "configuracao", updated: "1" }));
 }
 
 export async function checkMonitoredAppAction(formData: FormData) {
@@ -98,6 +108,8 @@ export async function checkMonitoredAppAction(formData: FormData) {
   }
   const app = await prisma.monitoredApp.findUnique({ where: { id }, select: { clientId: true } });
   revalidateSystem([app?.clientId]);
+  revalidatePath(`/monitoramento/${id}`);
+  if (text(formData.get("returnTo"), 20) === "detail") redirect(`/monitoramento/${id}?checked=1`);
   redirect(withParams("/monitoramento", { cliente: filterClientId, checked: "1" }));
 }
 

@@ -14,6 +14,10 @@ type MonitoredAppCardData = {
   lastResponseMs: number | null;
   lastIncidentAt: Date | null;
   lastCheckSummary: string | null;
+  sslExpiresAt: Date | null;
+  sslError: string | null;
+  domainName: string | null;
+  domainExpiresAt: Date | null;
   client: { id: string; name: string; company: string | null } | null;
 };
 
@@ -41,6 +45,17 @@ function healthPath(health: string, base: string | null) {
   } catch { return health; }
 }
 
+/** Avisos de vencimento que pedem atenção (até 30 dias) ou certificado com problema. */
+function expiryWarnings(app: MonitoredAppCardData, now: Date) {
+  const days = (date: Date | null) => date ? Math.floor((date.getTime() - now.getTime()) / 86_400_000) : null;
+  const ssl = days(app.sslExpiresAt);
+  const domain = days(app.domainExpiresAt);
+  return [
+    app.sslError ? `Certificado: ${app.sslError}` : ssl !== null && ssl <= 30 ? (ssl < 0 ? "Certificado vencido" : `Certificado vence em ${ssl} ${ssl === 1 ? "dia" : "dias"}`) : null,
+    domain !== null && domain <= 30 ? (domain < 0 ? `Domínio ${app.domainName ?? ""} vencido` : `Domínio vence em ${domain} ${domain === 1 ? "dia" : "dias"}`) : null,
+  ].filter(Boolean) as string[];
+}
+
 /** Cartão de um sistema: identidade e status no topo, três números da última verificação e um rodapé com cliente e ações. */
 export function MonitoredAppCard({ app, incidents30d, now, filterClientId }: { app: MonitoredAppCardData; incidents30d: number; now: Date; filterClientId?: string }) {
   const statusKey = monitoringStatusClass[app.status];
@@ -61,6 +76,7 @@ export function MonitoredAppCard({ app, incidents30d, now, filterClientId }: { a
         <div className={incidents30d ? "has-incidents" : undefined}><dt>Incidentes 30d</dt><dd title={app.lastIncidentAt ? `Última indisponibilidade em ${fullDateTime.format(app.lastIncidentAt)}` : undefined}>{incidents30d}{incidents30d && app.lastIncidentAt ? <small>último {shortDateTime.format(app.lastIncidentAt)}</small> : null}</dd></div>
       </dl>
       {app.lastCheckSummary ? <small className="monitor-check-summary" title={app.lastCheckSummary}>{app.lastCheckSummary}</small> : null}
+      {expiryWarnings(app, now).map((warning) => <small key={warning} className="monitor-expiry-warning">{warning}</small>)}
     </div>
     <footer className="monitor-card-foot">
       <div className="monitor-client">{app.client ? <Link href={`/monitoramento?cliente=${app.client.id}`} title="Ver sistemas deste cliente"><b>{app.client.name}</b>{app.client.company ? <span>{app.client.company}</span> : null}</Link> : <span className="is-empty">Sem cliente</span>}</div>

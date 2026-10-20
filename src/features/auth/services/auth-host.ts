@@ -29,3 +29,8 @@ export function portalLabel(portal: AuthPortal) {
 export function clientPortalUrl() {
   return `https://${configuredHost("CLIENT_PORTAL_HOST", "clientes.viniciusriudi.com")}`;
 }
+
+/** Endereço público da gestão, para links em e-mails de alerta. */
+export function managementUrl(path = "") {
+  return `https://${configuredHost("MANAGEMENT_HOST", "gestao.viniciusriudi.com")}${path}`;
+}

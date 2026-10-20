@@ -34,6 +34,16 @@ Em produção, as contas da gestão são cadastradas diretamente no banco de dad
 
 O envio de e-mails usa SMTP. Defina no serviço do Easypanel: `SMTP_HOST`, `SMTP_PORT` (465 ou 587), `SMTP_SECURE` (`true` para a porta 465), `SMTP_USER`, `SMTP_PASSWORD` e `EMAIL_FROM` (por exemplo, `Vinicius Riudi <contato@viniciusriudi.com>`). Em Configurações > E-mail dá para testar a conexão, enviar um e-mail de teste e ver o registro de cada envio.
 
+### Monitoramento automático
+
+Ao subir o servidor de produção, o monitoramento passa a rodar sozinho:
+- verifica cada sistema a cada 5 minutos, confirmando a queda numa segunda tentativa;
+- confere o certificado HTTPS a cada 12 horas e o vencimento do domínio (pelo RDAP) a cada 24 horas;
+- envia e-mails de "fora do ar", "voltou", lembretes a cada 6 horas e avisos de vencimento aos 30, 7 e 1 dia;
+- envia um resumo diário às 8h.
+
+Os alertas vão para `MONITORING_ALERT_EMAIL` ou, se ela não estiver definida, para o e-mail do Perfil profissional, e dependem do SMTP configurado. `MONITORING_SCHEDULER=off` desliga o ciclo em produção; no ambiente local ele só roda com `MONITORING_SCHEDULER=on`.
+
 ### Logs do sistema
 
 Logins, trocas de senha, acessos ao portal, envios de e-mail e erros do servidor ficam em Configurações > Logs do sistema, separados por origem (gestão, portal do cliente, sistema) e nível, por 90 dias.

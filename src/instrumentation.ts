@@ -1,4 +1,15 @@
-export async function register() {}
+/**
+ * Ao subir o servidor, inicia o ciclo do monitoramento (verificações automáticas, certificados, domínios, alertas e
+ * resumo diário). Em produção, liga por padrão (MONITORING_SCHEDULER=off desliga); no ambiente local, só com MONITORING_SCHEDULER=on.
+ */
+export async function register() {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const flag = process.env.MONITORING_SCHEDULER?.trim();
+  const enabled = process.env.NODE_ENV === "production" ? flag !== "off" : flag === "on";
+  if (!enabled) return;
+  const { startMonitoringScheduler } = await import("@/features/monitoring/services/monitoring-scheduler");
+  startMonitoringScheduler();
+}
 
 /**
  * Erros não tratados em páginas, rotas de API e ações do servidor viram eventos de nível "error" nos logs

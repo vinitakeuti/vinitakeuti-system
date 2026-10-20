@@ -66,60 +66,34 @@ O Monitoramento da VR Gestão consulta este endpoint periodicamente para saber s
 - O endpoint é público: não aceite parâmetros que mudem o comportamento nem execute nada além das verificações.
 - Não registre cada chamada como log de informação (gera ruído); registre só quando o status mudar ou houver falha.
 
-## Exemplo: Next.js (App Router) com Prisma
-// app/api/health/route.ts
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+## Como implementar (qualquer linguagem ou framework)
+Use a forma idiomática da linguagem e do framework do projeto (rota/controlador HTTP, cliente do banco já existente, configuração já usada para variáveis de ambiente). Não adicione dependências novas só para isso. A lógica, em pseudocódigo:
 
-export const dynamic = "force-dynamic";
-const startedAt = Date.now();
+  ao iniciar o processo: guardar o horário de início (para uptimeSeconds)
 
-type Check = { status: "ok" | "degraded" | "down"; latencyMs: number; critical: boolean; message?: string };
+  função verificar(nome, crítica, tarefa):
+    início = agora
+    tentar executar tarefa com limite de 2 segundos
+      latência = agora - início
+      retornar { status: (latência > 1000 ? "degraded" : "ok"), latencyMs: latência, critical: crítica }
+    se falhar ou estourar o limite:
+      retornar { status: "down", latencyMs: agora - início, critical: crítica, message: "timeout" ou "falha de conexão" }
 
-async function timed(critical: boolean, run: () => Promise<unknown>): Promise<Check> {
-  const start = Date.now();
-  try {
-    await Promise.race([run(), new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 2000))]);
-    const latencyMs = Date.now() - start;
-    return { status: latencyMs > 1000 ? "degraded" : "ok", latencyMs, critical };
-  } catch (error) {
-    return { status: "down", latencyMs: Date.now() - start, critical, message: error instanceof Error && error.message === "timeout" ? "timeout" : "falha de conexão" };
-  }
-}
+  rota GET /api/health:
+    checks = executar EM PARALELO:
+      database = verificar("database", crítica = sim, "SELECT 1" no banco principal)
+      ... uma entrada para cada dependência real do sistema (cache, fila, storage, serviços externos)
+    status geral =
+      "down"     se alguma verificação crítica estiver "down"
+      "degraded" se alguma outra não estiver "ok"
+      "ok"       nos demais casos
+    responder JSON no formato acima, com Cache-Control: no-store
+      e código HTTP 503 se o status geral for "down", senão 200
 
-export async function GET() {
-  const checks = {
-    database: await timed(true, () => prisma.$queryRaw\`SELECT 1\`),
-    // cache: await timed(false, () => redis.ping()),
-  };
-  const values = Object.values(checks);
-  const status = values.some((check) => check.critical && check.status === "down") ? "down"
-    : values.some((check) => check.status !== "ok") ? "degraded" : "ok";
-  return NextResponse.json({
-    status,
-    service: "${name}",
-    version: process.env.APP_VERSION ?? process.env.npm_package_version ?? "desconhecida",
-    environment: process.env.NODE_ENV,
-    uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
-    timestamp: new Date().toISOString(),
-    checks,
-  }, { status: status === "down" ? 503 : 200, headers: { "Cache-Control": "no-store" } });
-}
+  rota HEAD /api/health: mesmo cálculo, só o código HTTP, sem corpo
 
-export async function HEAD() {
-  const response = await GET();
-  return new Response(null, { status: response.status, headers: { "Cache-Control": "no-store" } });
-}
-
-(Para várias verificações, use Promise.all em vez de await em sequência.)
-
-## Exemplo: Express
-app.get("/api/health", async (req, res) => {
-  const checks = { database: await timed(true, () => pool.query("SELECT 1")) };
-  const values = Object.values(checks);
-  const status = values.some((c) => c.critical && c.status === "down") ? "down" : values.some((c) => c.status !== "ok") ? "degraded" : "ok";
-  res.set("Cache-Control", "no-store").status(status === "down" ? 503 : 200).json({ status, service: "${name}", version: process.env.APP_VERSION, environment: process.env.NODE_ENV, uptimeSeconds: Math.round(process.uptime()), timestamp: new Date().toISOString(), checks });
-});
+Antes de escrever o código, levante quais dependências o sistema realmente usa (banco, cache, fila, e-mail, armazenamento de arquivos, APIs de terceiros) e decida quais são críticas: o sistema deixa de funcionar sem ela? Então é crítica.
+Use a versão publicada que o projeto já tiver (variável de ambiente do deploy, arquivo de versão, tag ou SHA do commit). Se não houver nenhuma, use "desconhecida".
 
 ## Como testar antes de entregar
 1. curl -i ${health}

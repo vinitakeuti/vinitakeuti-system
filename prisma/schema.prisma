@@ -580,13 +580,30 @@ model MonitoredApp {
   lastIncidentAt    DateTime?
   /// Resumo da última verificação ("HTTP 200 · banco ok 12 ms · versão 1.4.2").
   lastCheckSummary  String?
+  /// Próxima verificação automática (o agendador reserva o sistema avançando esta data).
+  nextCheckAt       DateTime?
+  /// Último e-mail de alerta de indisponibilidade (para lembretes enquanto continuar fora).
+  lastAlertAt       DateTime?
+  sslExpiresAt      DateTime?
+  sslIssuer         String?
+  sslCheckedAt      DateTime?
+  sslError          String?
+  /// Menor aviso de vencimento já enviado (30, 7 ou 1 dia), para não repetir.
+  sslAlertedDays    Int?
+  domainName        String?
+  domainExpiresAt   DateTime?
+  domainCheckedAt   DateTime?
+  domainError       String?
+  domainAlertedDays Int?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   client            Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
   project           Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   events            MonitoringEvent[]
+  checks            MonitoringCheck[]
 
   @@index([status, lastCheckedAt])
+  @@index([nextCheckAt])
   @@index([clientId, createdAt, id])
 }
 
@@ -670,4 +687,26 @@ model SystemLog {
   @@index([createdAt, id])
   @@index([source, level, createdAt])
   @@index([event, createdAt])
+}
+
+/// Cada verificação de um sistema monitorado (manual ou automática), para uptime e tempo de resposta. Retenção de 90 dias.
+model MonitoringCheck {
+  id             String           @id @default(cuid())
+  monitoredAppId String
+  status         MonitoringStatus
+  responseMs     Int
+  statusCode     Int?
+  summary        String?
+  checkedAt      DateTime         @default(now())
+  monitoredApp   MonitoredApp     @relation(fields: [monitoredAppId], references: [id], onDelete: Cascade)
+
+  @@index([monitoredAppId, checkedAt])
+  @@index([checkedAt])
+}
+
+/// Estado das tarefas agendadas (por exemplo, a data do último resumo diário enviado).
+model SchedulerState {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
