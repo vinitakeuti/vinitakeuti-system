@@ -578,6 +578,8 @@ model MonitoredApp {
   lastCheckedAt     DateTime?
   lastResponseMs    Int?
   lastIncidentAt    DateTime?
+  /// Resumo da última verificação ("HTTP 200 · banco ok 12 ms · versão 1.4.2").
+  lastCheckSummary  String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   client            Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
@@ -629,4 +631,43 @@ model GatewayEvent {
 
   @@index([provider, receivedAt])
   @@index([providerPaymentId])
+}
+
+/// Envios de e-mail (testes e, depois, os automáticos), com o resultado do servidor SMTP.
+model EmailLog {
+  id          String   @id @default(cuid())
+  kind        String
+  status      String
+  toAddress   String
+  subject     String
+  messageId   String?
+  /// Resposta do servidor SMTP ou diagnóstico da conexão (limitado).
+  response    String?
+  error       String?
+  durationMs  Int?
+  actorEmail  String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt, id])
+  @@index([status, createdAt])
+}
+
+/// Eventos da aplicação (logins, senhas, acessos, envios e erros), separados por origem e nível.
+/// Append-only, com retenção de 90 dias.
+model SystemLog {
+  id         String   @id @default(cuid())
+  source     String
+  level      String
+  event      String
+  message    String
+  actorEmail String?
+  ip         String?
+  userAgent  String?
+  /// Detalhes pequenos e sem segredos.
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt, id])
+  @@index([source, level, createdAt])
+  @@index([event, createdAt])
 }

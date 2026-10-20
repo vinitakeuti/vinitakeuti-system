@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
 import { hashPassword } from "@/features/auth/services/passwords";
+import { logEvent } from "@/features/system-logs/services/system-log";
 
 export type PortalAccessState =
   | { status: "idle" }
@@ -41,7 +42,8 @@ function isEmailTaken(error: unknown) {
  * nova senha, desativar, reativar ou trocar o e-mail. A senha gerada aparece uma única vez, para ser enviada ao cliente.
  */
 export async function portalAccessAction(_previous: PortalAccessState, formData: FormData): Promise<PortalAccessState> {
-  await requireManagementUser();
+  const actor = await requireManagementUser();
+  const audit = (event: string, message: string, metadata?: Record<string, unknown>) => logEvent({ event, message, actorEmail: actor.email, metadata: { clientId, ...metadata } });
   const clientId = text(formData, "clientId", 50);
   const intent = text(formData, "intent", 20);
   const client = clientId ? await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, name: true } }) : null;
@@ -60,6 +62,7 @@ export async function portalAccessAction(_previous: PortalAccessState, formData:
       if (isEmailTaken(error)) return { status: "error", message: "Este e-mail já é usado por outra conta." };
       throw error;
     }
+    await audit("portal.access.created", `Acesso ao portal criado para ${client.name} (${email}).`);
     revalidatePath(profilePath);
     return { status: "password", email, password, created: true };
   }
@@ -74,6 +77,7 @@ export async function portalAccessAction(_previous: PortalAccessState, formData:
       prisma.user.update({ where: { id: access.id }, data: { passwordHash: await hashPassword(password), isActive: true } }),
       prisma.authSession.deleteMany({ where: { userId: access.id } }),
     ]);
+    await audit("portal.access.password_reset", `Nova senha gerada para ${client.name} (${access.email}).`);
     revalidatePath(profilePath);
     return { status: "password", email: access.email, password, created: false };
   }
@@ -84,6 +88,7 @@ export async function portalAccessAction(_previous: PortalAccessState, formData:
       prisma.user.update({ where: { id: access.id }, data: { isActive: active } }),
       ...(active ? [] : [prisma.authSession.deleteMany({ where: { userId: access.id } })]),
     ]);
+    await audit(active ? "portal.access.activated" : "portal.access.deactivated", `Acesso de ${client.name} ${active ? "reativado" : "desativado"}.`);
     revalidatePath(profilePath);
     return { status: "ok", message: active ? "Acesso reativado." : "Acesso desativado: o cliente não consegue mais entrar no portal." };
   }
@@ -97,6 +102,7 @@ export async function portalAccessAction(_previous: PortalAccessState, formData:
       if (isEmailTaken(error)) return { status: "error", message: "Este e-mail já é usado por outra conta." };
       throw error;
     }
+    await audit("portal.access.email_changed", `E-mail de acesso de ${client.name} alterado.`, { from: access.email, to: email });
     revalidatePath(profilePath);
     return { status: "ok", message: `E-mail de acesso alterado para ${email}.` };
   }

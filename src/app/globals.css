@@ -1119,3 +1119,103 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 .client-portal-password .form-error,.client-portal-password .form-success { margin:0; }
 .client-portal-password button { justify-self:start; }
 @media (max-width:760px) { .client-portal-account { grid-template-columns:minmax(0,1fr); gap:18px; padding:18px 16px; }.client-portal-password button { justify-self:stretch; } }
+/* Configurações: e-mail, senha e logs do sistema. */
+.settings-tabs { margin-bottom:20px; }
+.settings-panel { margin-bottom:20px; border:1px solid var(--line); background:var(--white); }
+.settings-panel-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; padding:20px 22px 16px; border-bottom:1px solid var(--line); }
+.settings-panel-heading h2 { margin:0; font-size:1.05rem; letter-spacing:-.03em; }
+.settings-panel-heading p { max-width:640px; margin:6px 0 0; color:var(--muted); font-size:.8rem; line-height:1.5; }
+.settings-panel-body { display:grid; gap:16px; padding:18px 22px 22px; }
+.settings-badge { flex:0 0 auto; padding:5px 8px; border:1px solid currentColor; font-family:var(--mono); font-size:.55rem; letter-spacing:.05em; }
+.settings-badge.is-ok { color:var(--accent); background:var(--accent-surface); }
+.settings-badge.is-warning { color:#8a6138; background:#f6f0e8; }
+.settings-facts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:0; border:1px solid var(--line); }
+.settings-facts > div { display:grid; gap:4px; min-width:0; padding:12px 14px; border-right:1px solid var(--line); }
+.settings-facts > div:last-child { border-right:0; }
+.settings-facts dt { color:var(--muted); font-family:var(--mono); font-size:.56rem; letter-spacing:.05em; }
+.settings-facts dd { margin:0; overflow-wrap:anywhere; font-size:.82rem; }
+.settings-note { margin:0; padding:12px 14px; border:1px solid #e3d3bd; background:#fbf6ef; color:#5b4630; font-size:.78rem; line-height:1.7; }
+.settings-note code,.settings-result code,.settings-log-detail code { font-family:var(--mono); font-size:.72rem; overflow-wrap:anywhere; }
+.settings-inline-action { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.settings-inline-action small,.settings-form-actions small { color:var(--muted); font-size:.74rem; }
+.settings-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 14px; padding-top:16px; border-top:1px solid var(--line); }
+.settings-form label,.settings-password label { display:grid; gap:6px; color:var(--muted); font-family:var(--mono); font-size:.6rem; letter-spacing:.04em; }
+.settings-form input,.settings-form textarea,.settings-password input { min-width:0; border:1px solid var(--line); border-radius:0; padding:10px; background:var(--white); color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.86rem; outline-color:var(--accent); }
+.settings-form textarea { resize:vertical; }
+.settings-form-wide { grid-column:1 / -1; }
+.settings-form-actions { grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.settings-result { display:grid; gap:6px; padding:12px 14px; border:1px solid; font-size:.82rem; }
+.settings-result.is-ok { border-color:var(--accent); background:var(--accent-surface); color:var(--accent); }
+.settings-result.is-error { border-color:#c9a191; background:#f8eeea; color:#8c4427; }
+.settings-result code { color:var(--ink); }
+.settings-password { display:grid; gap:12px; max-width:420px; }
+.settings-password input { height:42px; padding:0 11px; }
+.settings-password .form-error,.settings-password .form-success { margin:0; }
+.settings-password button { justify-self:start; }
+.settings-filter { display:flex; flex:0 0 auto; border:1px solid var(--line); }
+.settings-filter a { padding:7px 10px; border-right:1px solid var(--line); color:#3f4943; font-family:var(--mono); font-size:.55rem; letter-spacing:.05em; text-decoration:none; }
+.settings-filter a:last-child { border-right:0; }
+.settings-filter a[aria-current="true"] { background:var(--accent); color:var(--white); }
+.settings-log-summary { display:flex; flex:0 0 auto; gap:18px; margin:0; }
+.settings-log-summary div { display:grid; gap:3px; text-align:right; }
+.settings-log-summary dt { color:var(--muted); font-family:var(--mono); font-size:.52rem; letter-spacing:.05em; }
+.settings-log-summary dd { margin:0; font-size:1.05rem; font-weight:650; }
+.settings-log-summary .is-warning { color:#8a6138; }
+.settings-log-summary .is-error { color:#9a5638; }
+.settings-log-filters { display:flex; flex-wrap:wrap; align-items:end; gap:10px; padding:14px 22px; border-bottom:1px solid var(--line); }
+.settings-log-filters label { display:grid; flex:0 0 150px; gap:5px; color:var(--muted); font-family:var(--mono); font-size:.55rem; letter-spacing:.05em; }
+.settings-log-filters .settings-search { flex:1 1 240px; }
+.settings-log-filters input,.settings-log-filters select { height:36px; min-width:0; border:1px solid var(--line); border-radius:0; padding:0 9px; background:var(--white); color:var(--ink); font-size:.78rem; }
+.settings-log-filters button { height:36px; border:1px solid var(--black); background:var(--black); color:var(--white); padding:0 12px; font-family:var(--mono); font-size:.55rem; letter-spacing:.05em; cursor:pointer; }
+.settings-log-list { margin:0; padding:0; list-style:none; }
+.settings-log-list li { border-bottom:1px solid var(--line); }
+.settings-log-list li:last-child { border-bottom:0; }
+.settings-log-list summary { display:grid; grid-template-columns:150px 96px minmax(0,1fr); align-items:baseline; gap:4px 14px; padding:11px 22px; cursor:pointer; list-style:none; }
+.settings-log-list summary::-webkit-details-marker { display:none; }
+.settings-log-list summary:hover { background:#f8faf8; }
+.settings-log-list time { color:var(--muted); font-family:var(--mono); font-size:.62rem; }
+.settings-log-list summary b { overflow:hidden; font-size:.8rem; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.settings-log-list summary small { grid-column:3; color:var(--muted); font-size:.72rem; }
+.settings-level { justify-self:start; padding:3px 6px; border:1px solid currentColor; font-family:var(--mono); font-size:.5rem; letter-spacing:.04em; }
+.settings-level.is-info { color:var(--accent); background:var(--accent-surface); }
+.settings-level.is-warning { color:#8a6138; background:#f6f0e8; }
+.settings-level.is-error { color:#9a5638; background:#f8eeea; }
+.settings-log-detail { display:grid; gap:8px; margin:0; padding:4px 22px 16px 286px; }
+.settings-log-detail > div { display:grid; grid-template-columns:140px minmax(0,1fr); gap:10px; }
+.settings-log-detail dt { color:var(--muted); font-family:var(--mono); font-size:.55rem; letter-spacing:.05em; }
+.settings-log-detail dd { margin:0; min-width:0; font-size:.78rem; overflow-wrap:anywhere; }
+.settings-log-detail pre { margin:0; max-height:280px; overflow:auto; padding:10px; border:1px solid var(--line); background:#f8faf8; font-family:var(--mono); font-size:.68rem; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+.settings-empty { margin:0; padding:18px 22px; color:var(--muted); font-size:.82rem; }
+@media (max-width:860px) { .settings-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }.settings-facts > div:nth-child(2) { border-right:0; }.settings-facts > div:nth-child(-n+2) { border-bottom:1px solid var(--line); }.settings-log-detail { padding-left:22px; } }
+@media (max-width:640px) {
+  .settings-panel-heading { display:grid; padding:16px 15px 13px; }
+  .settings-panel-body { padding:15px; }
+  .settings-log-summary div { text-align:left; }
+  .settings-form { grid-template-columns:minmax(0,1fr); }
+  .settings-form-actions button,.settings-password button { width:100%; justify-self:stretch; }
+  .settings-log-filters { padding:13px 15px; }
+  .settings-log-filters label { flex:1 1 calc(50% - 5px); }
+  .settings-log-filters button { flex:1 1 100%; }
+  .settings-log-list summary { grid-template-columns:auto minmax(0,1fr); padding:11px 15px; }
+  .settings-log-list summary b,.settings-log-list summary small { grid-column:1 / -1; white-space:normal; }
+  .settings-log-detail { padding:4px 15px 14px; }
+  .settings-log-detail > div { grid-template-columns:minmax(0,1fr); gap:3px; }
+}
+/* Monitoramento: guia do endpoint de saúde e resumo da última verificação. */
+.monitoring-guide { margin:0 0 20px; border:1px solid var(--line); background:var(--white); }
+.monitoring-guide summary { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 20px; cursor:pointer; list-style:none; }
+.monitoring-guide summary::-webkit-details-marker { display:none; }
+.monitoring-guide summary > span { display:grid; gap:5px; }
+.monitoring-guide summary b { color:var(--accent); font-family:var(--mono); font-size:.62rem; letter-spacing:.07em; }
+.monitoring-guide summary small { color:var(--muted); font-size:.78rem; }
+.monitoring-guide summary strong { color:var(--accent); font-family:var(--mono); font-size:.6rem; letter-spacing:.05em; }
+.monitoring-guide[open] summary { border-bottom:1px solid var(--line); }
+.monitoring-guide[open] summary strong { visibility:hidden; }
+.monitoring-guide-body { display:grid; gap:14px; padding:16px 20px 20px; }
+.monitoring-guide-actions { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.monitoring-guide-actions p { max-width:640px; margin:0; color:var(--muted); font-size:.8rem; line-height:1.5; }
+.monitoring-guide pre { max-height:460px; margin:0; overflow:auto; padding:16px; border:1px solid var(--line); background:#f8faf8; color:var(--ink); font-family:var(--mono); font-size:.7rem; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+.monitor-check-summary { display:block; margin-top:10px; overflow:hidden; color:var(--muted); font-family:var(--mono); font-size:.58rem; letter-spacing:.02em; text-overflow:ellipsis; white-space:nowrap; }
+.monitor-last-check { display:grid; gap:5px; margin:0 0 20px; padding:13px 16px; border:1px solid var(--line); background:var(--white); font-family:var(--mono); font-size:.68rem; overflow-wrap:anywhere; }
+.monitor-last-check span { color:var(--accent); font-size:.56rem; letter-spacing:.06em; }
+@media (max-width:640px) { .monitoring-guide summary { align-items:flex-start; padding:14px 15px; }.monitoring-guide-body { padding:14px 15px 16px; }.monitoring-guide-actions { display:grid; }.monitoring-guide-actions button { width:100%; } }

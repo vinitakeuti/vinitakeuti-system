@@ -20,6 +20,7 @@ export async function listMonitoredApps(input: { cursor?: string; clientId?: str
       lastCheckedAt: true,
       lastResponseMs: true,
       lastIncidentAt: true,
+      lastCheckSummary: true,
       client: { select: { id: true, name: true, company: true } },
     },
   });
@@ -49,7 +50,7 @@ export async function getMonitoringSummary(clientId?: string) {
 export async function getMonitoredApp(id: string) {
   return prisma.monitoredApp.findUnique({
     where: { id },
-    select: { id: true, name: true, url: true, healthEndpoint: true, environment: true, status: true, lastCheckedAt: true, lastResponseMs: true, createdAt: true, client: { select: { id: true, name: true, company: true } } },
+    select: { id: true, name: true, url: true, healthEndpoint: true, environment: true, status: true, lastCheckedAt: true, lastResponseMs: true, lastCheckSummary: true, createdAt: true, client: { select: { id: true, name: true, company: true } } },
   });
 }
 

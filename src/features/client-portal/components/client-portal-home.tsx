@@ -1,6 +1,6 @@
 import { logoutAction } from "@/features/auth/services/auth-actions";
 import { requireClientUser } from "@/features/auth/services/auth-session";
-import { PasswordChangeForm } from "@/features/client-portal/components/password-change-form";
+import { PasswordChangeForm } from "@/features/auth/components/password-change-form";
 
 export async function ClientPortalHome() {
   const user = await requireClientUser();

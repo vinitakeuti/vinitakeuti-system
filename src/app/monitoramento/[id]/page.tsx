@@ -5,6 +5,7 @@ import { SidebarToggle } from "@/components/sidebar-toggle";
 import { ClientPicker } from "@/features/clients/components/client-picker";
 import { DeleteMonitoredAppButton } from "@/features/monitoring/components/delete-monitored-app-button";
 import { getMonitoredApp } from "@/features/monitoring/queries/monitoring-queries";
+import { MonitoringGuide } from "@/features/monitoring/components/monitoring-guide";
 import { deleteMonitoredApp, updateMonitoredApp } from "@/features/monitoring/services/monitoring-actions";
 import { monitoringEnvironments, monitoringStatusClass, monitoringStatusLabel } from "@/features/monitoring/types/monitoring-labels";
 
@@ -27,6 +28,8 @@ export default async function MonitoredAppPage({ params, searchParams }: { param
       <section><p className="eyebrow">IDENTIFICAÇÃO E ENDPOINTS</p><div className="form-grid"><label>Nome do sistema<input name="name" required maxLength={140} defaultValue={app.name} /></label><label>Ambiente<select name="environment" defaultValue={app.environment}>{monitoringEnvironments.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label>URL principal<input name="url" type="url" maxLength={500} defaultValue={app.url ?? ""} placeholder="https://exemplo.com" /></label><label>Endpoint de saúde<input name="healthEndpoint" type="url" maxLength={500} defaultValue={app.healthEndpoint ?? ""} placeholder="Opcional: https://exemplo.com/api/health" /></label></div></section>
       <div className="form-actions"><Link className="text-link" href="/monitoramento">CANCELAR</Link><button className="primary-action" type="submit">SALVAR SISTEMA</button></div>
     </form>
+    {app.lastCheckSummary ? <p className="monitor-last-check"><span>ÚLTIMA VERIFICAÇÃO</span>{app.lastCheckSummary}</p> : null}
+    <MonitoringGuide systemName={app.name} siteUrl={app.url} healthUrl={app.healthEndpoint} />
     <section className="service-record-actions"><div><p className="eyebrow">GESTÃO DO REGISTRO</p><p>Ao remover, o sistema deixa de ser monitorado e o histórico de verificações é apagado. O cliente vinculado não é alterado.</p></div><DeleteMonitoredAppButton id={app.id} action={deleteMonitoredApp} /></section>
   </section></div></main>;
 }

@@ -13,6 +13,7 @@ type MonitoredAppCardData = {
   lastCheckedAt: Date | null;
   lastResponseMs: number | null;
   lastIncidentAt: Date | null;
+  lastCheckSummary: string | null;
   client: { id: string; name: string; company: string | null } | null;
 };
 
@@ -59,6 +60,7 @@ export function MonitoredAppCard({ app, incidents30d, now, filterClientId }: { a
         <div><dt>Verificado</dt><dd title={app.lastCheckedAt ? fullDateTime.format(app.lastCheckedAt) : undefined}>{app.lastCheckedAt ? relativeTime(app.lastCheckedAt, now) : <span className="is-empty">nunca</span>}</dd></div>
         <div className={incidents30d ? "has-incidents" : undefined}><dt>Incidentes 30d</dt><dd title={app.lastIncidentAt ? `Última indisponibilidade em ${fullDateTime.format(app.lastIncidentAt)}` : undefined}>{incidents30d}{incidents30d && app.lastIncidentAt ? <small>último {shortDateTime.format(app.lastIncidentAt)}</small> : null}</dd></div>
       </dl>
+      {app.lastCheckSummary ? <small className="monitor-check-summary" title={app.lastCheckSummary}>{app.lastCheckSummary}</small> : null}
     </div>
     <footer className="monitor-card-foot">
       <div className="monitor-client">{app.client ? <Link href={`/monitoramento?cliente=${app.client.id}`} title="Ver sistemas deste cliente"><b>{app.client.name}</b>{app.client.company ? <span>{app.client.company}</span> : null}</Link> : <span className="is-empty">Sem cliente</span>}</div>

@@ -1,12 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import { changePortalPasswordAction, type PasswordChangeState } from "@/features/client-portal/services/account-actions";
+import { changeOwnPasswordAction, type PasswordChangeState } from "@/features/auth/services/password-actions";
 
-/** Troca de senha do cliente no portal. */
-export function PasswordChangeForm() {
-  const [state, action, pending] = useActionState<PasswordChangeState, FormData>(changePortalPasswordAction, { status: "idle" });
-  return <form action={action} className="client-portal-password">
+/** Troca da própria senha (portal do cliente e Configurações da gestão). */
+export function PasswordChangeForm({ className = "client-portal-password" }: { className?: string }) {
+  const [state, action, pending] = useActionState<PasswordChangeState, FormData>(changeOwnPasswordAction, { status: "idle" });
+  return <form action={action} className={className}>
     {state.status === "error" ? <p className="form-error" role="alert">{state.message}</p> : null}
     {state.status === "ok" ? <p className="form-success" role="status">{state.message}</p> : null}
     <label>Senha atual<input name="current" type="password" autoComplete="current-password" required /></label>
