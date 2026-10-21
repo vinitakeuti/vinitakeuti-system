@@ -1358,30 +1358,7 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
   .portal-items li { grid-template-columns:minmax(0,1fr); }
   .portal-items small { text-align:left; }
 }
-/* Portal do cliente: documentos para assinar no gov.br e enviar assinados. */
-.portal-sign-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:0; padding:0; list-style:none; }
-.portal-sign-steps li { display:flex; gap:12px; padding:16px 22px; border-right:1px solid var(--line); }
-.portal-sign-steps li:last-child { border-right:0; }
-.portal-sign-steps span { color:var(--accent); font-family:var(--mono); font-size:.62rem; letter-spacing:.06em; }
-.portal-sign-steps div { display:grid; align-content:start; gap:4px; }
-.portal-sign-steps b { font-size:.86rem; font-weight:620; }
-.portal-sign-steps small { color:var(--muted); font-size:.76rem; line-height:1.45; }
-.portal-document { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px 22px; padding:16px 22px; border-bottom:1px solid var(--line); }
-.portal-document:last-child { border-bottom:0; }
-.portal-document-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:10px 14px; }
-.portal-document-actions .secondary-action { text-decoration:none; }
-.portal-upload { grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:end; gap:12px; padding-top:12px; border-top:1px dashed var(--line); }
-.portal-upload label { display:grid; flex:1 1 260px; gap:6px; min-width:0; color:var(--muted); font-family:var(--mono); font-size:.6rem; letter-spacing:.04em; }
-.portal-upload input[type=file] { width:100%; min-width:0; height:42px; padding:0; border:1px solid var(--line); background:var(--white); color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.8rem; }
-.portal-upload input[type=file]::file-selector-button { height:100%; margin-right:12px; padding:0 14px; border:0; border-right:1px solid var(--line); background:#f3f5f3; color:var(--ink); font-family:var(--mono); font-size:.6rem; letter-spacing:.05em; cursor:pointer; }
-.portal-upload .primary-action { cursor:pointer; }
-@media (max-width:760px) { .portal-sign-steps { grid-template-columns:minmax(0,1fr); } .portal-sign-steps li { border-right:0; border-bottom:1px solid var(--line); } .portal-sign-steps li:last-child { border-bottom:0; } }
 @media (max-width:640px) {
-  .portal-sign-steps li { padding:13px 15px; }
-  .portal-document { grid-template-columns:minmax(0,1fr); padding:14px 15px; }
-  .portal-document-actions { justify-content:stretch; }
-  .portal-document-actions .secondary-action { flex:1 1 140px; }
-  .portal-upload .primary-action { width:100%; }
 }
 .documents-signed { display:block; margin-top:5px; color:var(--accent)!important; font-size:.68rem!important; }
 .documents-signed.is-warning { color:#8a6138!important; }
@@ -1508,3 +1485,46 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 .portal-contact-card dd a:hover { color:var(--accent); border-bottom-color:var(--accent); }
 @media (max-width:760px) { .portal-contact-card { grid-template-columns:auto minmax(0,1fr); } .portal-contact-card dl { grid-column:1 / -1; padding-top:14px; border-top:1px solid var(--line); } }
 @media (max-width:640px) { .portal-reminder-grid li { min-height:0; padding:16px; } .portal-contact-card { padding:18px 16px; } .portal-contact-card dl div { grid-template-columns:64px minmax(0,1fr); } }
+
+/* Portal do cliente: documentos separados por situação (para assinar, assinados) e por tipo. */
+.portal-page .portal-docs + .portal-docs { margin-top:20px; }
+.portal-docs h2 { display:flex; align-items:center; gap:10px; }
+.portal-docs-count { display:inline-grid; place-items:center; min-width:24px; height:22px; padding:0 7px; background:var(--black); color:var(--white); font-family:var(--mono); font-size:.62rem; font-weight:500; letter-spacing:0; }
+.portal-docs-group-title { margin:0; padding:14px 22px 8px; color:var(--muted); font-family:var(--mono); font-size:.6rem; letter-spacing:.08em; text-transform:uppercase; border-top:1px solid var(--line); }
+.settings-panel-heading + .portal-docs-group .portal-docs-group-title { border-top:0; }
+.portal-docs-group ul { margin:0; padding:0; list-style:none; }
+.portal-doc { display:grid; gap:12px; padding:14px 22px 16px; border-top:1px solid #edf0ed; }
+.portal-doc-head { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:6px 16px; }
+.portal-doc-head > div { display:grid; gap:3px; min-width:0; }
+.portal-doc-head b { font-size:.92rem; font-weight:620; overflow-wrap:anywhere; }
+.portal-doc-head small { color:var(--muted); font-size:.76rem; }
+.portal-doc-kind { display:grid; place-items:center; min-width:86px; padding:6px 8px; border:1px solid #9fbcab; background:#d3e3d8; color:#2f4a3c; font-family:var(--mono); font-size:.58rem; font-weight:500; letter-spacing:.08em; }
+.portal-doc-steps { display:grid; grid-template-columns:auto auto minmax(0,1fr); align-items:end; gap:10px; margin:0; padding:0; list-style:none; }
+.portal-doc-steps a { display:flex; align-items:center; gap:10px; min-height:42px; padding:0 14px; border:1px solid var(--black); background:var(--white); color:var(--ink); font-family:var(--mono); font-size:.62rem; letter-spacing:.06em; text-decoration:none; white-space:nowrap; transition:background .15s, color .15s; }
+.portal-doc-steps a:hover { background:var(--black); color:var(--white); }
+.portal-doc-steps a > span,.portal-doc-step-upload > span { display:inline-grid; flex:0 0 auto; place-items:center; width:20px; height:20px; border:1px solid currentColor; font-family:var(--mono); font-size:.58rem; }
+.portal-doc-step-upload { display:flex; align-items:end; gap:10px; min-width:0; }
+.portal-doc-step-upload > span { margin-bottom:11px; }
+.portal-sign-upload { display:flex; flex:1 1 auto; flex-wrap:wrap; align-items:end; gap:10px; min-width:0; margin:0; }
+.portal-sign-upload label { display:grid; flex:1 1 200px; gap:5px; min-width:0; color:var(--muted); font-family:var(--mono); font-size:.56rem; letter-spacing:.05em; }
+.portal-sign-upload input[type=file] { width:100%; min-width:0; height:42px; padding:0; border:1px solid var(--line); background:var(--white); color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.78rem; }
+.portal-sign-upload input[type=file]::file-selector-button { height:100%; margin-right:10px; padding:0 12px; border:0; border-right:1px solid var(--line); background:#f3f5f3; color:var(--ink); font-family:var(--mono); font-size:.58rem; letter-spacing:.05em; cursor:pointer; }
+.portal-sign-upload .primary-action { min-height:42px; min-width:96px; cursor:pointer; }
+.portal-doc-links { display:flex; flex-wrap:wrap; align-items:center; gap:10px 22px; }
+.portal-doc-links > a,.portal-doc-links summary { color:var(--accent); font-family:var(--mono); font-size:.6rem; letter-spacing:.05em; text-decoration:none; cursor:pointer; list-style:none; }
+.portal-doc-links summary::-webkit-details-marker { display:none; }
+.portal-doc-links > a:hover,.portal-doc-links summary:hover { color:var(--black); }
+.portal-doc-links details[open] { flex-basis:100%; }
+.portal-doc-links .portal-sign-upload { margin-top:10px; padding:12px; border:1px dashed var(--line); background:#fafbfa; }
+@media (max-width:640px) {
+  .portal-docs-group-title { padding:13px 15px 8px; }
+  .portal-doc { padding:13px 15px 15px; }
+  .portal-doc-head { grid-template-columns:minmax(0,1fr); }
+  .portal-doc-kind { justify-self:start; min-width:0; }
+  .portal-doc-head .portal-tag { justify-self:start; }
+  .portal-doc-steps { grid-template-columns:minmax(0,1fr); }
+  .portal-doc-steps a { justify-content:flex-start; }
+  .portal-doc-step-upload { align-items:flex-start; }
+  .portal-doc-step-upload > span { margin:0; }
+  .portal-sign-upload .primary-action { width:100%; }
+}
