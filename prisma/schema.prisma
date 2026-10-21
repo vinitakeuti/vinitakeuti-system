@@ -285,6 +285,8 @@ model Charge {
   /// Lançamento (e parcela) do Financeiro que esta cobrança paga, quando criada pelo portal do cliente.
   financialEntryId String?
   installmentNumber Int?
+  /// Última parcela coberta, quando o cliente paga várias de uma vez (da installmentNumber até esta). Null: só uma.
+  installmentThrough Int?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)

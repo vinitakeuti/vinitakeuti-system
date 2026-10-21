@@ -69,7 +69,7 @@ export async function chargeNextInstallmentAction(formData: FormData) {
   const next = entry ? nextChargeableInstallment(entrySchedule(entry)) : null;
   if (!entry || !quote || !next) back(`error=${encodeURIComponent("Não há parcela em aberto para cobrar.")}`);
   let error: string | null = null;
-  try { await ensureInstallmentCharge({ clientId: quote!.clientId, installment: next!, origin: "gestao", actorEmail: user.email }); }
+  try { await ensureInstallmentCharge({ clientId: quote!.clientId, installments: [next!], origin: "gestao", actorEmail: user.email }); }
   catch (cause) { error = cause instanceof AsaasError && cause.status === 422 ? cause.message : asaasErrorMessage(cause); }
   revalidatePath(`/financeiro/lancamentos/${entryId}`);
   back(error ? `error=${encodeURIComponent(error)}` : "notice=charge-created");
