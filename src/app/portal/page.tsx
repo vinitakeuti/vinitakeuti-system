@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { PortalShell } from "@/features/client-portal/components/portal-shell";
-import { OpenInstallmentRow, installmentKey } from "@/features/client-portal/components/open-installment-row";
+import { OpenInstallmentRow, installmentKey, payableKeys } from "@/features/client-portal/components/open-installment-row";
 import { day, money } from "@/features/client-portal/components/portal-format";
-import { getPortalContext, getPortalDocuments, getPortalPaymentOptions, getPortalServices, listPendingNotices, listPortalPayments, portalTodayStart } from "@/features/client-portal/queries/portal-queries";
+import { getPortalContext, getPortalDocuments, getPortalPaymentOptions, getPortalServices, listPortalPayments, portalTodayStart } from "@/features/client-portal/queries/portal-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +12,9 @@ export default async function PortalHomePage() {
   const context = await getPortalContext();
   const { receivables, clientId } = context;
   const entryIds = receivables.entries.map((entry) => entry.id);
-  const [services, documents, payments, options, notices] = await Promise.all([getPortalServices(clientId), getPortalDocuments(clientId, 3), listPortalPayments(entryIds, { take: 5 }), getPortalPaymentOptions(), listPendingNotices(clientId)]);
+  const [services, documents, payments, options] = await Promise.all([getPortalServices(clientId), getPortalDocuments(clientId, 3), listPortalPayments(entryIds, { take: 5 }), getPortalPaymentOptions()]);
   const todayStart = portalTodayStart();
-  const noticeByKey = new Map(notices.map((notice) => [`${notice.financialEntryId}:${notice.installmentNumber ?? 0}`, notice]));
+  const payable = payableKeys(receivables.open);
   const next = receivables.open.slice(0, 3);
   const firstName = (context.client?.name ?? context.user.name).trim().split(/\s+/)[0] || "cliente";
   const progress = receivables.totals.contractedCents ? Math.min(100, Math.round((receivables.totals.paidCents / receivables.totals.contractedCents) * 100)) : 0;
@@ -29,7 +29,7 @@ export default async function PortalHomePage() {
           <div><dt>EM ABERTO</dt><dd>{money(receivables.totals.remainingCents)}</dd></div>
           <div className="portal-progress" aria-label={`${progress}% pago`}><dt>{progress}% PAGO</dt><dd><span style={{ width: `${progress}%` }} /></dd></div>
         </dl> : null}
-        {next.length ? <ul className="portal-list">{next.map((installment) => <OpenInstallmentRow key={installmentKey(installment)} installment={installment} todayStart={todayStart} online={options.online} notice={noticeByKey.get(installmentKey(installment))} />)}</ul> : receivables.entries.length ? <p className="settings-empty">Tudo pago. Obrigado!</p> : <p className="settings-empty">Os pagamentos aparecem aqui quando um serviço for contratado.</p>}
+        {next.length ? <ul className="portal-list">{next.map((installment) => <OpenInstallmentRow key={installmentKey(installment)} installment={installment} todayStart={todayStart} online={options.online} payable={payable.has(installmentKey(installment))} />)}</ul> : receivables.entries.length ? <p className="settings-empty">Tudo pago. Obrigado!</p> : <p className="settings-empty">Os pagamentos aparecem aqui quando um serviço for contratado.</p>}
       </section>
 
       <section className="settings-panel" aria-labelledby="portal-services-title">

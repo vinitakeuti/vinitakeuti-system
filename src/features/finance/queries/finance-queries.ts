@@ -205,11 +205,6 @@ export async function getConfirmedSalesSummary() {
 }
 
 /** Lançamento com seus recebimentos, para a tela de edição. */
-/** Avisos de pagamento do cliente (portal) aguardando conferência neste lançamento. */
-export async function listEntryPaymentNotices(entryId: string) {
-  return prisma.paymentNotice.findMany({ where: { financialEntryId: entryId, status: "PENDING" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 20, select: { id: true, installmentNumber: true, amountCents: true, paidOn: true, message: true, createdAt: true, client: { select: { name: true } } } });
-}
-
 export async function getFinancialEntryDetail(id: string) {
   if (!id || id.length > 50) return null;
   return prisma.financialEntry.findUnique({
@@ -218,7 +213,7 @@ export async function getFinancialEntryDetail(id: string) {
       id: true, type: true, status: true, origin: true, sourceKey: true, isFixed: true, description: true, category: true, counterparty: true, amountCents: true, paidCents: true, dueDate: true, settledAt: true, notes: true, createdAt: true, paymentCondition: true,
       recurringEntry: { select: { id: true, description: true } },
       installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { id: true, number: true, dueDate: true, amountCents: true } },
-      payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 200, select: { id: true, amountCents: true, paidAt: true, notes: true, fromSale: true, fromQuote: true } },
+      payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 200, select: { id: true, amountCents: true, paidAt: true, notes: true, fromSale: true, fromQuote: true, chargeId: true } },
     },
   });
 }

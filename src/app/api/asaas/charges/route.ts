@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AsaasError, createAsaasCharge, ensureAsaasCustomer } from "@/lib/asaas";
+import { AsaasError, createAsaasCharge, ensureAsaasCustomer } from "@/lib/integrations/asaas";
 import { prisma } from "@/lib/prisma";
 import { getManagementUser } from "@/features/auth/services/auth-session";
 

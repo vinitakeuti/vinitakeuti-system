@@ -1,6 +1,6 @@
 /**
  * Ao subir o servidor, inicia o ciclo do monitoramento (verificações automáticas, certificados, domínios, alertas e
- * resumo diário). Em produção, liga por padrão (MONITORING_SCHEDULER=off desliga); no ambiente local, só com MONITORING_SCHEDULER=on.
+ * resumo diário) e as tarefas do Asaas. Em produção, liga por padrão (MONITORING_SCHEDULER=off desliga); no ambiente local, só com MONITORING_SCHEDULER=on.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;

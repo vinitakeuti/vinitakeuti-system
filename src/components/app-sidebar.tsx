@@ -12,7 +12,7 @@ const navigation = [
   { code: "05", href: "/vendas", id: "sales", label: "Vendas" },
   { code: "06", href: "/servicos", id: "services", label: "Serviços" },
   { code: "07", href: "/monitoramento", id: "monitoring", label: "Monitoramento" },
-  { code: "08", href: "/#integracoes", id: "integrations", label: "Integrações" },
+  { code: "08", href: "/integracoes", id: "integrations", label: "Integrações" },
   { code: "09", href: "/configuracoes", id: "settings", label: "Configurações" },
 ] as const;
 

@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { FinancialEntryStatus, FinancialEntryType, Prisma, ProjectStatus, SaleStatus, SubscriptionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { isAsaasConfigured } from "@/lib/asaas";
+import { isAsaasConfigured } from "@/lib/integrations/asaas";
 import { requireClientUser } from "@/features/auth/services/auth-session";
 import { allocateInstallments, installmentPaidDates, MAX_INSTALLMENTS } from "@/features/finance/services/installments";
 import { MAX_FINANCIAL_PAYMENTS } from "@/features/finance/services/finance-ledger";
@@ -36,7 +36,7 @@ export async function clientOwnsEntry(clientId: string, sourceKey: string | null
 
 export type PortalInstallment = { entryId: string; entryDescription: string; number: number | null; total: number; dueDate: Date; amountCents: number; paid: number; remaining: number; state: "paid" | "partial" | "open"; overdue: boolean; paidOn: Date | null };
 
-const entrySelect = {
+export const portalEntrySelect = {
   id: true, description: true, amountCents: true, paidCents: true, dueDate: true, status: true, paymentCondition: true, sourceKey: true,
   installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { number: true, dueDate: true, amountCents: true } },
   payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: MAX_FINANCIAL_PAYMENTS, select: { amountCents: true, paidAt: true } },
@@ -70,7 +70,7 @@ async function loadReceivables(clientId: string) {
     where: { sourceKey: { in: keys }, type: FinancialEntryType.INCOME, status: { not: FinancialEntryStatus.CANCELLED } },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: MAX_QUOTES,
-    select: entrySelect,
+    select: portalEntrySelect,
   });
   const todayStart = portalTodayStart();
   const entries = rows.map((entry) => ({ ...entry, schedule: entrySchedule(entry, todayStart) }));
@@ -118,11 +118,6 @@ export async function listPortalPayments(entryIds: string[], { cursor, take = PO
   });
   const data = rows.slice(0, take);
   return { data, nextCursor: rows.length > take ? data.at(-1)!.id : null };
-}
-
-/** Avisos de pagamento ainda não conferidos, por lançamento e parcela. */
-export async function listPendingNotices(clientId: string) {
-  return prisma.paymentNotice.findMany({ where: { clientId, status: "PENDING" }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 50, select: { id: true, financialEntryId: true, installmentNumber: true, amountCents: true, paidOn: true, createdAt: true } });
 }
 
 /** Como o cliente paga: online pelo Asaas, ou Pix e instruções do perfil profissional. */

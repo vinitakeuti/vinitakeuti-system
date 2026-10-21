@@ -7,9 +7,6 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://vr:${POSTGRES_PASSWORD}@postgres:5432/vr_gestao?schema=public
       INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY}
-      ASAAS_ENVIRONMENT: ${ASAAS_ENVIRONMENT:-sandbox}
-      ASAAS_API_KEY: ${ASAAS_API_KEY:-}
-      ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

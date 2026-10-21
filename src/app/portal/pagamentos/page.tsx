@@ -1,53 +1,51 @@
 import Link from "next/link";
 import { CopyTextButton } from "@/components/copy-text-button";
 import { PortalShell } from "@/features/client-portal/components/portal-shell";
-import { OpenInstallmentRow, installmentKey, installmentTitle } from "@/features/client-portal/components/open-installment-row";
+import { OpenInstallmentRow, installmentKey, installmentTitle, payableKeys } from "@/features/client-portal/components/open-installment-row";
 import { day, money } from "@/features/client-portal/components/portal-format";
-import { getPortalContext, getPortalPaymentOptions, listPendingNotices, listPortalPayments, portalTodayStart } from "@/features/client-portal/queries/portal-queries";
+import { getPortalContext, getPortalPaymentOptions, listPortalPayments, portalTodayStart } from "@/features/client-portal/queries/portal-queries";
 
 export const dynamic = "force-dynamic";
 
 const errors: Record<string, string> = {
-  parcela: "Essa parcela não está mais em aberto. Confira a lista atualizada.",
-  online: "O pagamento online não está disponível no momento. Use o Pix abaixo e avise o pagamento.",
-  cobranca: "Não foi possível abrir a cobrança online agora. Tente de novo em alguns minutos ou use o Pix.",
-  valor: "Informe um valor maior que zero e até o valor em aberto da parcela.",
-  data: "Informe a data em que o pagamento foi feito (hoje ou antes).",
-  avisos: "Há muitos avisos aguardando conferência. Aguarde a confirmação dos anteriores.",
+  parcela: "Essa parcela não pode ser paga agora: as parcelas são pagas em ordem, ou ela já foi quitada. Confira a lista atualizada.",
+  online: "O pagamento online não está disponível no momento. Use o Pix abaixo.",
+  cobranca: "Não foi possível abrir a cobrança online agora. Tente de novo em alguns minutos.",
+  documento: "Para pagar online, seu cadastro precisa de CPF ou CNPJ. Fale com o responsável para completar.",
 };
 
-type PaymentsPageProps = { searchParams: Promise<{ cursor?: string; avisar?: string; aviso?: string; erro?: string }> };
+type PaymentsPageProps = { searchParams: Promise<{ cursor?: string; erro?: string }> };
 
 export default async function PortalPaymentsPage({ searchParams }: PaymentsPageProps) {
   const params = await searchParams;
   const context = await getPortalContext();
-  const { receivables, clientId } = context;
-  const [history, options, notices] = await Promise.all([listPortalPayments(receivables.entries.map((entry) => entry.id), { cursor: params.cursor }), getPortalPaymentOptions(), listPendingNotices(clientId)]);
+  const { receivables } = context;
+  const [history, options] = await Promise.all([listPortalPayments(receivables.entries.map((entry) => entry.id), { cursor: params.cursor }), getPortalPaymentOptions()]);
   const todayStart = portalTodayStart();
-  const noticeByKey = new Map(notices.map((notice) => [`${notice.financialEntryId}:${notice.installmentNumber ?? 0}`, notice]));
+  const payable = payableKeys(receivables.open);
   const { profile } = options;
   const contact = [profile?.email, profile?.phone].filter(Boolean).join(" · ");
 
   // Sem pagamento online, a chave Pix é o caminho para pagar: aparece antes das parcelas.
   const howToPay = <section className="settings-panel" aria-labelledby="portal-how-title">
-      <div className="settings-panel-heading"><div><h2 id="portal-how-title">Como pagar.</h2><p>{options.online ? "Em PAGAR, a fatura abre com Pix, boleto ou cartão. A confirmação é automática." : "Pague pelo Pix e use JÁ PAGUEI na parcela para avisar. A confirmação aparece depois da conferência."}</p></div></div>
+      <div className="settings-panel-heading"><div><h2 id="portal-how-title">Como pagar.</h2><p>{options.online ? "Em PAGAR AGORA, a fatura abre com Pix, boleto ou cartão. A parcela é confirmada automaticamente assim que o pagamento cai, em geral em poucos minutos (boleto: até 3 dias úteis)." : "Pague pelo Pix com a chave abaixo. A parcela aparece como paga depois que o recebimento é conferido."}</p></div></div>
       <div className="settings-panel-body">
-        {profile?.pixKey ? <div className="portal-pix"><div><span>CHAVE PIX</span><code>{profile.pixKey}</code>{profile.name ? <small>Favorecido: {profile.name}</small> : null}</div><CopyTextButton text={profile.pixKey} label="COPIAR CHAVE PIX" /></div> : null}
-        {profile?.paymentInstructions ? <p className="portal-instructions">{profile.paymentInstructions}</p> : null}
+        {/* Com o Asaas, todo pagamento passa pela fatura (confirmação automática); a chave Pix manual só aparece sem ele. */}
+        {!options.online && profile?.pixKey ? <div className="portal-pix"><div><span>CHAVE PIX</span><code>{profile.pixKey}</code>{profile.name ? <small>Favorecido: {profile.name}</small> : null}</div><CopyTextButton text={profile.pixKey} label="COPIAR CHAVE PIX" /></div> : null}
+        {!options.online && profile?.paymentInstructions ? <p className="portal-instructions">{profile.paymentInstructions}</p> : null}
         {!profile?.pixKey && !profile?.paymentInstructions && !options.online ? <p className="portal-instructions">Para combinar a forma de pagamento, fale com {profile?.name ?? "Vinicius Riudi"}{contact ? `: ${contact}` : ""}.</p> : null}
-        {contact && (profile?.pixKey || profile?.paymentInstructions || options.online) ? <small className="portal-contact">Dúvidas sobre pagamentos: {contact}</small> : null}
+        {contact && (options.online || profile?.pixKey || profile?.paymentInstructions) ? <small className="portal-contact">Dúvidas sobre pagamentos: {contact}</small> : null}
       </div>
     </section>;
 
   return <PortalShell context={context} current="payments" section="PAGAMENTOS" title="Pagamentos." description="Parcelas em aberto, como pagar e o histórico do que já foi pago.">
-    {params.aviso === "enviado" ? <p className="portal-feedback is-ok" role="status">Aviso enviado. Assim que o pagamento for conferido, ele aparece no histórico.</p> : null}
     {params.erro && errors[params.erro] ? <p className="portal-feedback is-error" role="alert">{errors[params.erro]}</p> : null}
 
     {!options.online ? howToPay : null}
 
     <section className="settings-panel" id="em-aberto" aria-labelledby="portal-open-title">
       <div className="settings-panel-heading"><div><h2 id="portal-open-title">Em aberto.</h2><p>{receivables.open.length ? `${receivables.open.length} ${receivables.open.length === 1 ? "parcela" : "parcelas"} · ${money(receivables.totals.remainingCents)} no total.` : "Nenhum pagamento em aberto."}</p></div></div>
-      {receivables.open.length ? <ul className="portal-list">{receivables.open.map((installment) => <OpenInstallmentRow key={installmentKey(installment)} installment={installment} todayStart={todayStart} online={options.online} notice={noticeByKey.get(installmentKey(installment))} notifyOpen={params.avisar === installmentKey(installment)} />)}</ul> : <p className="settings-empty">{receivables.entries.length ? "Tudo pago. Obrigado!" : "Os pagamentos aparecem aqui quando um serviço for contratado."}</p>}
+      {receivables.open.length ? <ul className="portal-list">{receivables.open.map((installment) => <OpenInstallmentRow key={installmentKey(installment)} installment={installment} todayStart={todayStart} online={options.online} payable={payable.has(installmentKey(installment))} />)}</ul> : <p className="settings-empty">{receivables.entries.length ? "Tudo pago. Obrigado!" : "Os pagamentos aparecem aqui quando um serviço for contratado."}</p>}
     </section>
 
     {options.online ? howToPay : null}

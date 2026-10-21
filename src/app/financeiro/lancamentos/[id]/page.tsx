@@ -7,9 +7,10 @@ import { ConfirmSubmitButton } from "@/features/finance/components/confirm-submi
 import { PaymentPlanCalculator } from "@/features/finance/components/payment-plan-calculator";
 import { allocateInstallments, installmentPaidDates } from "@/features/finance/services/installments";
 import { currentPlanParams } from "@/features/finance/services/payment-plan";
-import { FINANCE_CATEGORIES, financeEntryStatusKey, financeEntryStatusLabel, financeTypeLabel, getFinancialEntryDetail, getQuotePaymentsForEntry, listEntryPaymentNotices, listPaymentConditions } from "@/features/finance/queries/finance-queries";
+import { FINANCE_CATEGORIES, financeEntryStatusKey, financeEntryStatusLabel, financeTypeLabel, getFinancialEntryDetail, getQuotePaymentsForEntry, listPaymentConditions } from "@/features/finance/queries/finance-queries";
 import { addFinancialPaymentAction, cancelFinancialEntryAction, deleteFinancialPaymentAction, importQuotePaymentsAction, markNextInstallmentPaidAction, reopenFinancialEntryAction, savePaymentPlanAction, settleFinancialEntryAction, updateFinancialEntryAction, updateFinancialPaymentAction, updateInstallmentAction } from "@/features/finance/services/finance-actions";
-import { dismissPaymentNoticeAction, registerPaymentNoticeAction } from "@/features/client-portal/services/payment-notice-actions";
+import { getEntryAsaasState } from "@/features/integrations/queries/integration-queries";
+import { chargeNextInstallmentAction } from "@/features/integrations/services/asaas-actions";
 import styles from "../../financeiro.module.css";
 
 export const dynamic = "force-dynamic";
@@ -34,8 +35,7 @@ const notices: Record<string, string> = {
   "installment-paid": "Parcela marcada como paga.",
   "plan-saved": "Condição de pagamento salva. As parcelas foram refeitas.",
   "quote-payments": "Pagamentos da proposta trazidos para cá.",
-  "notice-registered": "Aviso do cliente registrado como pagamento.",
-  "notice-dismissed": "Aviso do cliente descartado.",
+  "charge-created": "Cobrança gerada no Asaas e enviada ao cliente.",
 };
 
 type EntryPageProps = { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; notice?: string }> };
@@ -75,8 +75,16 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
   const quotePayments = income && !cancelled ? await getQuotePaymentsForEntry(entry.sourceKey) : [];
   const missingQuotePayments = quotePayments.length > 0 && !entry.payments.some((payment) => payment.fromQuote);
   const quotePaid = quotePayments.reduce((sum, payment) => sum + payment.amountCents, 0);
-  // Avisos de pagamento enviados pelo cliente no portal, aguardando conferência.
-  const clientNotices = income ? await listEntryPaymentNotices(entry.id) : [];
+  // Com o Asaas conectado, as parcelas de vendas de clientes são cobradas e confirmadas automaticamente.
+  const asaas = income && open ? await getEntryAsaasState(entry) : null;
+  const automated = Boolean(asaas?.automated);
+  const nextCharge = asaas?.openCharges.get(next?.number ?? 0) ?? null;
+  const manualPaid = <form action={markNextInstallmentPaidAction} className={styles.markPaid}><input type="hidden" name="entryId" value={entry.id} /><input name="paidAt" type="date" required defaultValue={today} aria-label="Data do pagamento" /><button type="submit">MARCAR PAGA</button></form>;
+  // Na próxima parcela: com o Asaas, a cobrança (ou o botão para gerá-la) e o registro manual só para recebimentos fora dele.
+  const nextActions = automated ? <>
+    {nextCharge ? <a className={styles.chargeLink} href={nextCharge.invoiceUrl ?? undefined} target="_blank" rel="noreferrer">COBRANÇA ENVIADA · FATURA</a> : <form action={chargeNextInstallmentAction}><input type="hidden" name="entryId" value={entry.id} /><button className={styles.textAction} type="submit">GERAR COBRANÇA AGORA</button></form>}
+    <details className={styles.adjust}><summary>RECEBIDO FORA DO ASAAS</summary>{manualPaid}</details>
+  </> : manualPaid;
 
   const header = <header className="directory-header"><div><p className="eyebrow">GESTÃO / FINANCEIRO / {income ? "ENTRADA" : "SAÍDA"}</p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} · {entry.counterparty ?? "Sem contraparte"} · {entry.category}{entry.origin === "QUOTE" ? " · venda confirmada" : ""}</p>{entry.paymentCondition ? <span className={styles.conditionTag + " " + styles.headerTag}>{entry.paymentCondition}</span> : null}</div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">VOLTAR AO FINANCEIRO</Link></div></div></header>;
 
@@ -127,14 +135,6 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
       <div><span>PRÓXIMA PARCELA</span>{open && nextDue ? <><strong className={late ? styles.expense : undefined}>{money.format(nextAmount / 100)}</strong><small className={late ? styles.lateText : undefined}>{late ? "Atrasada · venceu em " : "Vence em "}{shortDate.format(nextDue)}</small></> : <><b className={styles.status + " " + styles[financeEntryStatusKey(entry)]}>{financeEntryStatusLabel(entry)}</b><small>{cancelled ? "Sem cobranças" : "Nenhuma parcela em aberto"}</small></>}</div>
     </section>
 
-    {clientNotices.length ? <section className={styles.clientNotices} aria-label="Avisos de pagamento do cliente">
-      <p><b>{clientNotices.length === 1 ? "O cliente avisou um pagamento pelo portal." : `O cliente avisou ${clientNotices.length} pagamentos pelo portal.`}</b> Confira o recebimento antes de registrar.</p>
-      <ul>{clientNotices.map((notice) => <li key={notice.id}>
-        <div><strong>{money.format(notice.amountCents / 100)}</strong><span>pago em {shortDate.format(notice.paidOn)}{notice.installmentNumber ? ` · parcela ${notice.installmentNumber}` : ""} · avisado por {notice.client.name} em {shortDate.format(notice.createdAt)}</span>{notice.message ? <small>“{notice.message}”</small> : null}</div>
-        <form><input type="hidden" name="noticeId" value={notice.id} /><button className={styles.textAction} type="submit" formAction={dismissPaymentNoticeAction}>DESCARTAR</button><button className="primary-action" type="submit" formAction={registerPaymentNoticeAction}>REGISTRAR PAGAMENTO</button></form>
-      </li>)}</ul>
-    </section> : null}
-
     {missingQuotePayments ? <form action={importQuotePaymentsAction} className={styles.quoteImport}><input type="hidden" name="entryId" value={entry.id} /><p>A proposta desta venda tem <b>{quotePayments.length} {quotePayments.length === 1 ? "pagamento registrado" : "pagamentos registrados"} ({money.format(quotePaid / 100)})</b> que ainda não estão aqui. Pagamentos iguais já lançados à mão não são duplicados.</p><button className="primary-action" type="submit">TRAZER DA PROPOSTA</button></form> : null}
 
     {/* 2. Condição de pagamento: como o cliente vai pagar. Salvar refaz as parcelas em aberto. */}
@@ -152,9 +152,10 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
       </form>
     </section> : null}
 
-    {/* 3. Parcelas: a próxima é marcada como paga na data em que o pagamento entrou. */}
+    {/* 3. Parcelas: com o Asaas, cobradas e baixadas automaticamente; sem ele, a próxima é marcada como paga na data em que o pagamento entrou. */}
     <section className={styles.ledger + " " + styles.entryEdit}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">PARCELAS</p><h2>{installments.length ? "Cronograma de pagamento." : "Cobrança única."}</h2><small>{installments.length ? "Marque a próxima parcela como paga quando o pagamento entrar. Use AJUSTAR para mudar a data ou o valor de uma parcela." : "Para dividir em parcelas, preencha a condição de pagamento acima."}</small></div>{open && remaining ? <form action={settleFinancialEntryAction}><input type="hidden" name="id" value={entry.id} /><input type="hidden" name="returnTo" value="entry" /><button className={styles.textAction} type="submit">QUITAR TUDO</button></form> : null}</div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">PARCELAS</p><h2>{installments.length ? "Cronograma de pagamento." : "Cobrança única."}</h2><small>{automated ? `Confirmadas automaticamente pelo Asaas: a cobrança da próxima parcela é enviada ao cliente${asaas?.autoChargeDays !== null ? ` ${asaas?.autoChargeDays} dias antes do vencimento` : " quando ele usa PAGAR AGORA no portal"} e a parcela é baixada quando o pagamento cai.${installments.length ? " Use AJUSTAR para mudar a data ou o valor." : ""}` : installments.length ? "Marque a próxima parcela como paga quando o pagamento entrar. Use AJUSTAR para mudar a data ou o valor de uma parcela." : "Para dividir em parcelas, preencha a condição de pagamento acima."}</small></div>{open && remaining ? <form action={settleFinancialEntryAction}><input type="hidden" name="id" value={entry.id} /><input type="hidden" name="returnTo" value="entry" /><button className={styles.textAction} type="submit">QUITAR TUDO</button></form> : null}</div>
+      {automated && asaas?.missingDocument ? <p className={styles.chargeWarning}>O cliente não tem CPF nem CNPJ no cadastro, e o Asaas exige um deles para cobrar. <Link href={`/clientes/${asaas.clientId}/editar`}>Completar cadastro</Link></p> : null}
       <ol className={styles.scheduleList}>
         {installments.length ? installments.map((installment) => {
           const isNext = open && installment.number === next?.number;
@@ -166,14 +167,14 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
             <strong>{money.format(installment.amountCents / 100)}</strong>
             <i className={styles.status + " " + (installment.state === "paid" ? styles.settled : overdue ? styles.cancelledLate : installment.state === "partial" ? styles.partial : styles.pending)}>{installment.state === "paid" ? (paidOn ? `Paga em ${shortDate.format(paidOn)}` : "Paga") : installment.state === "partial" ? `Falta ${money.format(installment.remaining / 100)}` : overdue ? "Atrasada" : "Em aberto"}</i>
             <div className={styles.scheduleActions}>
-              {isNext ? <form action={markNextInstallmentPaidAction} className={styles.markPaid}><input type="hidden" name="entryId" value={entry.id} /><input name="paidAt" type="date" required defaultValue={today} aria-label="Data do pagamento" /><button type="submit">MARCAR PAGA</button></form> : null}
+              {isNext ? nextActions : null}
               {installment.state !== "paid" ? <details className={styles.adjust}><summary>AJUSTAR</summary><form action={updateInstallmentAction}><input type="hidden" name="installmentId" value={installment.id} /><label>Vencimento<input name="dueDate" type="date" required defaultValue={isoDay.format(installment.dueDate)} /></label><label>Valor<input name="amount" inputMode="decimal" required defaultValue={amountField(installment.amountCents)} /></label><button type="submit">SALVAR</button></form></details> : null}
             </div>
           </li>;
         }) : open && remaining ? <li className={styles.scheduleNext}>
           <b>Única</b><span>{shortDate.format(entry.dueDate)}</span><strong>{money.format(remaining / 100)}</strong>
           <i className={styles.status + " " + (late ? styles.cancelledLate : styles.pending)}>{late ? "Atrasada" : "Em aberto"}</i>
-          <div className={styles.scheduleActions}><form action={markNextInstallmentPaidAction} className={styles.markPaid}><input type="hidden" name="entryId" value={entry.id} /><input name="paidAt" type="date" required defaultValue={today} aria-label="Data do pagamento" /><button type="submit">MARCAR PAGA</button></form></div>
+          <div className={styles.scheduleActions}>{nextActions}</div>
         </li> : <li><span>{cancelled ? "Lançamento cancelado." : "Tudo recebido."}</span></li>}
       </ol>
     </section>
@@ -184,7 +185,7 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
       {entry.payments.length ? <ul className={styles.receiptList}>{entry.payments.map((payment) => <li key={payment.id}>
         <span>{shortDate.format(payment.paidAt)}</span>
         <strong>{money.format(payment.amountCents / 100)}</strong>
-        <small>{payment.notes ?? "Sem observação"}{payment.fromQuote ? <em className={styles.originTag}>PROPOSTA</em> : null}</small>
+        <small>{payment.notes ?? "Sem observação"}{payment.fromQuote ? <em className={styles.originTag}>PROPOSTA</em> : null}{payment.chargeId ? <em className={styles.originTag}>ASAAS</em> : null}</small>
         <details className={styles.adjust}><summary>EDITAR</summary><form action={updateFinancialPaymentAction}><input type="hidden" name="paymentId" value={payment.id} /><label>Data<input name="paidAt" type="date" required defaultValue={isoDay.format(payment.paidAt)} /></label><label>Valor<input name="amount" inputMode="decimal" required defaultValue={amountField(payment.amountCents)} /></label><label>Observação<input name="notes" maxLength={300} defaultValue={payment.notes ?? ""} /></label><button type="submit">SALVAR</button><ConfirmSubmitButton formAction={deleteFinancialPaymentAction} className={styles.cancelAction} message={`Remover este pagamento de ${money.format(payment.amountCents / 100)}? O valor volta a ficar em aberto.`}>REMOVER</ConfirmSubmitButton></form></details>
       </li>)}</ul> : null}
       {!cancelled && remaining ? <details className={styles.installmentPlan}><summary>REGISTRAR OUTRO VALOR</summary><form action={addFinancialPaymentAction} className={styles.paymentRow + " " + styles.paymentNew}>

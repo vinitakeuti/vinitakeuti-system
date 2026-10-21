@@ -7,6 +7,7 @@ import { checkMonitoredApp } from "@/features/monitoring/services/monitoring-ser
 import { checkCertificate } from "@/features/monitoring/services/certificate-check";
 import { checkDomainExpiration, registrableDomain } from "@/features/monitoring/services/domain-check";
 import { formatDuration, sendMonitoringEmail } from "@/features/monitoring/services/monitoring-alerts";
+import { runAsaasCycle } from "@/features/integrations/services/asaas-scheduler";
 
 const TICK_MS = 60_000;
 const CONCURRENCY = 4;
@@ -33,6 +34,9 @@ export function startMonitoringScheduler() {
     running = true;
     try { await runMonitoringCycle(); }
     catch (error) { await logEvent({ source: "sistema", level: "error", event: "monitoring.scheduler.failed", message: `Falha no ciclo do monitoramento: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
+    // O mesmo ciclo cuida dos pagamentos do Asaas (eventos que falharam e sincronização a cada 30 minutos).
+    try { await runAsaasCycle(); }
+    catch (error) { await logEvent({ source: "sistema", level: "error", event: "asaas.scheduler.failed", message: `Falha no ciclo do Asaas: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
     finally { running = false; }
   };
   holder.__vrMonitoringScheduler = setInterval(tick, TICK_MS);

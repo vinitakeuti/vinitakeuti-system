@@ -1,6 +1,5 @@
-import Link from "next/link";
 import type { PortalInstallment } from "@/features/client-portal/queries/portal-queries";
-import { notifyPaymentAction, payInstallmentAction } from "@/features/client-portal/services/portal-payment-actions";
+import { payInstallmentAction } from "@/features/client-portal/services/portal-payment-actions";
 import { day, money } from "@/features/client-portal/components/portal-format";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -11,6 +10,18 @@ export function installmentKey(installment: Pick<PortalInstallment, "entryId" | 
 
 export function installmentTitle(installment: Pick<PortalInstallment, "number" | "total" | "entryDescription">) {
   return installment.number ? `Parcela ${installment.number} de ${installment.total}` : "Pagamento único";
+}
+
+/** Primeira parcela em aberto de cada venda: as parcelas são quitadas em ordem, então só ela pode ser paga agora. */
+export function payableKeys(open: PortalInstallment[]) {
+  const seen = new Set<string>();
+  const keys = new Set<string>();
+  for (const installment of [...open].sort((left, right) => (left.number ?? 0) - (right.number ?? 0))) {
+    if (seen.has(installment.entryId)) continue;
+    seen.add(installment.entryId);
+    keys.add(installmentKey(installment));
+  }
+  return keys;
 }
 
 function situation(installment: PortalInstallment, todayStart: Date) {
@@ -24,34 +35,25 @@ function situation(installment: PortalInstallment, todayStart: Date) {
   return { label: "A vencer", tone: "" };
 }
 
-type RowProps = { installment: PortalInstallment; todayStart: Date; online: boolean; notice?: { amountCents: number; createdAt: Date } | null; notifyOpen?: boolean };
+type RowProps = { installment: PortalInstallment; todayStart: Date; online: boolean; payable: boolean };
 
-/** Parcela em aberto: situação, valor e as ações PAGAR (online) e JÁ PAGUEI (aviso para conferência). */
-export function OpenInstallmentRow({ installment, todayStart, online, notice, notifyOpen = false }: RowProps) {
+/**
+ * Parcela em aberto: situação, valor e PAGAR AGORA (fatura do Asaas). A parcela só fica paga quando o Asaas confirma
+ * o pagamento; não há como o cliente marcá-la como paga.
+ */
+export function OpenInstallmentRow({ installment, todayStart, online, payable }: RowProps) {
   const state = situation(installment, todayStart);
-  const key = installmentKey(installment);
-  const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Maceio" }).format(new Date());
-  return <li className={`portal-row ${installment.overdue ? "is-late" : ""}`} id={`parcela-${key.replace(":", "-")}`}>
+  return <li className={`portal-row ${installment.overdue ? "is-late" : ""}`} id={`parcela-${installmentKey(installment).replace(":", "-")}`}>
     <div className="portal-row-main">
       <b>{installmentTitle(installment)}</b>
       <small>{installment.entryDescription}</small>
       <span className={`portal-tag ${state.tone}`}>{state.label}</span>
       {installment.state === "partial" ? <small>Pago em parte: {money(installment.paid)} de {money(installment.amountCents)}.</small> : null}
-      {notice ? <small className="portal-row-notice">Você avisou um pagamento de {money(notice.amountCents)} em {day(notice.createdAt)}. Aguardando confirmação.</small> : null}
     </div>
     <div className="portal-row-amount"><strong>{money(installment.remaining)}</strong><small>vence {day(installment.dueDate)}</small></div>
     <div className="portal-row-actions">
-      {online ? <form action={payInstallmentAction}><input type="hidden" name="entryId" value={installment.entryId} /><input type="hidden" name="number" value={installment.number ?? ""} /><button className="primary-action" type="submit">PAGAR</button></form> : null}
-      {!notice ? <Link className={online ? "text-link" : "secondary-action"} href={notifyOpen ? "/pagamentos#em-aberto" : `/pagamentos?avisar=${key}#parcela-${key.replace(":", "-")}`} scroll={!notifyOpen}>{notifyOpen ? "CANCELAR" : "JÁ PAGUEI"}</Link> : null}
+      {online && payable ? <form action={payInstallmentAction}><input type="hidden" name="entryId" value={installment.entryId} /><input type="hidden" name="number" value={installment.number ?? ""} /><button className="primary-action" type="submit">PAGAR AGORA</button></form> : null}
+      {online && !payable ? <small className="portal-row-wait">Após a parcela {(installment.number ?? 1) - 1}</small> : null}
     </div>
-    {notifyOpen ? <form className="portal-notify-form" action={notifyPaymentAction}>
-      <input type="hidden" name="entryId" value={installment.entryId} />
-      <input type="hidden" name="number" value={installment.number ?? ""} />
-      <p>Informe o pagamento feito por Pix ou transferência. Ele aparece como confirmado depois da conferência.</p>
-      <label>Valor pago (R$)<input name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" max={(installment.remaining / 100).toFixed(2)} defaultValue={(installment.remaining / 100).toFixed(2)} required /></label>
-      <label>Data do pagamento<input name="paidOn" type="date" max={todayKey} defaultValue={todayKey} required /></label>
-      <label className="portal-notify-wide">Mensagem (opcional)<textarea name="message" maxLength={500} rows={2} placeholder="Ex.: paguei pelo Pix do banco X, comprovante enviado por e-mail." /></label>
-      <button className="primary-action" type="submit">ENVIAR AVISO</button>
-    </form> : null}
   </li>;
 }

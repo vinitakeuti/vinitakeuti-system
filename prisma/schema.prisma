@@ -636,13 +636,33 @@ model MonitoringEvent {
   @@index([type, severity])
 }
 
+/// Integração de pagamentos (Asaas), configurada em Integrações na gestão. A chave fica criptografada
+/// (INTEGRATION_ENCRYPTION_KEY) e do token do webhook só se guarda o hash.
 model PaymentIntegration {
   id                    String   @id @default(cuid())
   provider              String   @unique
   isActive              Boolean  @default(false)
   environment           String   @default("sandbox")
   apiKeyEncrypted       String?
+  /// Últimos 4 caracteres da chave, para identificar qual está salva.
+  keyHint               String?
   webhookTokenHash      String?
+  webhookId             String?
+  webhookUrl            String?
+  /// Situação do webhook no Asaas: ACTIVE, INTERRUPTED (fila parada), DISABLED ou MISSING.
+  webhookStatus         String?
+  webhookPenalized      Int?
+  accountName           String?
+  accountEmail          String?
+  accountDocument       String?
+  accountStatus         String?
+  /// Última verificação da conexão e do webhook, com o erro, se houve.
+  lastCheckedAt         DateTime?
+  lastError             String?
+  /// Última conferência das cobranças em aberto direto no Asaas (cobre webhooks perdidos).
+  lastSyncAt            DateTime?
+  /// Cobrança automática: a cobrança da próxima parcela é gerada no Asaas estes dias antes do vencimento. Null desliga.
+  autoChargeDays        Int?     @default(7)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
@@ -657,9 +677,14 @@ model GatewayEvent {
   occurredAt        DateTime?
   processedAt       DateTime?
   error             String?
+  /// Tentativas de processamento (o agendador reprocessa até 5 vezes).
+  attempts          Int      @default(0)
+  /// Só os campos da cobrança usados no processamento (status, valor e datas), não o payload inteiro.
+  payload           Json?
   receivedAt        DateTime @default(now())
 
   @@index([provider, receivedAt])
+  @@index([processedAt, receivedAt])
   @@index([providerPaymentId])
 }
 

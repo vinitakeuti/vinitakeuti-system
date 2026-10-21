@@ -9,7 +9,7 @@ As regras visuais e técnicas são permanentes: sem emojis, sem cards aninhados,
 ## Módulos preparados
 
 - Clientes, projetos e cobranças com PostgreSQL/Prisma.
-- Integração Asaas: criação de cliente, cobrança PIX/cartão/boleto e webhook de atualização.
+- Integração Asaas, configurada em Integrações na gestão (sem variáveis de ambiente): chave de API criptografada, webhook criado automaticamente, cobranças pelo portal do cliente e sincronização a cada 30 minutos.
 - Estrutura de orçamentos e contratos, pronta para geração de PDF.
 - Estrutura de sistemas monitorados, eventos de uptime, logs e segurança.
 - Calculadora de orçamento funcional; a análise de escopo por IA será conectada neste módulo.
