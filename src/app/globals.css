@@ -1457,34 +1457,6 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 
 .portal-due.is-late .portal-due-progress i { background:#e8bfb2; }
 
-/* Portal do cliente: Início — lembretes em cartões e o contato. */
-.portal-reminders { margin-bottom:28px; }
-.portal-reminders h2 { margin:0 0 14px; color:var(--black); font-size:1.15rem; letter-spacing:-.03em; }
-.portal-reminder-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px; margin:0; padding:0; list-style:none; }
-.portal-reminder-grid li { display:grid; grid-template-rows:auto auto 1fr auto; gap:6px; min-height:168px; padding:18px 20px; border:1px solid #9fbcab; border-top:4px solid #2f4a3c; background:#d3e3d8; }
-.portal-reminder-grid li.is-soon { border-color:#dcc196; border-top-color:#9a6a2a; background:#f3e5cc; }
-.portal-reminder-grid li.is-attention { border-color:#e0a99a; border-top-color:#a63d22; background:#f5d9cf; }
-.portal-reminder-category { color:#2f4a3c; font-family:var(--mono); font-size:.6rem; font-weight:500; letter-spacing:.1em; }
-.portal-reminder-grid li.is-soon .portal-reminder-category { color:#7a5220; }
-.portal-reminder-grid li.is-attention .portal-reminder-category { color:#7f2d18; }
-.portal-reminder-grid b { color:var(--black); font-size:1.02rem; font-weight:650; letter-spacing:-.02em; line-height:1.3; overflow-wrap:anywhere; }
-.portal-reminder-grid small { color:#3d4a42; font-size:.8rem; line-height:1.45; overflow-wrap:anywhere; }
-.portal-reminder-grid a { justify-self:start; margin-top:8px; padding-bottom:2px; border-bottom:1px solid currentColor; color:var(--black); font-family:var(--mono); font-size:.62rem; letter-spacing:.06em; text-decoration:none; }
-.portal-reminder-grid a:hover { opacity:.7; }
-.portal-reminder-empty { margin:0; padding:18px 20px; border:1px solid #9fbcab; border-left:4px solid #2f4a3c; background:#d3e3d8; color:#1f2a24; font-size:.88rem; line-height:1.55; }
-.portal-contact-card { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:18px 24px; padding:22px 24px; border:1px solid var(--line); background:var(--white); }
-.portal-contact-mark { display:grid; place-items:center; width:54px; height:54px; background:var(--black); color:var(--white); font-family:var(--mono); font-size:.8rem; letter-spacing:.04em; }
-.portal-contact-card .eyebrow { margin:0 0 4px; }
-.portal-contact-card h2 { margin:0; font-size:1.1rem; letter-spacing:-.03em; }
-.portal-contact-card p:not(.eyebrow) { margin:4px 0 0; color:var(--muted); font-size:.82rem; line-height:1.45; }
-.portal-contact-card dl { display:grid; gap:8px; margin:0; }
-.portal-contact-card dl div { display:grid; grid-template-columns:72px auto; align-items:baseline; gap:10px; }
-.portal-contact-card dt { color:var(--muted); font-family:var(--mono); font-size:.56rem; letter-spacing:.06em; }
-.portal-contact-card dd { margin:0; font-size:.86rem; overflow-wrap:anywhere; }
-.portal-contact-card dd a { color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line); }
-.portal-contact-card dd a:hover { color:var(--accent); border-bottom-color:var(--accent); }
-@media (max-width:760px) { .portal-contact-card { grid-template-columns:auto minmax(0,1fr); } .portal-contact-card dl { grid-column:1 / -1; padding-top:14px; border-top:1px solid var(--line); } }
-@media (max-width:640px) { .portal-reminder-grid li { min-height:0; padding:16px; } .portal-contact-card { padding:18px 16px; } .portal-contact-card dl div { grid-template-columns:64px minmax(0,1fr); } }
 
 /* Portal do cliente: documentos separados por situação (para assinar, assinados) e por tipo. */
 .portal-page .portal-docs + .portal-docs { margin-top:20px; }
@@ -1527,4 +1499,63 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
   .portal-doc-step-upload { align-items:flex-start; }
   .portal-doc-step-upload > span { margin:0; }
   .portal-sign-upload .primary-action { width:100%; }
+}
+
+/* Portal do cliente: Início — jornada do projeto, "para você" e contato. */
+.portal-home { display:grid; grid-template-columns:minmax(0,1fr) 320px; align-items:start; gap:20px; }
+.portal-home-main { display:grid; gap:20px; min-width:0; }
+.portal-home .settings-panel { margin:0; }
+.portal-journey .settings-panel-heading .eyebrow { margin:0 0 4px; color:var(--accent); font-size:.64rem; }
+.portal-journey-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:0; padding:22px 22px 24px; list-style:none; counter-reset:step; }
+.portal-journey-steps li { position:relative; display:grid; justify-items:start; gap:5px; padding-right:14px; }
+.portal-journey-steps li::before { content:""; position:absolute; top:15px; left:34px; right:0; height:2px; background:var(--line); }
+.portal-journey-steps li:last-child::before { display:none; }
+.portal-journey-steps li.is-done::before { background:var(--accent); }
+.portal-journey-dot { position:relative; z-index:1; display:grid; place-items:center; width:32px; height:32px; margin-bottom:6px; border:1px solid var(--line); background:var(--white); color:var(--muted); font-family:var(--mono); font-size:.66rem; }
+.portal-journey-steps li.is-done .portal-journey-dot { border-color:var(--accent); background:var(--accent); color:var(--white); }
+.portal-journey-steps li.is-current .portal-journey-dot { border:2px solid var(--black); color:var(--black); font-weight:600; }
+.portal-journey-steps b { font-size:.88rem; font-weight:620; }
+.portal-journey-steps li.is-next b { color:var(--muted); font-weight:500; }
+.portal-journey-steps small { color:var(--muted); font-size:.76rem; line-height:1.4; }
+.portal-journey-steps li.is-current small { color:var(--ink); }
+.portal-todo-list { margin:0; padding:0; list-style:none; }
+.portal-todo-list li { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:10px 18px; padding:15px 22px; border-bottom:1px solid var(--line); }
+.portal-todo-list li:last-child { border-bottom:0; }
+.portal-todo-text { display:grid; gap:4px; min-width:0; }
+.portal-todo-meta { display:flex; align-items:center; gap:8px; color:var(--muted); font-family:var(--mono); font-size:.58rem; letter-spacing:.07em; text-transform:uppercase; }
+.portal-todo-meta i { width:7px; height:7px; border-radius:50%; background:var(--accent); }
+.portal-todo-list li.is-soon .portal-todo-meta i { background:#c08a3e; }
+.portal-todo-list li.is-attention .portal-todo-meta i { background:#b2492c; }
+.portal-todo-list li.is-attention .portal-todo-meta { color:#8e3820; }
+.portal-todo-text b { font-size:.94rem; font-weight:620; overflow-wrap:anywhere; }
+.portal-todo-text small { color:var(--muted); font-size:.8rem; line-height:1.45; overflow-wrap:anywhere; }
+.portal-todo-list .secondary-action { min-height:38px; text-decoration:none; white-space:nowrap; }
+.portal-todo-empty { margin:0; padding:18px 22px 20px; color:var(--muted); font-size:.86rem; line-height:1.55; }
+.portal-contact-card { position:sticky; top:24px; display:grid; gap:16px; padding:22px; border:1px solid var(--line); background:var(--white); }
+.portal-contact-person { display:flex; align-items:center; gap:14px; }
+.portal-contact-mark { display:grid; flex:0 0 auto; place-items:center; width:56px; height:56px; background:var(--accent); color:var(--white); font-family:var(--mono); font-size:.86rem; letter-spacing:.04em; }
+.portal-contact-person .eyebrow { margin:0 0 3px; }
+.portal-contact-person h2 { margin:0; font-size:1.1rem; letter-spacing:-.03em; }
+.portal-contact-person small { color:var(--muted); font-size:.78rem; }
+.portal-contact-card > p { margin:0; color:#353735; font-size:.86rem; line-height:1.5; }
+.portal-contact-actions { display:grid; gap:8px; }
+.portal-contact-actions a { width:100%; min-height:42px; text-decoration:none; }
+.portal-contact-card dl { display:grid; gap:8px; margin:0; padding-top:14px; border-top:1px solid var(--line); }
+.portal-contact-card dl:empty { display:none; }
+.portal-contact-card dl div { display:grid; gap:2px; }
+.portal-contact-card dt { color:var(--muted); font-family:var(--mono); font-size:.56rem; letter-spacing:.06em; }
+.portal-contact-card dd { margin:0; font-size:.84rem; overflow-wrap:anywhere; }
+.portal-contact-card dd a { color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line); }
+@media (max-width:1100px) { .portal-home { grid-template-columns:minmax(0,1fr); } .portal-contact-card { position:static; } }
+@media (max-width:640px) {
+  .portal-journey-steps { grid-template-columns:minmax(0,1fr); gap:0; padding:16px 15px 18px; }
+  .portal-journey-steps li { grid-template-columns:auto minmax(0,1fr); column-gap:12px; row-gap:2px; padding:0 0 16px; }
+  .portal-journey-steps li::before { top:34px; bottom:0; left:15px; right:auto; width:2px; height:auto; }
+  .portal-journey-dot { grid-row:1 / span 2; margin:0; }
+  .portal-journey-steps b { align-self:end; }
+  .portal-journey-steps small { grid-column:2; }
+  .portal-journey-steps li:last-child { padding-bottom:0; }
+  .portal-todo-list li { grid-template-columns:minmax(0,1fr); padding:14px 15px; }
+  .portal-todo-list .secondary-action { justify-self:start; }
+  .portal-contact-card { padding:18px 16px; }
 }

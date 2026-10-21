@@ -14,6 +14,15 @@ function inDays(target: Date, todayStart: Date) {
   return Math.round((target.getTime() - todayStart.getTime()) / DAY_MS);
 }
 
+const kindName: Record<string, string> = { PROPOSAL: "proposta comercial", CONTRACT: "contrato", IP_ASSIGNMENT: "cessão de direitos", TECHNICAL_MEMORIAL: "memorial técnico" };
+
+/** "Proposta comercial e contrato": os tipos dos documentos, sem repetir títulos iguais. */
+function documentKinds(documents: Array<{ kind: string }>) {
+  const names = [...new Set(documents.map((document) => kindName[document.kind] ?? "documento"))];
+  const text = names.length > 1 ? `${names.slice(0, -1).join(", ")} e ${names.at(-1)}` : names[0];
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
+}
+
 function when(days: number) {
   return days <= 0 ? "hoje" : days === 1 ? "amanhã" : `em ${days} dias`;
 }
@@ -50,7 +59,7 @@ export function buildPortalReminders({ context, documents, services, online, con
 
   const unsigned = documents.filter((document) => !document.signed?.signatureDetected);
   if (unsigned.length) {
-    reminders.push({ id: "sign", tone: "info", category: "DOCUMENTO", title: unsigned.length === 1 ? "Um documento para assinar" : `${unsigned.length} documentos para assinar`, detail: unsigned.slice(0, 2).map((document) => document.title).join(" · ") + (unsigned.length > 2 ? " e outros" : ""), href: "/documentos", action: "ASSINAR" });
+    reminders.push({ id: "sign", tone: "info", category: "DOCUMENTO", title: unsigned.length === 1 ? "Um documento para assinar" : `${unsigned.length} documentos para assinar`, detail: documentKinds(unsigned), href: "/documentos", action: "ASSINAR" });
   }
   for (const project of services.projects.filter((item) => item.deliveryAt && item.status !== "DELIVERED" && item.status !== "WAITING_CLIENT")) {
     const days = inDays(project.deliveryAt!, todayStart);

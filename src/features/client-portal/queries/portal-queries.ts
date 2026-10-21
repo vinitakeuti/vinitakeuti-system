@@ -120,6 +120,15 @@ export async function listPortalPayments(entryIds: string[], { cursor, take = PO
   return { data, nextCursor: rows.length > take ? data.at(-1)!.id : null };
 }
 
+/** Contato do profissional para o cliente. Sem e-mail no Perfil profissional, usa o e-mail da conta de quem atende. */
+export async function getPortalContact() {
+  const [profile, owner] = await Promise.all([
+    prisma.professionalProfile.findUnique({ where: { id: "default" }, select: { name: true, email: true, phone: true, website: true } }),
+    prisma.user.findFirst({ where: { role: "PROFESSIONAL", isActive: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { name: true, email: true } }),
+  ]);
+  return { name: profile?.name?.trim() || owner?.name || "Vinicius Riudi", email: profile?.email?.trim() || owner?.email || null, phone: profile?.phone?.trim() || null, website: profile?.website?.trim() || null };
+}
+
 /** Como o cliente paga: online pelo Asaas, ou Pix e instruções do perfil profissional. */
 export async function getPortalPaymentOptions() {
   const [online, profile] = await Promise.all([
@@ -135,7 +144,7 @@ export async function getPortalServices(clientId: string) {
       where: { clientId, status: { in: [SaleStatus.CONFIRMED, SaleStatus.PAID] } },
       orderBy: [{ confirmedAt: "desc" }, { id: "desc" }],
       take: MAX_ITEMS,
-      select: { id: true, code: true, title: true, status: true, amountCents: true, confirmedAt: true, createdAt: true, quote: { select: { code: true, items: { orderBy: { createdAt: "asc" }, take: MAX_ITEMS, select: { id: true, name: true, categoryName: true, billingType: true, billingCycle: true, quantity: true } } } } },
+      select: { id: true, code: true, title: true, status: true, amountCents: true, confirmedAt: true, createdAt: true, quote: { select: { id: true, code: true, projectId: true, items: { orderBy: { createdAt: "asc" }, take: MAX_ITEMS, select: { id: true, name: true, categoryName: true, billingType: true, billingCycle: true, quantity: true } } } } },
     }),
     prisma.subscription.findMany({ where: { clientId, status: { not: SubscriptionStatus.CANCELLED } }, orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: MAX_ITEMS, select: { id: true, name: true, amountCents: true, billingCycle: true, status: true, nextPaymentAt: true, startedAt: true } }),
     prisma.project.findMany({ where: { clientId, status: { notIn: [ProjectStatus.LEAD, ProjectStatus.CANCELLED] } }, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: MAX_ITEMS, select: { id: true, name: true, description: true, status: true, startedAt: true, deliveryAt: true } }),
@@ -150,10 +159,10 @@ const latestSignedCopy = { orderBy: [{ createdAt: "desc" }, { id: "desc" }], tak
 export async function getPortalDocuments(clientId: string, take = MAX_ITEMS) {
   const [quotes, documents] = await Promise.all([
     prisma.quote.findMany({ where: { clientId, completedAt: { not: null } }, orderBy: [{ completedAt: "desc" }, { id: "desc" }], take, select: { id: true, code: true, title: true, completedAt: true, signedCopies: latestSignedCopy } }),
-    prisma.clientDocument.findMany({ where: { clientId, completedAt: { not: null } }, orderBy: [{ completedAt: "desc" }, { id: "desc" }], take, select: { id: true, code: true, title: true, kind: true, completedAt: true, signedCopies: latestSignedCopy } }),
+    prisma.clientDocument.findMany({ where: { clientId, completedAt: { not: null } }, orderBy: [{ completedAt: "desc" }, { id: "desc" }], take, select: { id: true, code: true, title: true, kind: true, quoteId: true, completedAt: true, signedCopies: latestSignedCopy } }),
   ]);
   return [
-    ...quotes.map((quote) => ({ id: quote.id, code: quote.code, title: quote.title, kind: "PROPOSAL" as const, target: "proposal" as const, completedAt: quote.completedAt!, href: `/api/portal/propostas/${quote.id}/pdf`, signed: quote.signedCopies[0] ?? null })),
-    ...documents.map((document) => ({ id: document.id, code: document.code, title: document.title, kind: document.kind, target: "document" as const, completedAt: document.completedAt!, href: `/api/portal/documentos/${document.id}/pdf`, signed: document.signedCopies[0] ?? null })),
+    ...quotes.map((quote) => ({ id: quote.id, code: quote.code, title: quote.title, kind: "PROPOSAL" as const, target: "proposal" as const, quoteId: quote.id, completedAt: quote.completedAt!, href: `/api/portal/propostas/${quote.id}/pdf`, signed: quote.signedCopies[0] ?? null })),
+    ...documents.map((document) => ({ id: document.id, code: document.code, title: document.title, kind: document.kind, target: "document" as const, quoteId: document.quoteId, completedAt: document.completedAt!, href: `/api/portal/documentos/${document.id}/pdf`, signed: document.signedCopies[0] ?? null })),
   ].sort((left, right) => right.completedAt.getTime() - left.completedAt.getTime()).slice(0, take);
 }
