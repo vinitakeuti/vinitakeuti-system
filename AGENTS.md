@@ -2,6 +2,16 @@
 
 Estas regras valem para todo código, interface, texto, documentação e ativo adicionado ao projeto.
 
+## Organização do repositório
+
+Cada serviço é um app independente em `apps/`, com o próprio `package.json`, Dockerfile e deploy no Easypanel (caminho de build = pasta do app):
+
+- `apps/gestao/`: gestão e portal do cliente (gestao.viniciusriudi.com e clientes.viniciusriudi.com), com banco, login e Prisma.
+- `apps/site/`: site institucional (viniciusriudi.com), sem banco nem login.
+- Novos serviços (portfolio, links) entram como `apps/<nome>/`.
+
+Os caminhos `src/...` e `prisma/...` abaixo são relativos à pasta do app. Comandos (`npm install`, `npm run dev`, Prisma) rodam dentro dela.
+
 ## Interface
 
 - Não use emojis. Use texto claro, ícones funcionais consistentes ou indicadores geométricos simples quando forem necessários.

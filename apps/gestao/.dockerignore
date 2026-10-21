@@ -10,4 +10,3 @@ output
 tmp
 *.tsbuildinfo
 .DS_Store
-apps
