@@ -98,7 +98,7 @@ export const getPortalContext = cache(async () => {
   const user = await requireClientUser();
   const clientId = user.clientId!;
   const [client, receivables] = await Promise.all([
-    prisma.client.findUnique({ where: { id: clientId }, select: { id: true, name: true, company: true, email: true, document: true, phone: true } }),
+    prisma.client.findUnique({ where: { id: clientId }, select: { id: true, name: true, company: true, email: true, document: true, cpf: true, cnpj: true, phone: true } }),
     loadReceivables(clientId),
   ]);
   return { user, clientId, client, receivables };
