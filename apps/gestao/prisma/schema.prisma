@@ -211,6 +211,9 @@ model ProfessionalProfile {
   /// Chave Pix e instruções mostradas ao cliente no portal quando não há pagamento online (Asaas).
   pixKey             String?
   paymentInstructions String?
+  /// Assinatura do profissional para as folhas de assinatura dos PDFs: SVG reduzido aos traços (só elementos path).
+  /// Fica no banco, nunca em public/, para não ficar acessível por um endereço público.
+  signatureSvg       String?
   updatedAt          DateTime @updatedAt
 }
 

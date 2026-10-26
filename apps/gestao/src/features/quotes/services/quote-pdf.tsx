@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_COLORS, richTextLineHeight, type RichTextBlock, type RichTextBox, type RichTextList, type RichTextRun } from "@/lib/rich-text";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
 import { TextDocumentCover } from "@/features/quotes/services/pdf-covers";
+import type { ParsedSignature } from "@/features/professional-profile/services/signature";
 import { QUOTE_PAGE_CONTENT_WIDTH, quoteDocumentBlockRole, quoteImageWidthShare, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
 
 type Style = Exclude<ComponentProps<typeof View>["style"], unknown[] | undefined>;
@@ -125,9 +126,10 @@ const styles = StyleSheet.create({
   closingAcceptanceTitle: { color: colors.black, fontSize: 11, fontWeight: 700 },
   closingAcceptanceText: { color: colors.muted, fontSize: 8.5, lineHeight: 1.5, marginTop: 4 },
   closingPlace: { color: colors.charcoal, fontSize: 8.5, marginTop: 11 },
-  closingSignatures: { flexDirection: "row", gap: 32, marginTop: 34 },
+  closingSignatures: { flexDirection: "row", gap: 32, marginTop: 16 },
   closingSignature: { flexBasis: 0, flexGrow: 1 },
   closingSignatureLine: { borderTopColor: colors.charcoal, borderTopWidth: 1, marginBottom: 7 },
+  closingSignatureArea: { alignItems: "center", height: 52, justifyContent: "flex-end", marginBottom: -4 },
   closingSignatureName: { color: colors.black, fontSize: 9.5, fontWeight: 700 },
   closingSignatureDetail: { color: colors.muted, fontSize: 7.8, marginTop: 2 },
   closingSignatureRole: { color: colors.accent, fontFamily: "Courier", fontSize: 6.5, letterSpacing: 0.9, marginTop: 5 },
@@ -164,6 +166,8 @@ export type QuotePdfInput = {
     city?: string | null;
     state?: string | null;
     website?: string | null;
+    /** Assinatura desenhada acima do nome do profissional nas folhas de assinatura (Perfil profissional). */
+    signature?: ParsedSignature | null;
   };
 };
 
@@ -294,6 +298,21 @@ function DocumentBlock({ block, previous, images }: { block: QuoteDocumentBlock;
   return <Text style={[block.type === "heading" ? styles.editorHeading : styles.editorParagraph, block.fontSize === "small" ? styles.editorSmall : block.fontSize === "large" ? styles.editorLarge : styles.editorMedium, { fontWeight: block.bold ? 700 : 400, ...marks }]}>{block.text}</Text>;
 }
 
+const SIGNATURE_MAX_WIDTH = 200;
+const SIGNATURE_MAX_HEIGHT = 50;
+
+/** Espaço acima da linha de assinatura: com a assinatura do profissional desenhada ou vazio (para a outra parte). */
+function SignatureArea({ signature }: { signature?: ParsedSignature | null }) {
+  if (!signature) return <View style={styles.closingSignatureArea} />;
+  const [, , viewWidth, viewHeight] = signature.viewBox;
+  const scale = Math.min(SIGNATURE_MAX_WIDTH / viewWidth, SIGNATURE_MAX_HEIGHT / viewHeight);
+  return <View style={styles.closingSignatureArea}>
+    <Svg viewBox={signature.viewBox.join(" ")} style={{ height: viewHeight * scale, width: viewWidth * scale }}>
+      {signature.paths.map((path, index) => <Path key={index} d={path.d} fill={path.fill} stroke={path.stroke ?? undefined} strokeWidth={path.strokeWidth ?? undefined} strokeLinecap={path.strokeLinecap ?? undefined} strokeLinejoin={path.strokeLinejoin ?? undefined} />)}
+    </Svg>
+  </View>;
+}
+
 /** Folha de assinaturas do contrato, da cessão e do memorial técnico. */
 function SignatureClosing({ quote, kind, signatureLine, clientDetails }: { quote: QuotePdfInput; kind: DocumentKind; signatureLine: string; clientDetails: Array<string | null | undefined> }) {
   const closing = documentKindInfo(kind).closing!;
@@ -304,11 +323,11 @@ function SignatureClosing({ quote, kind, signatureLine, clientDetails }: { quote
       <Text style={styles.closingAcceptanceText}>{closing.statement}</Text>
       <Text style={styles.closingPlace}>{signatureLine}</Text>
       <View style={styles.closingSignatures}>
-        <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.professional.name}</Text>{quote.professional.document ? <Text style={styles.closingSignatureDetail}>{quote.professional.document}</Text> : null}<Text style={styles.closingSignatureRole}>{closing.professional.role}</Text></View>
-        <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>{closing.client.role}</Text></View>
+        <View style={styles.closingSignature}><SignatureArea signature={quote.professional.signature} /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.professional.name}</Text>{quote.professional.document ? <Text style={styles.closingSignatureDetail}>{quote.professional.document}</Text> : null}<Text style={styles.closingSignatureRole}>{closing.professional.role}</Text></View>
+        <View style={styles.closingSignature}><SignatureArea /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>{closing.client.role}</Text></View>
       </View>
-      {closing.witnesses ? <View style={[styles.closingSignatures, { marginTop: 44 }]}>
-        {["TESTEMUNHA 1", "TESTEMUNHA 2"].map((role) => <View style={styles.closingSignature} key={role}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>Nome:</Text><Text style={styles.closingSignatureDetail}>CPF:</Text><Text style={styles.closingSignatureRole}>{role}</Text></View>)}
+      {closing.witnesses ? <View style={[styles.closingSignatures, { marginTop: 26 }]}>
+        {["TESTEMUNHA 1", "TESTEMUNHA 2"].map((role) => <View style={styles.closingSignature} key={role}><SignatureArea /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>Nome:</Text><Text style={styles.closingSignatureDetail}>CPF:</Text><Text style={styles.closingSignatureRole}>{role}</Text></View>)}
       </View> : null}
     </View>
   </View>;
@@ -426,8 +445,8 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
             <Text style={styles.closingAcceptanceText}>Ao assinar, as partes declaram estar de acordo com os serviços, valores e condições descritos nesta proposta.</Text>
             <Text style={styles.closingPlace}>{signatureLine}</Text>
             <View style={styles.closingSignatures}>
-              <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.professional.name}</Text>{quote.professional.document ? <Text style={styles.closingSignatureDetail}>{quote.professional.document}</Text> : null}<Text style={styles.closingSignatureRole}>PROFISSIONAL RESPONSÁVEL</Text></View>
-              <View style={styles.closingSignature}><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>CLIENTE</Text></View>
+              <View style={styles.closingSignature}><SignatureArea signature={quote.professional.signature} /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.professional.name}</Text>{quote.professional.document ? <Text style={styles.closingSignatureDetail}>{quote.professional.document}</Text> : null}<Text style={styles.closingSignatureRole}>PROFISSIONAL RESPONSÁVEL</Text></View>
+              <View style={styles.closingSignature}><SignatureArea /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>CLIENTE</Text></View>
             </View>
           </View>
         </View> : <SignatureClosing quote={quote} kind={kind} signatureLine={signatureLine} clientDetails={clientDetails} />}

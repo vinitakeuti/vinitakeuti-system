@@ -7,3 +7,7 @@ coverage
 *.tsbuildinfo
 output/
 tmp/
+
+# Assinatura do profissional: cadastrada pelo Perfil profissional (fica no banco), nunca versionada nem em public/.
+apps/gestao/public/assets/images/assintura.svg
+apps/gestao/public/assets/images/assinatura*.svg
