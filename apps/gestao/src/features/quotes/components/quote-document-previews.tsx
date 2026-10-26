@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { CSSProperties } from "react";
 import { ASSIGNMENT_COVER_COLORS, BRAND_MARK_PATHS, BRAND_MARK_TRANSFORM, BRAND_MARK_VIEWBOX, CONTRACT_COVER_COLORS, coverTitleLayout, coverTitleSize, MEMORIAL_COVER_COLORS, MEMORIAL_GRID, pointsToCoverCqw } from "@/features/quotes/types/brand-mark";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
+import type { ParsedSignature } from "@/features/professional-profile/services/signature";
 
 function BrandMark({ className }: { className: string }) {
   return <svg className={className} viewBox={BRAND_MARK_VIEWBOX} aria-hidden="true" focusable="false"><g transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => <path key={d} d={d} />)}</g></svg>;
@@ -15,7 +16,18 @@ export type QuotePreviewProfessional = {
   city?: string | null;
   state?: string | null;
   website?: string | null;
+  /** Assinatura cadastrada no Perfil profissional, desenhada acima do nome na folha final. */
+  signature?: ParsedSignature | null;
 };
+
+/**
+ * Espaço acima da linha de assinatura, como no PDF: a assinatura do profissional ou vazio. Sem assinatura cadastrada,
+ * a prévia (só ela, não o PDF) avisa onde cadastrar.
+ */
+function PreviewSignature({ signature, professional = false }: { signature?: ParsedSignature | null; professional?: boolean }) {
+  if (signature) return <div className="quote-closing-signature-mark"><svg viewBox={signature.viewBox.join(" ")} role="img" aria-label="Assinatura">{signature.paths.map((path, index) => <path key={index} d={path.d} fill={path.fill} stroke={path.stroke ?? undefined} strokeWidth={path.strokeWidth ?? undefined} strokeLinecap={path.strokeLinecap ?? undefined} strokeLinejoin={path.strokeLinejoin ?? undefined} />)}</svg></div>;
+  return <div className="quote-closing-signature-mark">{professional ? <Link href="/configuracoes/profissional#assinatura">Cadastre sua assinatura no Perfil profissional</Link> : null}</div>;
+}
 
 export type QuotePreviewData = {
   id: string;
@@ -242,8 +254,8 @@ export function QuoteClosingPreview({ quote, professional, pageNumber }: { quote
             <p>Ao assinar, as partes declaram estar de acordo com os serviços, valores e condições descritos nesta proposta.</p>
             <p className="quote-closing-place">{place ? `${place}, ` : ""}{longDate.format(new Date(quote.signatureDate))}.</p>
             <div className="quote-closing-signatures">
-              <div><i aria-hidden="true" /><b>{professional.name}</b>{professional.document ? <small>{professional.document}</small> : null}<span>PROFISSIONAL RESPONSÁVEL</span></div>
-              <div><i aria-hidden="true" /><b>{quote.client.name}</b>{clientDetail ? <small>{clientDetail}</small> : null}<span>CLIENTE</span></div>
+              <div><PreviewSignature signature={professional.signature} professional /><i aria-hidden="true" /><b>{professional.name}</b>{professional.document ? <small>{professional.document}</small> : null}<span>PROFISSIONAL RESPONSÁVEL</span></div>
+              <div><PreviewSignature /><i aria-hidden="true" /><b>{quote.client.name}</b>{clientDetail ? <small>{clientDetail}</small> : null}<span>CLIENTE</span></div>
             </div>
           </div>
         </div>
@@ -284,12 +296,12 @@ export function DocumentSignaturePreview({ document, professional, kind, pageNum
             <p>{closing.statement}</p>
             <p className="quote-closing-place">{place ? `${place}, ` : ""}{longDate.format(new Date(document.signatureDate))}.</p>
             <div className="quote-closing-signatures">
-              <div><i aria-hidden="true" /><b>{professional.name}</b>{professional.document ? <small>{professional.document}</small> : null}<span>{closing.professional.role}</span></div>
-              <div><i aria-hidden="true" /><b>{document.client.name}</b>{clientDetail ? <small>{clientDetail}</small> : null}<span>{closing.client.role}</span></div>
+              <div><PreviewSignature signature={professional.signature} professional /><i aria-hidden="true" /><b>{professional.name}</b>{professional.document ? <small>{professional.document}</small> : null}<span>{closing.professional.role}</span></div>
+              <div><PreviewSignature /><i aria-hidden="true" /><b>{document.client.name}</b>{clientDetail ? <small>{clientDetail}</small> : null}<span>{closing.client.role}</span></div>
             </div>
             {closing.witnesses ? <div className="quote-closing-signatures is-witnesses">
-              <div><i aria-hidden="true" /><b>Nome:</b><small>CPF:</small><span>TESTEMUNHA 1</span></div>
-              <div><i aria-hidden="true" /><b>Nome:</b><small>CPF:</small><span>TESTEMUNHA 2</span></div>
+              <div><PreviewSignature /><i aria-hidden="true" /><b>Nome:</b><small>CPF:</small><span>TESTEMUNHA 1</span></div>
+              <div><PreviewSignature /><i aria-hidden="true" /><b>Nome:</b><small>CPF:</small><span>TESTEMUNHA 2</span></div>
             </div> : null}
           </div>
         </div>

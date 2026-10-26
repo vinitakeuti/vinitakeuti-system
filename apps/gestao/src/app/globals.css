@@ -535,8 +535,8 @@ body.sidebar-collapsed .sidebar { width:0; padding-left:0; padding-right:0; } bo
 .quote-closing-acceptance > strong { color:var(--black); font-size:1.85cqw; }
 .quote-closing-acceptance > p { margin:.67cqw 0 0; color:var(--muted); font-size:1.43cqw; line-height:1.5; }
 .quote-closing-acceptance > p.quote-closing-place { margin-top:1.85cqw; color:var(--charcoal); }
-.quote-closing-signatures { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:5.38cqw; margin-top:5.71cqw; }
-.quote-closing-signatures > div { display:grid; gap:.34cqw; min-width:0; }
+.quote-closing-signatures { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:5.38cqw; margin-top:2.7cqw; }
+.quote-closing-signatures > div { display:grid; align-content:start; gap:.34cqw; min-width:0; }
 .quote-closing-signatures i { display:block; height:1px; margin-bottom:1.18cqw; background:var(--charcoal); }
 .quote-closing-signatures b { color:var(--black); font-size:1.6cqw; }
 .quote-closing-signatures small { color:var(--muted); font-size:1.31cqw; }
@@ -817,7 +817,7 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 .client-documents-actions .table-link + .table-link { margin-left:14px; }
 .client-documents .profile-table { margin-bottom:16px; }
 /* Testemunhas na folha de assinaturas dos documentos. */
-.quote-closing-signatures.is-witnesses { margin-top:7cqw; }
+.quote-closing-signatures.is-witnesses { margin-top:4.4cqw; }
 /* Perfil do cliente: cabeçalho com identidade e ações, abas roláveis e uma superfície por seção. */
 .client-profile { max-width:1240px; }
 .client-hero { margin-bottom:18px; padding-bottom:22px; border-bottom:1px solid var(--line); }
@@ -1573,3 +1573,8 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 .professional-signature-actions > div { display:flex; flex-wrap:wrap; align-items:center; gap:18px; }
 .professional-signature-remove { border:0; padding:0; background:transparent; color:#8c4427; cursor:pointer; }
 @media (max-width:760px) { .professional-signature-body { grid-template-columns:minmax(0,1fr); } .professional-signature-actions .primary-action { width:100%; } }
+
+/* Folha final na prévia do editor: assinatura do profissional acima da linha, como no PDF. */
+.quote-closing-signature-mark { display:flex; align-items:flex-end; justify-content:center; height:8.7cqw; margin-bottom:-.6cqw; }
+.quote-closing-signature-mark svg { width:auto; max-width:33.6cqw; height:8.4cqw; }
+.quote-closing-signature-mark a { align-self:center; color:var(--accent); font-family:var(--mono); font-size:1.05cqw; letter-spacing:.08cqw; text-align:center; text-decoration:underline; }
