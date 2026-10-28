@@ -20,6 +20,7 @@ export const site = {
     { href: "#processo", label: "Como funciona" },
     { href: "#area-do-cliente", label: "Área do cliente" },
     { href: "#perguntas", label: "Perguntas" },
+    { href: "/portfolio", label: "Portfólio" },
   ],
   hero: {
     eyebrow: "ESTRATÉGIA · TECNOLOGIA · OPERAÇÃO",

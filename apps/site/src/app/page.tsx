@@ -1,18 +1,13 @@
 import { Arrow } from "@/components/arrow";
-import { CopyEmail } from "@/components/copy-email";
 import { HeroDiagnosis, type HeroNeed } from "@/components/hero-diagnosis";
 import { HeroGraphic } from "@/components/hero-graphic";
-import { LogoMark, LogoOutline } from "@/components/logo-mark";
 import { ServicesExplorer, type ExplorerCategory } from "@/components/services-explorer";
+import { SiteContact, contactLinks } from "@/components/site-contact";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { site } from "@/content/site";
 
 const pad = (index: number) => String(index + 1).padStart(2, "0");
-
-function contactLinks() {
-  const { email, whatsapp } = site.contact;
-  return { mail: `mailto:${email}?subject=${encodeURIComponent("Quero conversar sobre um projeto")}`, whatsapp: whatsapp ? `https://wa.me/${whatsapp}?text=${encodeURIComponent("Olá, Vinicius! Quero conversar sobre um projeto.")}` : null };
-}
 
 /** Categorias prontas para a tela, com o link para pedir cada serviço já com o assunto preenchido. */
 function explorerCategories(): ExplorerCategory[] {
@@ -86,23 +81,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="site-section" aria-labelledby="contato-title">
-        <div className="site-cta reveal" id="contato">
-          <LogoOutline className="site-cta-mark" />
-          <div className="site-cta-copy"><p className="site-tag">CONTATO</p><h2 id="contato-title">{site.cta.title}</h2><p>{site.cta.text}</p></div>
-          <div className="site-cta-actions">
-            {links.whatsapp ? <a className="site-button is-large" href={links.whatsapp} target="_blank" rel="noreferrer">Chamar no WhatsApp<Arrow /></a> : null}
-            <a className={links.whatsapp ? "site-button is-large is-ghost" : "site-button is-large"} href={links.mail}>Enviar e-mail<Arrow /></a>
-            <CopyEmail email={site.contact.email} />
-            <small>{site.contact.email}</small>
-          </div>
-        </div>
-      </section>
+      <SiteContact />
     </main>
-    <footer className="site-footer">
-      <div className="site-brand"><LogoMark /><span><strong>{site.name}</strong><small>{site.title}</small></span></div>
-      <nav aria-label="Rodapé"><a href={site.clientAreaUrl}>Área do cliente</a><a href={`mailto:${site.contact.email}`}>{site.contact.email}</a></nav>
-      <small>© {new Date().getFullYear()} {site.name}</small>
-    </footer>
+    <SiteFooter />
   </>;
 }
