@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   icons: { icon: "/logo-vr.svg" },
 };
 
-export const viewport: Viewport = { themeColor: "#f5f6f4" };
+export const viewport: Viewport = { themeColor: "#000000", colorScheme: "dark" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="pt-BR"><body>{children}</body></html>;
