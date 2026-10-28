@@ -42,6 +42,11 @@ export function portalLabel(portal: AuthPortal) {
   return "Vinitakeuti";
 }
 
+/** Nome do atalho na tela de início do celular: a gestão e o portal do cliente são o mesmo app, em domínios diferentes. */
+export function homeScreenName(portal: AuthPortal) {
+  return portal === "client" ? "Área do cliente" : "VR Gestão";
+}
+
 /** Endereço público do portal do cliente, para compartilhar o acesso com o cliente. */
 export function clientPortalUrl() {
   return `https://${configuredHost("CLIENT_PORTAL_HOST", "clientes.viniciusriudi.com")}`;
