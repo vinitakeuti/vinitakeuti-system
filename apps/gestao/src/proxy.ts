@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { portalForRequest } from "@/features/auth/services/auth-host";
 import { AUTH_SESSION_COOKIE, readSessionToken } from "@/features/auth/services/session-token";
 import { prisma } from "@/lib/prisma";
+import { isForgedServerAction } from "@/lib/server-action-guard";
 
 const publicApiPaths = new Set(["/api/health", "/api/webhooks/asaas"]);
 /** Páginas do portal do cliente: no domínio de clientes, "/pagamentos" é servido por "/portal/pagamentos". */
@@ -32,6 +33,7 @@ async function activeSession(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  if (await isForgedServerAction(request)) return new NextResponse("Não encontrado.", { status: 404 });
   const path = request.nextUrl.pathname;
   const portal = portalForRequest(request.headers);
 
