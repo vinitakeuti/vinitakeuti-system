@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { reviewSignedDocumentAction } from "@/features/documents/services/document-actions";
+import { ConfirmSubmitButton } from "@/features/finance/components/confirm-submit-button";
+import { discardSignedDocumentAction, reviewSignedDocumentAction } from "@/features/documents/services/document-actions";
 import { DOCUMENT_KINDS, documentKindFromEnum, type ClientDocumentKindValue, type DocumentKind } from "@/features/documents/types/document-kinds";
 import { signatureState, type SignatureState, type SignedCopy } from "@/features/documents/types/signed-review";
 
@@ -28,6 +29,7 @@ function stateDetail(row: Row) {
 const feedback: Record<string, string> = {
   aprovado: "Via aprovada. O documento passa a constar como assinado na área do cliente.",
   recusado: "Via recusada. O cliente vê o motivo na área do cliente e pode enviar outra.",
+  excluido: "Via excluída. O documento volta para Para assinar na área do cliente, e o cliente pode enviar uma nova via.",
 };
 
 /**
@@ -77,7 +79,7 @@ export function ClientDocumentsSection({ clientId, quotes, documents, reviewed }
             <div className="client-docs-title"><Link href={row.href}>{row.title}</Link><small>{[row.code, row.detail].filter(Boolean).join(" · ")}</small>{row.state === "rejected" && row.signed?.rejectionReason ? <small className="client-docs-reason">Motivo da recusa: {row.signed.rejectionReason}</small> : null}</div>
             <div className="client-docs-state"><span className={`doc-pill is-${row.state}`}><i aria-hidden="true" />{stateLabels[row.state]}</span>{detail ? <small>{detail}</small> : null}</div>
             <span className="client-docs-date">{date.format(row.date)}</span>
-            <div className="client-docs-actions"><Link className="table-link" href={row.href}>EDITAR</Link><a className="table-link" href={row.pdf}>PDF</a>{row.signed ? <a className="table-link" href={`/api/documentos/assinados/${row.signed.id}`}>VIA ASSINADA</a> : null}</div>
+            <div className="client-docs-actions"><Link className="table-link" href={row.href}>EDITAR</Link><a className="table-link" href={row.pdf}>PDF</a>{row.signed ? <a className="table-link" href={`/api/documentos/assinados/${row.signed.id}`}>VIA ASSINADA</a> : null}{row.state === "signed" ? <form><input type="hidden" name="id" value={row.signed!.id} /><ConfirmSubmitButton formAction={discardSignedDocumentAction} className="table-link client-docs-discard" message={`Excluir a via assinada de ${row.code} e pedir um novo envio? O documento volta para "Para assinar" na área do cliente.`}>EXCLUIR VIA</ConfirmSubmitButton></form> : null}</div>
           </li>;
         })}</ul>
       </section>)}

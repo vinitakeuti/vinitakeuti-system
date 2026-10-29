@@ -925,7 +925,7 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 .client-docs-reject label { display:grid; flex:1 1 auto; gap:5px; color:var(--muted); font-family:var(--mono); font-size:.56rem; letter-spacing:.05em; text-transform:uppercase; }
 .client-docs-reject input { width:100%; min-height:40px; padding:0 10px; border:1px solid var(--line); color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.82rem; letter-spacing:0; text-transform:none; }
 .client-docs-reject .danger-action { flex:0 0 auto; }
-.client-docs-columns,.client-docs-group li { display:grid; grid-template-columns:minmax(0, 1fr) 190px 96px 200px; align-items:center; gap:6px 20px; padding-left:24px; padding-right:24px; }
+.client-docs-columns,.client-docs-group li { display:grid; grid-template-columns:minmax(0, 1fr) 180px 90px 290px; align-items:center; gap:6px 20px; padding-left:24px; padding-right:24px; }
 .client-docs-columns { padding-top:12px; padding-bottom:10px; color:var(--muted); font-family:var(--mono); font-size:.58rem; letter-spacing:.08em; }
 .client-docs-group-head { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:9px 24px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--paper); }
 .client-docs-group-head h3 { display:flex; align-items:center; gap:10px; margin:0; color:var(--ink); font-family:var(--mono); font-size:.64rem; font-weight:500; letter-spacing:.08em; text-transform:uppercase; }
@@ -940,6 +940,9 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 .client-docs-state { display:grid; justify-items:start; gap:4px; }
 .client-docs-date { color:var(--muted); font-size:.78rem; }
 .client-docs-actions { display:flex; align-items:center; justify-content:flex-end; gap:14px; white-space:nowrap; }
+.client-docs-actions form { display:contents; }
+.client-docs-discard { padding:0; border:0; background:none; color:#8e3820; cursor:pointer; }
+.client-docs-discard:hover { color:var(--black); }
 .doc-pill { display:inline-flex; align-items:center; gap:7px; padding:4px 8px; border:1px solid var(--line); background:#f5f6f4; color:var(--muted); font-family:var(--mono); font-size:.57rem; letter-spacing:.05em; text-transform:uppercase; white-space:nowrap; }
 .doc-pill i { width:6px; height:6px; border-radius:50%; background:currentColor; }
 .doc-pill.is-waiting { border-color:#e3d3bd; background:#f6f0e8; color:#7a5530; }

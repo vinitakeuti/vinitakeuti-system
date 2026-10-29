@@ -10,6 +10,7 @@ const errors: Record<string, string> = {
   formato: "O arquivo enviado não é um PDF. Envie o PDF assinado.",
   tamanho: "O arquivo deve ter até 8 MB.",
   limite: "Este documento já recebeu o limite de 5 envios. Fale com o responsável para substituir.",
+  aprovado: "Este documento já está assinado e aprovado. Para enviar outra via, fale com o responsável.",
   documento: "Documento não encontrado.",
 };
 
@@ -97,7 +98,7 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
     </section> : null}
 
     {signed.length ? <section className="settings-panel portal-docs" aria-labelledby="portal-signed-title">
-      <div className="settings-panel-heading"><div><h2 id="portal-signed-title">Assinados <span className="portal-docs-count">{signed.length}</span></h2><p>Documentos com a via assinada conferida e aprovada.</p></div></div>
+      <div className="settings-panel-heading"><div><h2 id="portal-signed-title">Assinados <span className="portal-docs-count">{signed.length}</span></h2><p>Documentos com a via assinada conferida e aprovada. Para trocar uma via, fale com o responsável.</p></div></div>
       {byKind(signed).map((group) => <div className="portal-docs-group" key={group.kind}>
         <p className="portal-docs-group-title">{group.group}</p>
         <ul>{group.documents.map((document) => <li key={`${document.kind}-${document.id}`} className="portal-doc is-signed">
@@ -109,7 +110,6 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
           <div className="portal-doc-links">
             <a href={`/api/portal/assinados/${document.signed!.id}`} download>BAIXAR VIA ASSINADA</a>
             <a href={document.href} download>BAIXAR ORIGINAL</a>
-            <details><summary>ENVIAR OUTRA VIA</summary><UploadForm document={document} label="NOVA VIA ASSINADA" /></details>
           </div>
         </li>)}</ul>
       </div>)}

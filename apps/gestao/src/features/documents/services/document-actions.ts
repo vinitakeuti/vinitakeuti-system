@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { createDefaultQuoteDocument, QUOTE_DOCUMENT_MAX_JSON_LENGTH } from "@/features/quotes/types/document-content";
 import { documentKindEnum, documentKindFromEnum, documentKindFromSlug } from "@/features/documents/types/document-kinds";
 import { saveClientDocument } from "@/features/documents/services/client-document-service";
-import { reviewSignedDocument } from "@/features/documents/services/signed-documents";
+import { discardSignedCopies, reviewSignedDocument } from "@/features/documents/services/signed-documents";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function text(formData: FormData, name: string, max: number) { const value = formData.get(name); return typeof value === "string" ? value.trim().slice(0, max) : ""; }
@@ -87,4 +87,13 @@ export async function reviewSignedDocumentAction(formData: FormData) {
   if (!result) redirect("/clientes");
   revalidateDocuments(result.clientId);
   redirect(`/clientes/${result.clientId}?section=documents&conferido=${decision === "approve" ? "aprovado" : "recusado"}`);
+}
+
+/** Exclui a via aprovada (e as anteriores) para o cliente enviar uma nova pelo portal. */
+export async function discardSignedDocumentAction(formData: FormData) {
+  const user = await requireManagementUser();
+  const result = await discardSignedCopies({ id: text(formData, "id", 50), reviewer: user.email });
+  if (!result) redirect("/clientes");
+  revalidateDocuments(result.clientId);
+  redirect(`/clientes/${result.clientId}?section=documents&conferido=excluido`);
 }

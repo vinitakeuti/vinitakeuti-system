@@ -7,7 +7,8 @@ import { documentKindFromEnum } from "@/features/documents/types/document-kinds"
 /**
  * Vias assinadas enviadas pelo cliente no portal: o PDF baixado do portal, assinado no assinador gov.br e enviado de
  * volta. Ficam no banco com limite de tamanho e de envios por documento; o conteúdo só é lido no download. Cada via
- * entra "em conferência" e só conta como assinada depois de aprovada na gestão, no perfil do cliente.
+ * entra "em conferência" e só conta como assinada depois de aprovada na gestão, no perfil do cliente. Depois de
+ * aprovada, o documento não recebe outra via até a gestão excluir a aprovada e pedir um novo envio.
  */
 export const MAX_SIGNED_PDF_BYTES = 8 * 1024 * 1024;
 const MAX_COPIES_PER_DOCUMENT = 5;
@@ -28,11 +29,13 @@ async function findTarget(clientId: string, target: SignedTarget) {
   return document ? { code: document.code, title: document.title, clientName: document.client.name, where: { documentId: document.id }, listPath: `/documentos?tipo=${documentKindFromEnum(document.kind).slug}` } : null;
 }
 
-type SaveResult = { ok: true; code: string; duplicate: boolean } | { ok: false; error: "documento" | "tamanho" | "formato" | "limite" };
+type SaveResult = { ok: true; code: string; duplicate: boolean } | { ok: false; error: "documento" | "aprovado" | "tamanho" | "formato" | "limite" };
 
 export async function saveSignedDocument({ clientId, uploadedBy, target, fileName, bytes }: { clientId: string; uploadedBy: string; target: SignedTarget; fileName: string; bytes: Uint8Array }): Promise<SaveResult> {
   const found = await findTarget(clientId, target);
   if (!found) return { ok: false, error: "documento" };
+  const latest = await prisma.signedDocument.findFirst({ where: found.where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { reviewStatus: true } });
+  if (latest?.reviewStatus === "APPROVED") return { ok: false, error: "aprovado" };
   if (!bytes.length || bytes.length > MAX_SIGNED_PDF_BYTES) return { ok: false, error: "tamanho" };
   if (Buffer.from(bytes.subarray(0, 5)).toString("latin1") !== "%PDF-") return { ok: false, error: "formato" };
 
@@ -59,6 +62,20 @@ export async function reviewSignedDocument({ id, decision, reason, reviewer }: {
   await prisma.signedDocument.update({ where: { id: copy.id }, data: { reviewStatus: approved ? "APPROVED" : "REJECTED", reviewedAt: new Date(), reviewedBy: reviewer, rejectionReason: approved ? null : reason.slice(0, 300) || null } });
   const code = copy.quote?.code ?? copy.document?.code ?? "documento";
   await logEvent({ source: "gestao", event: approved ? "document.signed_approved" : "document.signed_rejected", message: `Via assinada de ${code} (${copy.client.name}) ${approved ? "aprovada" : "recusada"}.`, actorEmail: reviewer });
+  return { clientId: copy.clientId };
+}
+
+/**
+ * Exclui as vias enviadas para o documento da via informada (a aprovada e as anteriores), para o cliente enviar uma
+ * nova: o documento volta a "Para assinar" no portal e o limite de envios recomeça.
+ */
+export async function discardSignedCopies({ id, reviewer }: { id: string; reviewer: string }) {
+  const copy = await prisma.signedDocument.findUnique({ where: { id: id.slice(0, 50) }, select: { clientId: true, quoteId: true, documentId: true, client: { select: { name: true } }, quote: { select: { code: true } }, document: { select: { code: true } } } });
+  if (!copy) return null;
+  const where = copy.quoteId ? { quoteId: copy.quoteId } : { documentId: copy.documentId };
+  const { count } = await prisma.signedDocument.deleteMany({ where: { clientId: copy.clientId, ...where } });
+  const code = copy.quote?.code ?? copy.document?.code ?? "documento";
+  await logEvent({ source: "gestao", level: "warning", event: "document.signed_discarded", message: `Vias assinadas de ${code} (${copy.client.name}) excluídas para novo envio.`, actorEmail: reviewer, metadata: { code, count } });
   return { clientId: copy.clientId };
 }
 
