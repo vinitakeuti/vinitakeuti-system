@@ -19,5 +19,5 @@ export async function POST(request: Request) {
   if (!(file instanceof File) || !file.size) return back("erro=arquivo");
   const result = await saveSignedDocument({ clientId: user.clientId!, uploadedBy: user.email, target: { kind, id }, fileName: file.name, bytes: new Uint8Array(await file.arrayBuffer()) });
   if (!result.ok) return back(`erro=${result.error}`);
-  return back(`enviado=${encodeURIComponent(result.code)}${result.signatureDetected ? "" : "&sem-assinatura=1"}`);
+  return back(`enviado=${encodeURIComponent(result.code)}`);
 }

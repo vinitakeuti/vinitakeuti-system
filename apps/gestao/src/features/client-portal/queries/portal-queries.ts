@@ -5,6 +5,7 @@ import { isAsaasConfigured } from "@/lib/integrations/asaas";
 import { requireClientUser } from "@/features/auth/services/auth-session";
 import { allocateInstallments, installmentPaidDates, MAX_INSTALLMENTS } from "@/features/finance/services/installments";
 import { MAX_FINANCIAL_PAYMENTS } from "@/features/finance/services/finance-ledger";
+import { latestSignedCopy } from "@/features/documents/types/signed-review";
 
 /**
  * Consultas da área do cliente. Tudo é filtrado pelo cliente da sessão: os lançamentos do Financeiro não têm
@@ -153,7 +154,6 @@ export async function getPortalServices(clientId: string) {
   return { sales, subscriptions, projects, systems };
 }
 
-const latestSignedCopy = { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1, select: { id: true, createdAt: true, signatureDetected: true } } satisfies Prisma.Quote$signedCopiesArgs;
 
 /** Propostas e documentos concluídos do cliente (os rascunhos não aparecem), com a última via assinada enviada. */
 export async function getPortalDocuments(clientId: string, take = MAX_ITEMS) {

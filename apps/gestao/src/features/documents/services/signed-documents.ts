@@ -6,7 +6,8 @@ import { documentKindFromEnum } from "@/features/documents/types/document-kinds"
 
 /**
  * Vias assinadas enviadas pelo cliente no portal: o PDF baixado do portal, assinado no assinador gov.br e enviado de
- * volta. Ficam no banco com limite de tamanho e de envios por documento; o conteúdo só é lido no download.
+ * volta. Ficam no banco com limite de tamanho e de envios por documento; o conteúdo só é lido no download. Cada via
+ * entra "em conferência" e só conta como assinada depois de aprovada na gestão, no perfil do cliente.
  */
 export const MAX_SIGNED_PDF_BYTES = 8 * 1024 * 1024;
 const MAX_COPIES_PER_DOCUMENT = 5;
@@ -15,12 +16,6 @@ const MAX_COPIES_PER_DOCUMENT = 5;
 export const GOV_BR_SIGNER_URL = "https://assinador.iti.br/";
 
 export type SignedTarget = { kind: "proposal"; id: string } | { kind: "document"; id: string };
-
-/** Assinaturas digitais em PDF (PAdES, como a do gov.br) gravam um dicionário de assinatura com /ByteRange. */
-export function hasDigitalSignature(bytes: Uint8Array) {
-  const content = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("latin1");
-  return content.includes("/ByteRange") && (content.includes("/Sig") || content.includes("adbe.pkcs7") || content.includes("ETSI.CAdES"));
-}
 
 /** Proposta ou documento concluído do próprio cliente; null quando não existe, é de outro cliente ou é rascunho. */
 async function findTarget(clientId: string, target: SignedTarget) {
@@ -33,7 +28,7 @@ async function findTarget(clientId: string, target: SignedTarget) {
   return document ? { code: document.code, title: document.title, clientName: document.client.name, where: { documentId: document.id }, listPath: `/documentos?tipo=${documentKindFromEnum(document.kind).slug}` } : null;
 }
 
-type SaveResult = { ok: true; code: string; signatureDetected: boolean; duplicate: boolean } | { ok: false; error: "documento" | "tamanho" | "formato" | "limite" };
+type SaveResult = { ok: true; code: string; duplicate: boolean } | { ok: false; error: "documento" | "tamanho" | "formato" | "limite" };
 
 export async function saveSignedDocument({ clientId, uploadedBy, target, fileName, bytes }: { clientId: string; uploadedBy: string; target: SignedTarget; fileName: string; bytes: Uint8Array }): Promise<SaveResult> {
   const found = await findTarget(clientId, target);
@@ -42,17 +37,29 @@ export async function saveSignedDocument({ clientId, uploadedBy, target, fileNam
   if (Buffer.from(bytes.subarray(0, 5)).toString("latin1") !== "%PDF-") return { ok: false, error: "formato" };
 
   const sha256 = createHash("sha256").update(bytes).digest("hex");
-  const signatureDetected = hasDigitalSignature(bytes);
   // O mesmo arquivo enviado de novo não ocupa outro espaço.
   const existing = await prisma.signedDocument.findFirst({ where: { ...found.where, sha256 }, select: { id: true } });
-  if (existing) return { ok: true, code: found.code, signatureDetected, duplicate: true };
+  if (existing) return { ok: true, code: found.code, duplicate: true };
   if ((await prisma.signedDocument.count({ where: found.where })) >= MAX_COPIES_PER_DOCUMENT) return { ok: false, error: "limite" };
 
   const safeName = fileName.replace(/[^\p{L}\p{N}._ -]+/gu, "").trim().slice(0, 120) || `${found.code}-assinado.pdf`;
-  await prisma.signedDocument.create({ data: { clientId, ...found.where, fileName: safeName, byteSize: bytes.length, sha256, signatureDetected, data: Buffer.from(bytes), uploadedBy } });
-  await logEvent({ event: "portal.document.signed_uploaded", message: `${found.clientName} enviou a via assinada de ${found.code}.`, actorEmail: uploadedBy, metadata: { code: found.code, byteSize: bytes.length, signatureDetected } });
-  await sendOwnerEmail({ kind: "portal", footer: "Portal do cliente", subject: `Documento assinado: ${found.code} · ${found.clientName}`, title: "Um cliente enviou um documento assinado.", lines: [`Cliente: ${found.clientName}`, `Documento: ${found.code} · ${found.title}`, signatureDetected ? "O PDF tem assinatura digital." : "Atenção: não encontramos assinatura digital no PDF. Confira o arquivo."], path: found.listPath });
-  return { ok: true, code: found.code, signatureDetected, duplicate: false };
+  await prisma.signedDocument.create({ data: { clientId, ...found.where, fileName: safeName, byteSize: bytes.length, sha256, data: Buffer.from(bytes), uploadedBy } });
+  await logEvent({ event: "portal.document.signed_uploaded", message: `${found.clientName} enviou a via assinada de ${found.code}.`, actorEmail: uploadedBy, metadata: { code: found.code, byteSize: bytes.length } });
+  await sendOwnerEmail({ kind: "portal", footer: "Portal do cliente", subject: `Via assinada para conferir: ${found.code} · ${found.clientName}`, title: "Um cliente enviou um documento assinado.", lines: [`Cliente: ${found.clientName}`, `Documento: ${found.code} · ${found.title}`, "Confira o arquivo e aprove ou recuse no perfil do cliente."], path: `/clientes/${clientId}?section=documents` });
+  return { ok: true, code: found.code, duplicate: false };
+}
+
+export type SignedReviewDecision = "approve" | "reject";
+
+/** Conferência da via na gestão: aprovada conta como assinada; recusada volta para o cliente, com o motivo. */
+export async function reviewSignedDocument({ id, decision, reason, reviewer }: { id: string; decision: SignedReviewDecision; reason: string; reviewer: string }) {
+  const copy = await prisma.signedDocument.findUnique({ where: { id: id.slice(0, 50) }, select: { id: true, clientId: true, client: { select: { name: true } }, quote: { select: { code: true } }, document: { select: { code: true } } } });
+  if (!copy) return null;
+  const approved = decision === "approve";
+  await prisma.signedDocument.update({ where: { id: copy.id }, data: { reviewStatus: approved ? "APPROVED" : "REJECTED", reviewedAt: new Date(), reviewedBy: reviewer, rejectionReason: approved ? null : reason.slice(0, 300) || null } });
+  const code = copy.quote?.code ?? copy.document?.code ?? "documento";
+  await logEvent({ source: "gestao", event: approved ? "document.signed_approved" : "document.signed_rejected", message: `Via assinada de ${code} (${copy.client.name}) ${approved ? "aprovada" : "recusada"}.`, actorEmail: reviewer });
+  return { clientId: copy.clientId };
 }
 
 /** Arquivo da via assinada para download; quem chama confere o acesso (cliente dono ou gestão). */

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { createDefaultQuoteDocument, QUOTE_DOCUMENT_MAX_JSON_LENGTH } from "@/features/quotes/types/document-content";
 import { documentKindEnum, documentKindFromEnum, documentKindFromSlug } from "@/features/documents/types/document-kinds";
 import { saveClientDocument } from "@/features/documents/services/client-document-service";
+import { reviewSignedDocument } from "@/features/documents/services/signed-documents";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 function text(formData: FormData, name: string, max: number) { const value = formData.get(name); return typeof value === "string" ? value.trim().slice(0, max) : ""; }
@@ -75,4 +76,15 @@ export async function deleteClientDocumentAction(formData: FormData) {
   await prisma.clientDocument.delete({ where: { id: document.id } });
   revalidateDocuments(document.clientId);
   redirect("/documentos?excluido=1");
+}
+
+/** Aprova ou recusa a via assinada enviada pelo cliente e volta para os documentos do perfil. */
+export async function reviewSignedDocumentAction(formData: FormData) {
+  const user = await requireManagementUser();
+  const decision = text(formData, "decision", 10);
+  if (decision !== "approve" && decision !== "reject") redirect("/clientes");
+  const result = await reviewSignedDocument({ id: text(formData, "id", 50), decision, reason: text(formData, "reason", 300), reviewer: user.email });
+  if (!result) redirect("/clientes");
+  revalidateDocuments(result.clientId);
+  redirect(`/clientes/${result.clientId}?section=documents&conferido=${decision === "approve" ? "aprovado" : "recusado"}`);
 }

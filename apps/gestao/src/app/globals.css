@@ -806,16 +806,6 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
   .documents-switch a:nth-child(3) { border-left:0; }
   .documents-switch a:nth-child(n + 3) { border-top:1px solid var(--line); }
 }
-/* Documentos no perfil do cliente: um grupo por tipo, separados por linha fina. */
-.client-documents-group { border-bottom:1px solid var(--line); }
-.client-documents-group:last-child { border-bottom:0; }
-.client-documents-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 0 12px; }
-.client-documents-heading > div { display:grid; gap:3px; min-width:0; }
-.client-documents-heading b { color:var(--ink); font-size:.9rem; }
-.client-documents-heading small { color:var(--muted); font-size:.74rem; }
-.client-documents-actions { white-space:nowrap; }
-.client-documents-actions .table-link + .table-link { margin-left:14px; }
-.client-documents .profile-table { margin-bottom:16px; }
 /* Testemunhas na folha de assinaturas dos documentos. */
 .quote-closing-signatures.is-witnesses { margin-top:4.4cqw; }
 /* Perfil do cliente: cabeçalho com identidade e ações, abas roláveis e uma superfície por seção. */
@@ -905,18 +895,78 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
   .client-block { padding:16px 16px 20px; }
   .client-facts > div { grid-template-columns:minmax(0, 1fr); gap:3px; padding:10px 0; }
 }
-/* Documentos do cliente em linhas: título, código e data, situação e ações. Mesma leitura no celular e no computador. */
-.client-doc-list { margin:0 0 14px; padding:0; list-style:none; }
-.client-doc-list li { display:grid; grid-template-columns:minmax(0, 1fr) 96px auto; align-items:center; gap:6px 20px; padding:12px 0; border-top:1px solid var(--line); }
-.client-doc-main { display:grid; gap:3px; min-width:0; }
-.client-doc-main a { overflow:hidden; color:var(--ink); font-size:.88rem; font-weight:600; text-decoration:none; text-overflow:ellipsis; white-space:nowrap; }
-.client-doc-main a:hover { color:var(--accent); }
-.client-doc-main small { color:var(--muted); font-size:.74rem; }
-.client-doc-actions { display:flex; align-items:center; justify-content:flex-end; gap:16px; }
-@media (max-width:640px) {
-  .client-doc-list li { grid-template-columns:minmax(0, 1fr) auto; }
-  .client-doc-main { grid-column:1 / -1; }
-  .client-doc-main a { white-space:normal; }
+/*
+ * Documentos no perfil do cliente. Vias para conferir em faixa própria no topo; abaixo, colunas fixas (documento,
+ * situação, atualizado, ações) com um cabeçalho por tipo em faixa cinza, para separar grupo de documento.
+ */
+.client-docs-feedback { margin:0; padding:12px 24px; border-bottom:1px solid #c5d3cb; background:var(--accent-surface); color:#2f4a3c; font-size:.8rem; }
+.client-docs-review { border-bottom:1px solid #e3d3bd; background:#fbf6ef; }
+.client-docs-review-heading { padding:16px 24px 12px; border-left:2px solid #b57a35; }
+.client-docs-review-heading h3 { display:flex; align-items:center; gap:10px; margin:0; color:#5f3f1d; font-size:.92rem; letter-spacing:-.01em; }
+.client-docs-review-heading h3 span,.client-docs-group-head h3 span { display:inline-grid; place-items:center; min-width:22px; height:20px; padding:0 6px; background:var(--black); color:var(--white); font-family:var(--mono); font-size:.58rem; font-weight:500; letter-spacing:0; }
+.client-docs-review-heading h3 span { background:#8a5a24; }
+.client-docs-review-heading p { margin:4px 0 0; color:#7a5530; font-size:.76rem; line-height:1.45; }
+.client-docs-review ul { margin:0; padding:0; list-style:none; }
+.client-docs-review li { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; gap:12px 20px; padding:14px 24px; border-top:1px solid #ecdfcc; border-left:2px solid #b57a35; }
+.client-docs-review-main { display:flex; align-items:center; gap:14px; min-width:0; }
+.client-docs-review-main > div { display:grid; gap:3px; min-width:0; }
+.client-docs-review-main b { color:var(--ink); font-size:.9rem; overflow-wrap:anywhere; }
+.client-docs-review-main small { color:#6d6255; font-size:.74rem; overflow-wrap:anywhere; }
+.client-docs-kind { flex:0 0 auto; min-width:78px; padding:5px 8px; border:1px solid #d6c3a6; background:var(--white); color:#5f3f1d; font-family:var(--mono); font-size:.56rem; letter-spacing:.08em; text-align:center; text-transform:uppercase; }
+.client-docs-review-actions { display:flex; align-items:flex-start; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
+.client-docs-review-actions form { margin:0; }
+.client-docs-review-actions .secondary-action { text-decoration:none; }
+.client-docs-review-actions .primary-action { min-width:0; cursor:pointer; }
+.client-docs-reject summary { list-style:none; }
+.client-docs-reject summary::-webkit-details-marker { display:none; }
+.client-docs-reject[open] { flex-basis:100%; order:3; }
+.client-docs-reject[open] summary { display:none; }
+.client-docs-reject form { display:flex; align-items:end; gap:8px; padding:12px; border:1px solid #e2c3b8; background:var(--white); }
+.client-docs-reject label { display:grid; flex:1 1 auto; gap:5px; color:var(--muted); font-family:var(--mono); font-size:.56rem; letter-spacing:.05em; text-transform:uppercase; }
+.client-docs-reject input { width:100%; min-height:40px; padding:0 10px; border:1px solid var(--line); color:var(--ink); font-family:"Inter Variable",Inter,Arial,sans-serif; font-size:.82rem; letter-spacing:0; text-transform:none; }
+.client-docs-reject .danger-action { flex:0 0 auto; }
+.client-docs-columns,.client-docs-group li { display:grid; grid-template-columns:minmax(0, 1fr) 190px 96px 200px; align-items:center; gap:6px 20px; padding-left:24px; padding-right:24px; }
+.client-docs-columns { padding-top:12px; padding-bottom:10px; color:var(--muted); font-family:var(--mono); font-size:.58rem; letter-spacing:.08em; }
+.client-docs-group-head { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:9px 24px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--paper); }
+.client-docs-group-head h3 { display:flex; align-items:center; gap:10px; margin:0; color:var(--ink); font-family:var(--mono); font-size:.64rem; font-weight:500; letter-spacing:.08em; text-transform:uppercase; }
+.client-docs-group ul { margin:0; padding:0; list-style:none; }
+.client-docs-group li { padding-top:14px; padding-bottom:14px; }
+.client-docs-group li + li { border-top:1px solid #edf0ed; }
+.client-docs-title { display:grid; gap:3px; min-width:0; }
+.client-docs-title a { overflow:hidden; color:var(--ink); font-size:.9rem; font-weight:600; text-decoration:none; text-overflow:ellipsis; white-space:nowrap; }
+.client-docs-title a:hover { color:var(--accent); }
+.client-docs-title small,.client-docs-state small { color:var(--muted); font-size:.74rem; }
+.client-docs-title .client-docs-reason { color:#8e3820; }
+.client-docs-state { display:grid; justify-items:start; gap:4px; }
+.client-docs-date { color:var(--muted); font-size:.78rem; }
+.client-docs-actions { display:flex; align-items:center; justify-content:flex-end; gap:14px; white-space:nowrap; }
+.doc-pill { display:inline-flex; align-items:center; gap:7px; padding:4px 8px; border:1px solid var(--line); background:#f5f6f4; color:var(--muted); font-family:var(--mono); font-size:.57rem; letter-spacing:.05em; text-transform:uppercase; white-space:nowrap; }
+.doc-pill i { width:6px; height:6px; border-radius:50%; background:currentColor; }
+.doc-pill.is-waiting { border-color:#e3d3bd; background:#f6f0e8; color:#7a5530; }
+.doc-pill.is-review { border-color:#d9b98f; background:#fbf1e2; color:#8a5a24; }
+.doc-pill.is-signed { border-color:#c5d3cb; background:var(--accent-surface); color:var(--accent); }
+.doc-pill.is-rejected { border-color:#e2c3b8; background:#fbf2ef; color:#8e3820; }
+.client-docs-missing { display:flex; align-items:baseline; flex-wrap:wrap; gap:8px 24px; padding:14px 24px 16px; border-top:1px solid var(--line); }
+.client-docs-missing p { margin:0; color:var(--muted); font-family:var(--mono); font-size:.58rem; letter-spacing:.08em; }
+.client-docs-missing ul { display:flex; flex-wrap:wrap; gap:8px 24px; margin:0; padding:0; list-style:none; }
+.client-docs-missing li { display:flex; align-items:baseline; gap:10px; color:var(--muted); font-size:.8rem; }
+@media (max-width:980px) {
+  .client-docs-columns { display:none; }
+  .client-docs-group li { grid-template-columns:minmax(0, 1fr) auto; }
+  .client-docs-title { grid-column:1 / -1; }
+  .client-docs-date { display:none; }
+}
+@media (max-width:760px) {
+  .client-docs-feedback,.client-docs-review-heading,.client-docs-review li,.client-docs-group-head,.client-docs-group li,.client-docs-missing { padding-left:16px; padding-right:16px; }
+  .client-docs-review li { grid-template-columns:minmax(0, 1fr); }
+  .client-docs-review-main { align-items:flex-start; flex-direction:column; gap:8px; }
+  .client-docs-review-actions { justify-content:flex-start; }
+  .client-docs-review-actions > a,.client-docs-review-actions > form,.client-docs-reject:not([open]) { flex:1 1 0; }
+  .client-docs-review-actions .secondary-action,.client-docs-review-actions .primary-action { width:100%; }
+  .client-docs-reject form { align-items:stretch; flex-direction:column; }
+  .client-docs-title a { white-space:normal; }
+  .client-docs-group li { grid-template-columns:minmax(0, 1fr); }
+  .client-docs-actions { justify-content:flex-start; }
 }
 
 /* Nomes no cabeçalho da folha quebram linha como no PDF, em vez de serem cortados. */
@@ -1487,6 +1537,7 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
 .portal-doc-links summary::-webkit-details-marker { display:none; }
 .portal-doc-links > a:hover,.portal-doc-links summary:hover { color:var(--black); }
 .portal-doc-links details[open] { flex-basis:100%; }
+.portal-doc-note { margin:0; padding:9px 12px; border:1px solid #e2c3b8; background:#fbf2ef; color:#6f2a17; font-size:.78rem; line-height:1.45; }
 .portal-doc-links .portal-sign-upload { margin-top:10px; padding:12px; border:1px dashed var(--line); background:#fafbfa; }
 @media (max-width:640px) {
   .portal-docs-group-title { padding:13px 15px 8px; }

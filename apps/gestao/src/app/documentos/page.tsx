@@ -6,6 +6,7 @@ import { DocumentProducer } from "@/features/documents/components/document-produ
 import { listClientDocuments, listQuotesForDocuments } from "@/features/documents/queries/document-queries";
 import { createClientDocumentAction, deleteClientDocumentAction } from "@/features/documents/services/document-actions";
 import { DOCUMENT_KINDS, documentKindFromSlug } from "@/features/documents/types/document-kinds";
+import { signedLabels, type SignedCopy } from "@/features/documents/types/signed-review";
 import { getClientForQuote } from "@/features/quotes/queries/quote-queries";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Maceio" });
 const listTitles: Record<string, string> = { proposal: "Propostas comerciais", contract: "Contratos", assignment: "Cessões", memorial: "Memoriais técnicos" };
 
-type Row = { id: string; title: string; code: string; detail: string | null; client: { id: string; name: string; company: string | null }; done: boolean; updatedAt: Date; editHref: string; pdfHref: string; secondary?: { href: string; label: string }; signed: { id: string; createdAt: Date; signatureDetected: boolean } | null };
+type Row = { id: string; title: string; code: string; detail: string | null; client: { id: string; name: string; company: string | null }; done: boolean; updatedAt: Date; editHref: string; pdfHref: string; secondary?: { href: string; label: string }; signed: Pick<SignedCopy, "id" | "createdAt" | "reviewStatus"> | null };
 
 /**
  * Documentos: um seletor define o tipo (proposta, contrato, cessão ou memorial). O painel de produção e a lista
@@ -68,9 +69,9 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
           {rows.map((row) => <tr key={row.id}>
             <td className="quote-pending-title"><Link className="client-name" href={row.editHref}>{row.title}</Link><small>{row.code}{row.detail ? ` · ${row.detail}` : ""}</small></td>
             <td className="quote-pending-client"><Link className="table-link" href={`/clientes/${row.client.id}?section=documents`}>{row.client.name}</Link><small>{row.client.company ?? "Pessoa física"}</small></td>
-            <td><span className={row.done ? "documents-status is-done" : "documents-status"}>{row.done ? "Concluído" : "Pendente"}</span>{row.signed ? <small className={row.signed.signatureDetected ? "documents-signed" : "documents-signed is-warning"}>{row.signed.signatureDetected ? "Assinado pelo cliente" : "Enviado sem assinatura digital"} · {dateTime.format(row.signed.createdAt)}</small> : null}</td>
+            <td><span className={row.done ? "documents-status is-done" : "documents-status"}>{row.done ? "Concluído" : "Pendente"}</span>{row.signed ? <small className={row.signed.reviewStatus === "APPROVED" ? "documents-signed" : "documents-signed is-warning"}>{signedLabels[row.signed.reviewStatus]} · {dateTime.format(row.signed.createdAt)}</small> : null}</td>
             <td className="quote-pending-date"><span>{dateTime.format(row.updatedAt)}</span></td>
-            <td className="quote-pending-actions"><div><Link className="primary-action" href={row.editHref}>{row.done ? "ABRIR" : "CONTINUAR"}</Link>{row.secondary ? <Link className="table-link" href={row.secondary.href}>{row.secondary.label}</Link> : null}<a className="table-link" href={row.pdfHref}>PDF</a>{row.signed ? <a className="table-link" href={`/api/documentos/assinados/${row.signed.id}`}>ASSINADO</a> : null}{info.kind === "proposal" ? null : <DeleteDocumentButton documentId={row.id} action={deleteClientDocumentAction} />}</div></td>
+            <td className="quote-pending-actions"><div><Link className="primary-action" href={row.editHref}>{row.done ? "ABRIR" : "CONTINUAR"}</Link>{row.secondary ? <Link className="table-link" href={row.secondary.href}>{row.secondary.label}</Link> : null}<a className="table-link" href={row.pdfHref}>PDF</a>{row.signed ? <a className="table-link" href={`/api/documentos/assinados/${row.signed.id}`}>VIA ASSINADA</a> : null}{info.kind === "proposal" ? null : <DeleteDocumentButton documentId={row.id} action={deleteClientDocumentAction} />}</div></td>
           </tr>)}
         </tbody></table></div> : <div className="documents-empty"><p>{pending ? `Nenhum documento pendente.` : `Nenhum documento produzido ainda.`}</p><span>{info.kind === "proposal" ? "As propostas que você criar aparecerão aqui." : `Use o painel acima para produzir ${info.kind === "contract" ? "o primeiro contrato" : info.kind === "assignment" ? "a primeira cessão" : "o primeiro memorial"}.`}</span></div>}
         {nextCursor ? <div className="table-footer"><Link className="text-link" href={href({ cursor: nextCursor })}>CARREGAR PRÓXIMOS 50</Link></div> : null}

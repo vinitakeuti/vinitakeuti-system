@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const errors: Record<string, string> = {
   arquivo: "Escolha o arquivo PDF assinado antes de enviar.",
-  formato: "O arquivo enviado não é um PDF. Envie o PDF baixado do assinador gov.br.",
+  formato: "O arquivo enviado não é um PDF. Envie o PDF assinado.",
   tamanho: "O arquivo deve ter até 8 MB.",
   limite: "Este documento já recebeu o limite de 5 envios. Fale com o responsável para substituir.",
   documento: "Documento não encontrado.",
@@ -22,7 +22,7 @@ const KINDS = [
 ] as const;
 
 type PortalDocument = Awaited<ReturnType<typeof getPortalDocuments>>[number];
-type DocumentsPageProps = { searchParams: Promise<{ enviado?: string; "sem-assinatura"?: string; erro?: string }> };
+type DocumentsPageProps = { searchParams: Promise<{ enviado?: string; erro?: string }> };
 
 function byKind(documents: PortalDocument[]) {
   return KINDS.map((info) => ({ ...info, documents: documents.filter((document) => document.kind === info.kind) })).filter((group) => group.documents.length);
@@ -38,19 +38,21 @@ function UploadForm({ document, label }: { document: PortalDocument; label: stri
 }
 
 /**
- * Documentos: separados por situação (para assinar e assinados) e, dentro de cada uma, por tipo. Os documentos para
- * assinar trazem os três passos na própria linha: baixar, assinar no gov.br e enviar a via assinada.
+ * Documentos: separados por situação (para assinar, em conferência e assinados) e, dentro de cada uma, por tipo. Os
+ * documentos para assinar trazem os três passos na própria linha: baixar, assinar no gov.br e enviar a via assinada.
+ * A via enviada é conferida manualmente na gestão; só depois de aprovada o documento conta como assinado.
  */
 export default async function PortalDocumentsPage({ searchParams }: DocumentsPageProps) {
   const params = await searchParams;
   const context = await getPortalContext();
   const documents = await getPortalDocuments(context.clientId);
-  // Enviado sem assinatura digital ainda conta como pendente.
-  const pending = documents.filter((document) => !document.signed?.signatureDetected);
-  const signed = documents.filter((document) => document.signed?.signatureDetected);
+  // Via recusada volta para "Para assinar".
+  const pending = documents.filter((document) => !document.signed || document.signed.reviewStatus === "REJECTED");
+  const inReview = documents.filter((document) => document.signed?.reviewStatus === "IN_REVIEW");
+  const signed = documents.filter((document) => document.signed?.reviewStatus === "APPROVED");
 
-  return <PortalShell context={context} current="documents" section="DOCUMENTOS" title="Documentos." description="Propostas, contratos e demais documentos do seu projeto, separados entre o que falta assinar e o que já está assinado.">
-    {params.enviado ? <p className={`portal-feedback ${params["sem-assinatura"] ? "is-error" : "is-ok"}`} role="status">{params["sem-assinatura"] ? `Recebemos o arquivo de ${params.enviado.slice(0, 30)}, mas ele não tem assinatura digital. Confira se enviou o PDF baixado do assinador gov.br depois de assinar.` : `Via assinada de ${params.enviado.slice(0, 30)} enviada. Obrigado!`}</p> : null}
+  return <PortalShell context={context} current="documents" section="DOCUMENTOS" title="Documentos." description="Propostas, contratos e demais documentos do seu projeto, separados entre o que falta assinar, o que está em conferência e o que já está assinado.">
+    {params.enviado ? <p className="portal-feedback is-ok" role="status">Recebemos a via assinada de {params.enviado.slice(0, 30)}. Vamos conferir e, quando aprovada, ela aparece em Assinados.</p> : null}
     {params.erro && errors[params.erro] ? <p className="portal-feedback is-error" role="alert">{errors[params.erro]}</p> : null}
 
     {!documents.length ? <section className="settings-panel"><p className="settings-empty">Nenhum documento disponível ainda. Quando uma proposta ou contrato for concluído, ele aparece aqui.</p></section> : null}
@@ -63,8 +65,9 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
           <div className="portal-doc-head">
             <span className="portal-doc-kind">{group.label}</span>
             <div><b>{document.title}</b><small>{document.code} · concluído em {day(document.completedAt)}</small></div>
-            {document.signed ? <span className="portal-tag is-late">Enviado sem assinatura digital</span> : <span className="portal-tag is-soon">Aguardando assinatura</span>}
+            {document.signed ? <span className="portal-tag is-late">Via recusada</span> : <span className="portal-tag is-soon">Aguardando assinatura</span>}
           </div>
+          {document.signed ? <p className="portal-doc-note">A via enviada em {day(document.signed.createdAt)} foi recusada{document.signed.rejectionReason ? `: ${document.signed.rejectionReason}` : "."} Assine novamente e envie a nova via.</p> : null}
           <ol className="portal-doc-steps">
             <li><a href={document.href} download><span>1</span>BAIXAR PDF</a></li>
             <li><a href={GOV_BR_SIGNER_URL} target="_blank" rel="noreferrer"><span>2</span>ASSINAR NO GOV.BR</a></li>
@@ -74,8 +77,27 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
       </div>)}
     </section> : null}
 
+    {inReview.length ? <section className="settings-panel portal-docs" aria-labelledby="portal-review-title">
+      <div className="settings-panel-heading"><div><h2 id="portal-review-title">Em conferência <span className="portal-docs-count">{inReview.length}</span></h2><p>Recebemos a via assinada. Assim que a conferência terminar, o documento passa para Assinados.</p></div></div>
+      {byKind(inReview).map((group) => <div className="portal-docs-group" key={group.kind}>
+        <p className="portal-docs-group-title">{group.group}</p>
+        <ul>{group.documents.map((document) => <li key={`${document.kind}-${document.id}`} className="portal-doc is-review">
+          <div className="portal-doc-head">
+            <span className="portal-doc-kind">{group.label}</span>
+            <div><b>{document.title}</b><small>{document.code} · via enviada em {day(document.signed!.createdAt)}</small></div>
+            <span className="portal-tag">Em conferência</span>
+          </div>
+          <div className="portal-doc-links">
+            <a href={`/api/portal/assinados/${document.signed!.id}`} download>BAIXAR VIA ENVIADA</a>
+            <a href={document.href} download>BAIXAR ORIGINAL</a>
+            <details><summary>ENVIAR OUTRA VIA</summary><UploadForm document={document} label="NOVA VIA ASSINADA" /></details>
+          </div>
+        </li>)}</ul>
+      </div>)}
+    </section> : null}
+
     {signed.length ? <section className="settings-panel portal-docs" aria-labelledby="portal-signed-title">
-      <div className="settings-panel-heading"><div><h2 id="portal-signed-title">Assinados <span className="portal-docs-count">{signed.length}</span></h2><p>Documentos com a via assinada já enviada.</p></div></div>
+      <div className="settings-panel-heading"><div><h2 id="portal-signed-title">Assinados <span className="portal-docs-count">{signed.length}</span></h2><p>Documentos com a via assinada conferida e aprovada.</p></div></div>
       {byKind(signed).map((group) => <div className="portal-docs-group" key={group.kind}>
         <p className="portal-docs-group-title">{group.group}</p>
         <ul>{group.documents.map((document) => <li key={`${document.kind}-${document.id}`} className="portal-doc is-signed">

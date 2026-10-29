@@ -776,6 +776,12 @@ model PaymentNotice {
 
 /// Via assinada de uma proposta ou documento, enviada pelo cliente no portal (PDF assinado no assinador gov.br).
 /// Arquivo limitado a 8 MB e a 5 envios por documento; o conteúdo só é lido no download.
+enum SignedDocumentReview {
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
 model SignedDocument {
   id                String          @id @default(cuid())
   clientId          String
@@ -784,10 +790,14 @@ model SignedDocument {
   fileName          String
   byteSize          Int
   sha256            String
-  /// O PDF traz um campo de assinatura digital (/ByteRange), como os assinados no gov.br.
-  signatureDetected Boolean
   data              Bytes
   uploadedBy        String?
+  /// Conferência manual na gestão: a via só conta como assinada depois de aprovada.
+  reviewStatus      SignedDocumentReview @default(IN_REVIEW)
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  /// Motivo mostrado ao cliente quando a via é recusada.
+  rejectionReason   String?
   createdAt         DateTime        @default(now())
   client            Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   quote             Quote?          @relation(fields: [quoteId], references: [id], onDelete: Cascade)

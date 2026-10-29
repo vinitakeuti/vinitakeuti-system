@@ -7,7 +7,8 @@ import { clientPortalUrl } from "@/features/auth/services/auth-host";
 import { PortalAccessPanel } from "@/features/client-portal/components/portal-access-panel";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { getClientProfile } from "@/features/clients/queries/client-queries";
-import { DOCUMENT_KINDS, documentKindFromEnum } from "@/features/documents/types/document-kinds";
+import { ClientDocumentsSection } from "@/features/documents/components/client-documents-section";
+import { documentKindFromEnum } from "@/features/documents/types/document-kinds";
 import { monitoringEnvironmentLabel, monitoringStatusClass, monitoringStatusLabel } from "@/features/monitoring/types/monitoring-labels";
 
 export const dynamic = "force-dynamic";
@@ -50,9 +51,9 @@ function whatsappHref(phone: string | null) {
   return null;
 }
 
-export default async function ClientProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ section?: string; updated?: string }> }) {
+export default async function ClientProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ section?: string; updated?: string; conferido?: string }> }) {
   const { id } = await params;
-  const { section: requestedSection, updated } = await searchParams;
+  const { section: requestedSection, updated, conferido } = await searchParams;
   // "quotes" era o nome antigo da seção de documentos.
   const activeSection = requestedSection === "quotes" ? "documents" : isProfileSection(requestedSection) ? requestedSection : "overview";
   const client = await getClientProfile(id);
@@ -107,19 +108,7 @@ export default async function ClientProfilePage({ params, searchParams }: { para
         </div>
         <PortalAccessPanel clientId={client.id} clientName={client.name} clientEmail={client.email} portalUrl={clientPortalUrl()} access={client.portalUsers[0] ? { ...client.portalUsers[0], lastLoginAt: client.portalUsers[0].lastLoginAt?.toISOString() ?? null, createdAt: client.portalUsers[0].createdAt.toISOString() } : null} />
       </section> : null}
-      {activeSection === "documents" ? <ProfileSection title="Documentos" description="Proposta comercial, contrato, cessão e memorial técnico produzidos para este cliente."><div className="client-documents">{DOCUMENT_KINDS.map((info) => {
-        const rows = info.kind === "proposal"
-          ? client.quotes.map((quote) => ({ id: quote.id, code: quote.code, title: quote.title, done: Boolean(quote.completedAt), date: quote.createdAt, detail: money.format(quote.amountCents / 100), href: `/orcamentos/${quote.id}/editor`, pdf: `/api/orcamentos/${quote.id}/pdf` }))
-          : client.documents.filter((document) => documentKindFromEnum(document.kind).kind === info.kind).map((document) => ({ id: document.id, code: document.code, title: document.title, done: Boolean(document.completedAt), date: document.updatedAt, detail: null, href: `/documentos/${document.id}/editor`, pdf: `/api/documentos/${document.id}/pdf` }));
-        return <section className="client-documents-group" key={info.kind} aria-label={info.name}>
-          <div className="client-documents-heading"><div><b>{info.name}</b><small>{rows.length ? `${rows.length} ${rows.length === 1 ? "documento" : "documentos"}` : "Nenhum documento ainda"}</small></div><Link className="text-link" href={`/documentos?tipo=${info.slug}&clientId=${client.id}`}>PRODUZIR</Link></div>
-          {rows.length ? <ul className="client-doc-list">{rows.map((row) => <li key={row.id}>
-            <div className="client-doc-main"><Link href={row.href}>{row.title}</Link><small>{[row.code, row.detail, date.format(row.date)].filter(Boolean).join(" · ")}</small></div>
-            <span className={row.done ? "documents-status is-done" : "documents-status"}>{row.done ? "Concluído" : "Pendente"}</span>
-            <div className="client-doc-actions"><Link className="table-link" href={row.href}>EDITAR</Link><a className="table-link" href={row.pdf}>PDF</a></div>
-          </li>)}</ul> : null}
-        </section>;
-      })}</div></ProfileSection> : null}
+      {activeSection === "documents" ? <ClientDocumentsSection clientId={client.id} quotes={client.quotes} documents={client.documents} reviewed={conferido} /> : null}
       {activeSection === "projects" ? <ProfileSection title="Serviços ativos" description="Serviços em planejamento, execução ou aguardando retorno."><ProfileTable variant="projects" columns={["SERVIÇO", "SITUAÇÃO", "ENTREGA", "VALOR"]} empty="Nenhum serviço ativo para este cliente.">{client.projects.map((project) => <tr key={project.id}><td>{project.name}</td><td>{projectStatusLabels[project.status] ?? project.status}</td><td>{project.deliveryAt ? date.format(project.deliveryAt) : "A definir"}</td><td>{project.budgetCents ? money.format(project.budgetCents / 100) : "A definir"}</td></tr>)}</ProfileTable></ProfileSection> : null}
       {activeSection === "subscriptions" ? <ProfileSection title="Assinaturas" description="Cobranças recorrentes e situação de cada assinatura." action={<Link className="text-link" href={`/clientes/${client.id}/assinaturas/nova`}>ATRIBUIR SERVIÇO RECORRENTE</Link>}><ProfileTable variant="subscriptions" columns={["ASSINATURA", "SITUAÇÃO", "PRÓXIMO PAGAMENTO", "VALOR"]} empty="Nenhuma assinatura registrada para este cliente.">{client.subscriptions.map((subscription) => <tr key={subscription.id}><td><span>{subscription.name}</span><small>{subscription.serviceCatalogItem?.category.name ?? "Recorrência avulsa"}</small></td><td>{subscriptionStatusLabels[subscription.status] ?? subscription.status}</td><td>{subscription.nextPaymentAt ? date.format(subscription.nextPaymentAt) : "A definir"}</td><td>{money.format(subscription.amountCents / 100)}</td></tr>)}</ProfileTable></ProfileSection> : null}
       {activeSection === "systems" ? <ProfileSection title="Sistemas" description="Sistemas do cliente cadastrados no Monitoramento e o último status de cada um." action={<><Link className="text-link" href="/monitoramento">VINCULAR EXISTENTE</Link><Link className="text-link" href={`/monitoramento/novo?cliente=${client.id}`}>CADASTRAR SISTEMA</Link></>}><ProfileTable variant="systems" columns={["SISTEMA", "AMBIENTE", "STATUS", "ÚLTIMA VERIFICAÇÃO"]} empty="Nenhum sistema vinculado a este cliente.">{client.monitoredApps.map((app) => <tr key={app.id}><td><Link className="client-name" href={`/monitoramento/${app.id}`}>{app.name}</Link><small>{app.url ?? app.healthEndpoint ?? "Endpoint não configurado"}</small></td><td>{monitoringEnvironmentLabel(app.environment)}</td><td><span className={`monitoring-status monitoring-status-${monitoringStatusClass[app.status]}`}><i />{monitoringStatusLabel[app.status]}</span></td><td>{app.lastCheckedAt ? dateTime.format(app.lastCheckedAt) : "Nunca verificado"}</td></tr>)}</ProfileTable></ProfileSection> : null}

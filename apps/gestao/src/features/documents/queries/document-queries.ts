@@ -1,11 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { documentKindEnum, type DocumentKind } from "@/features/documents/types/document-kinds";
+import { latestSignedCopy } from "@/features/documents/types/signed-review";
 
 const PAGE_SIZE = 50;
 
 /** Documentos produzidos (contrato, cessão e memorial), do mais recente para o mais antigo, com paginação por cursor. */
-/** Última via assinada enviada pelo cliente no portal (sem o arquivo). */
-const latestSignedCopy = { orderBy: [{ createdAt: "desc" as const }, { id: "desc" as const }], take: 1, select: { id: true, createdAt: true, signatureDetected: true } };
 
 export async function listClientDocuments(input: { cursor?: string; kind?: Exclude<DocumentKind, "proposal"> | null; pending?: boolean }) {
   const cursor = input.cursor?.slice(0, 50);

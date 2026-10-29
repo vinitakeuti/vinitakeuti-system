@@ -18,13 +18,14 @@ export function buildProjectJourney(services: Services, documents: Documents) {
   const quoteId = sale.quote?.id ?? null;
   const contract = documents.find((document) => document.kind === "CONTRACT" && document.quoteId === quoteId) ?? documents.find((document) => document.kind === "CONTRACT") ?? null;
   const project = services.projects.find((item) => item.id === sale.quote?.projectId) ?? services.projects[0] ?? null;
-  const contractSigned = Boolean(contract?.signed?.signatureDetected);
+  const contractSigned = contract?.signed?.reviewStatus === "APPROVED";
+  const contractInReview = contract?.signed?.reviewStatus === "IN_REVIEW";
   const delivered = project?.status === "DELIVERED";
   const building = Boolean(project && ["PLANNING", "IN_PROGRESS", "WAITING_CLIENT", "PAUSED"].includes(project.status));
 
   const steps: JourneyStep[] = [
     { label: "Proposta aprovada", state: "done", detail: sale.confirmedAt ? date.format(sale.confirmedAt) : "Aprovada" },
-    { label: "Contrato assinado", state: contractSigned ? "done" : "current", detail: contractSigned ? date.format(contract!.signed!.createdAt) : contract ? "Aguardando sua assinatura" : "Em preparação" },
+    { label: "Contrato assinado", state: contractSigned ? "done" : "current", detail: contractSigned ? date.format(contract!.signed!.createdAt) : contractInReview ? "Via assinada em conferência" : contract ? "Aguardando sua assinatura" : "Em preparação" },
     { label: "Desenvolvimento", state: delivered ? "done" : building ? "current" : "next", detail: project ? projectLabel[project.status] ?? "Em andamento" : contractSigned ? "Em andamento" : "Começa após o contrato" },
     { label: "Entrega", state: delivered ? "done" : "next", detail: delivered ? (project?.deliveryAt ? date.format(project.deliveryAt) : "Entregue") : project?.deliveryAt ? `Prevista para ${date.format(project.deliveryAt)}` : "Data a definir" },
   ];

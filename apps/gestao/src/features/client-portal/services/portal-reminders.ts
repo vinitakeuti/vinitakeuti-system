@@ -57,7 +57,8 @@ export function buildPortalReminders({ context, documents, services, online, con
     reminders.push({ id: `waiting-${project.id}`, tone: "soon", category: "PROJETO", title: `${project.name} aguarda um retorno seu`, detail: "O projeto continua assim que você responder.", href: "/servicos", action: "VER SERVIÇOS" });
   }
 
-  const unsigned = documents.filter((document) => !document.signed?.signatureDetected);
+  // Via em conferência já não depende do cliente; recusada volta a ser pendência dele.
+  const unsigned = documents.filter((document) => !document.signed || document.signed.reviewStatus === "REJECTED");
   if (unsigned.length) {
     reminders.push({ id: "sign", tone: "info", category: "DOCUMENTO", title: unsigned.length === 1 ? "Um documento para assinar" : `${unsigned.length} documentos para assinar`, detail: documentKinds(unsigned), href: "/documentos", action: "ASSINAR" });
   }
