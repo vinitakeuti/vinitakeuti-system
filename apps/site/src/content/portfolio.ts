@@ -9,11 +9,18 @@
  *
  * `stack` alimenta a aba "Tecnologia" (só a stack do projeto), agrupada por camada; sem ela, a aba usa as camadas de `architecture`.
  * `link` (opcional) mostra um link para conhecer o projeto no ar.
- * `sample: true` marca os projetos FICTÍCIOS com a etiqueta "Projeto ilustrativo"; remova ao trocar por um projeto real.
+ * `sample: true` (opcional) mostra a etiqueta "Projeto ilustrativo", para exemplos que não são projetos reais.
  */
 export type ProjectLayer = { layer: string; tech: readonly string[]; note: string };
 export type ProjectMedia = { label: string; src?: string; alt: string; screen: "dashboard" | "site" | "portal" | "landing" };
 export type ArchitectureMedia = { src: string; alt: string };
+
+export type SkillGroup = { label: string; items: readonly { name: string; used: readonly string[] }[] };
+
+/** Onde as habilidades foram usadas: ids dos projetos abaixo e o sistema de gestão próprio (contado na história). */
+const P = "pacelab";
+const N = "nutripulse";
+const G = "Sistema de gestão próprio";
 
 export const portfolio = {
   seo: {
@@ -23,13 +30,39 @@ export const portfolio = {
   hero: {
     eyebrow: "PORTFÓLIO",
     name: "Vinicius Riudi",
-    text: "Desenvolvedor de software. A história do que construo e os projetos que nasceram dela.",
   },
   /** A história em parágrafos simples, lidos em sequência. */
   story: [
     "Tudo começa com um problema real. Antes de escrever uma linha de código, entendo a rotina, o que trava e o que precisa mudar. A tecnologia vem depois.",
     "Para organizar o meu próprio trabalho, construí um sistema de gestão com clientes, propostas, contratos e cobranças num só lugar. Depois veio a área do cliente, para que cada cliente acompanhe o projeto, assine documentos e pague as parcelas sem precisar perguntar nada.",
     "Hoje desenvolvo sites, sistemas sob medida, integrações e estruturas de tráfego pago para negócios de áreas diferentes, sempre do planejamento à entrega e com acompanhamento depois.",
+  ],
+  /**
+   * Habilidades por área. Só tecnologias que compõem um stack (linguagens, frameworks, bancos, plataformas),
+   * sem bibliotecas. `used` diz onde cada uma foi usada: o id de um projeto da lista abaixo (vira link para ele)
+   * ou um texto livre; vazio, a célula fica sem o indicador de uso. Para uma nova área, adicione outro item com os seus grupos.
+   */
+  skills: [
+    {
+      area: "Software",
+      groups: [
+        { label: "Linguagens", items: [{ name: "TypeScript", used: [P, N, G] }, { name: "Rust", used: [N] }, { name: "SQL", used: [P, N, G] }] },
+        { label: "Frontend", items: [{ name: "React", used: [P, N, G] }, { name: "Next.js", used: [P, G] }, { name: "CSS", used: [P, N, G] }, { name: "PWA", used: [P, G] }] },
+        { label: "Backend e APIs", items: [{ name: "Node.js", used: [P, G] }, { name: "Next.js API", used: [P, G] }, { name: "APIs REST", used: [P, G] }, { name: "Webhooks", used: [P, G] }] },
+        { label: "Desktop", items: [{ name: "Tauri", used: [N] }] },
+        { label: "Banco de dados", items: [{ name: "PostgreSQL", used: [P, G] }, { name: "SQLite", used: [N] }, { name: "Prisma", used: [P, G] }] },
+        { label: "Integrações", items: [{ name: "Asaas", used: [P, G] }, { name: "Appmax", used: [P] }, { name: "SMTP", used: [P, G] }] },
+        { label: "Infraestrutura", items: [{ name: "Docker", used: [P, G] }, { name: "Docker Compose", used: [P, G] }, { name: "EasyPanel", used: [P, G] }, { name: "VPS", used: [P, G] }] },
+        { label: "Ferramentas", items: [{ name: "Git", used: [P, N, G] }, { name: "GitHub", used: [G] }, { name: "Vite", used: [N] }, { name: "npm", used: [P, N, G] }] },
+      ],
+    },
+    {
+      area: "Inteligência Artificial",
+      groups: [
+        { label: "Agentes de IA", items: [{ name: "Claude Code", used: [G] }, { name: "Codex", used: [G] }] },
+        { label: "Integrações", items: [{ name: "APIs de IA", used: [] }] },
+      ],
+    },
   ],
   projects: [
     {
@@ -65,63 +98,31 @@ export const portfolio = {
       ],
     },
     {
-      id: "agenda-fit", sample: true, title: "Agenda Fit", category: "Sistema", year: "2026", client: "Estúdio de treinamento funcional",
-      media: [{ label: "Painel", alt: "Painel do sistema Agenda Fit", screen: "dashboard" }],
-      summary: "Agendamento de aulas, planos e mensalidades para um estúdio de treinamento.",
-      problem: "Horários marcados por mensagem, planilha de alunos desatualizada e mensalidades cobradas uma a uma.",
-      solution: "Agenda online por turma, cadastro de alunos e planos, cobrança recorrente automática e lembretes de aula.",
-      result: "Os alunos reservam sozinhos, as mensalidades são cobradas e confirmadas sem intervenção e as faltas caíram.",
-      architecture: [
-        { layer: "Interface", tech: ["Next.js", "React"], note: "Agenda e painel do estúdio, funcionando no celular." },
-        { layer: "API", tech: ["Route Handlers", "Zod"], note: "Regras de reserva, limite por turma e validação de dados." },
-        { layer: "Dados", tech: ["PostgreSQL", "Prisma"], note: "Alunos, turmas, planos e histórico de presença." },
-        { layer: "Integrações", tech: ["Asaas", "WhatsApp API"], note: "Cobrança recorrente e lembrete antes de cada aula." },
-        { layer: "Infraestrutura", tech: ["Docker", "VPS"], note: "Aplicação em contêiner com backups diários." },
+      id: "nutripulse", title: "NutriPulse", category: "Software desktop", year: "", client: "Consultórios de nutrição", ratio: "1 / 1",
+      media: [
+        { label: "Visão geral", src: "/portfolio/nutripulse/01-visao-geral.mp4", alt: "NutriPulse: tela inicial com a agenda da semana, consultas e pacientes ativos", screen: "dashboard" },
+        { label: "Antropometria", src: "/portfolio/nutripulse/03-antropometria-oms.mp4", alt: "NutriPulse: avaliação antropométrica com curvas de crescimento da OMS", screen: "dashboard" },
       ],
-    },
-    {
-      id: "lumen-fotografia", sample: true, title: "Lumen Fotografia", category: "Site", year: "2026", client: "Estúdio de fotografia",
-      media: [{ label: "Site", alt: "Site do estúdio Lumen Fotografia", screen: "site" }],
-      summary: "Site do estúdio com galerias privadas para cada cliente escolher e baixar as fotos.",
-      problem: "Fotos enviadas por links soltos e a escolha das fotos feita por mensagem, foto a foto.",
-      solution: "Site com portfólio e uma galeria privada por cliente, com seleção das fotos favoritas e download em alta.",
-      result: "A seleção que levava dias passou a ser feita numa tarde, direto na galeria.",
-      architecture: [
-        { layer: "Interface", tech: ["Next.js", "React"], note: "Portfólio público e galerias privadas com senha." },
-        { layer: "API", tech: ["Route Handlers"], note: "Acesso às galerias, seleção e geração dos downloads." },
-        { layer: "Dados", tech: ["PostgreSQL", "Prisma"], note: "Clientes, ensaios e fotos escolhidas." },
-        { layer: "Arquivos", tech: ["S3", "Sharp"], note: "Armazenamento das fotos e versões otimizadas para a web." },
-        { layer: "Infraestrutura", tech: ["Docker", "CDN"], note: "Imagens entregues rápido de qualquer lugar." },
+      architectureMedia: { src: "/portfolio/nutripulse/07-arquitetura.mp4", alt: "Arquitetura do NutriPulse: interface React na WebView, ponte IPC, núcleo nativo em Tauri 2 e Rust e banco SQLite no disco, sem servidor" },
+      summary: "Prontuário nutricional desktop e local-first para consultórios, que funciona sem internet.",
+      problem: "Consultas, avaliações e planos alimentares espalhados entre papel, planilhas e ferramentas online que dependem de conexão.",
+      solution: "Aplicativo para macOS e Windows com prontuário (consultas, antropometria com curvas da OMS e exames), prescrição (planos alimentares, substitutos e macros) e relatórios em PDF, com os dados guardados no próprio computador.",
+      result: "Todo o atendimento acontece num só programa, sem depender de servidor ou de internet, e os dados dos pacientes ficam no consultório.",
+      stack: [
+        { group: "Desktop", items: ["Tauri 2", "Rust"] },
+        { group: "Interface", items: ["React 18", "TypeScript", "Vite", "Lucide"] },
+        { group: "Dados", items: ["SQLite", "tauri-plugin-sql", "Migrations versionadas"] },
+        { group: "Documentos", items: ["React PDF", "plugin-fs", "plugin-dialog"] },
+        { group: "Plataformas", items: ["macOS", "Windows"] },
       ],
-    },
-    {
-      id: "obra-certa", sample: true, title: "Obra Certa", category: "Sistema", year: "2026", client: "Construtora",
-      media: [{ label: "Portal", alt: "Portal do cliente da Obra Certa", screen: "portal" }],
-      summary: "Portal em que cada cliente da construtora acompanha a obra, o cronograma e os pagamentos.",
-      problem: "Clientes ligavam toda semana para saber o andamento da obra e pedir comprovantes.",
-      solution: "Portal com cronograma por etapa, fotos da obra, documentos e parcelas do contrato.",
-      result: "As ligações de acompanhamento praticamente acabaram e os documentos ficaram num só lugar.",
       architecture: [
-        { layer: "Interface", tech: ["Next.js", "React"], note: "Portal do cliente e painel da construtora." },
-        { layer: "API", tech: ["Route Handlers", "Zod"], note: "Permissões por obra e por cliente." },
-        { layer: "Dados", tech: ["PostgreSQL", "Prisma"], note: "Obras, etapas, medições e contratos." },
-        { layer: "Integrações", tech: ["Asaas", "gov.br"], note: "Parcelas do contrato e assinatura digital." },
-        { layer: "Infraestrutura", tech: ["Docker", "VPS"], note: "Monitoramento de disponibilidade e certificado." },
-      ],
-    },
-    {
-      id: "horizonte-imoveis", sample: true, title: "Horizonte Imóveis", category: "Funil", year: "2026", client: "Imobiliária",
-      media: [{ label: "Landing page", alt: "Landing page de lançamento da Horizonte Imóveis", screen: "landing" }],
-      summary: "Landing page de lançamento com tráfego pago e cada contato medido até o corretor.",
-      problem: "Anúncios no ar sem saber quais traziam contatos de verdade e leads perdidos no WhatsApp.",
-      solution: "Página de lançamento, campanhas no Google e na Meta, eventos no GA4 e envio automático dos leads ao CRM.",
-      result: "Cada lead chega ao corretor com a origem identificada, e o investimento foi para os anúncios que vendem.",
-      architecture: [
-        { layer: "Interface", tech: ["Next.js"], note: "Página rápida, com formulário curto e botão de WhatsApp." },
-        { layer: "Medição", tech: ["GA4", "Pixel do Meta"], note: "Eventos de visita, clique e cadastro com a origem." },
-        { layer: "Anúncios", tech: ["Google Ads", "Meta Ads"], note: "Campanhas por público e remarketing." },
-        { layer: "Integrações", tech: ["CRM", "Webhooks"], note: "Lead enviado ao corretor na hora, com UTM." },
-        { layer: "Infraestrutura", tech: ["Docker", "CDN"], note: "Página entregue rápido mesmo com pico de acessos." },
+        { layer: "Prontuário", tech: ["Consultas", "Antropometria", "Exames"], note: "Avaliação com curvas da OMS 2006/2007, escore-z e percentil." },
+        { layer: "Prescrição", tech: ["Planos", "Substitutos", "Macros"], note: "Planos alimentares com alimentos substitutos e cálculo de macronutrientes." },
+        { layer: "Relatórios", tech: ["React PDF", "Impressão"], note: "Documentos em PDF, impressão e evolução do paciente." },
+        { layer: "Interface", tech: ["React 18", "TypeScript"], note: "Telas e fluxo clínico na WebView; src/lib com repositórios, OMS e DRI." },
+        { layer: "Ponte", tech: ["IPC", "invoke"], note: "A interface chama o núcleo nativo por IPC." },
+        { layer: "Núcleo nativo", tech: ["Tauri 2", "Rust"], note: "Comandos Rust para seed e impressão nativa, com plugins de SQL, arquivos e diálogos." },
+        { layer: "Dados locais", tech: ["SQLite", "nutripulse.db"], note: "Banco no disco, com migrations versionadas: sem servidor e funcionando offline." },
       ],
     },
   ],

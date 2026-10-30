@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Arrow } from "@/components/arrow";
 import { PortfolioGallery } from "@/components/portfolio-gallery";
-import { PortfolioSpotlight } from "@/components/portfolio-spotlight";
+import { PortfolioHero } from "@/components/portfolio-hero";
+import { PortfolioSkills } from "@/components/portfolio-skills";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { portfolio } from "@/content/portfolio";
@@ -15,23 +16,18 @@ export const metadata: Metadata = {
 };
 
 export default function Portfolio() {
-  const { hero, story, closing } = portfolio;
+  const { hero, story, skills, closing } = portfolio;
   return <>
-    <SiteHeader current="/portfolio" />
+    <SiteHeader current="/portfolio" minimal />
     <main id="inicio" className="pf-page">
-      <section className="pf-hero" aria-label="Apresentação">
-        <p className="site-tag">{hero.eyebrow}</p>
-        <PortfolioSpotlight name={hero.name} />
-        <div className="pf-hero-foot">
-          <p>{hero.text}</p>
-          <a className="pf-scroll" href="#historia"><span>A HISTÓRIA</span><i aria-hidden="true" /></a>
-        </div>
-      </section>
+      <PortfolioHero eyebrow={hero.eyebrow} name={hero.name} />
 
-      <section className="pf-story" id="historia" aria-labelledby="historia-title">
-        <h2 className="site-tag" id="historia-title">A HISTÓRIA</h2>
+      <section className="pf-story" id="trajetoria" aria-labelledby="trajetoria-title">
+        <h2 className="site-tag" id="trajetoria-title">TRAJETÓRIA</h2>
         <div>{story.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
       </section>
+
+      <PortfolioSkills skills={skills} projects={portfolio.projects} />
 
       <PortfolioGallery projects={portfolio.projects} />
 
