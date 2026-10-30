@@ -13,6 +13,7 @@ const placeholders: Record<string, string> = {
   contract: "Cláusulas do contrato: objeto, obrigações das partes, prazos, valores e forma de pagamento, rescisão, foro.",
   assignment: "Termos da cessão: objeto cedido, direitos patrimoniais transferidos, código-fonte, contrapartida e garantias.",
   memorial: "Estrutura da documentação: visão geral, escopo entregue, funcionalidades, arquitetura, tecnologias e critérios de aceite.",
+  free: "Conteúdo que você costuma repetir em documentos livres: apresentação, assinatura de e-mail, observações.",
 };
 
 /** Texto padrão de cada tipo de documento. Ele só entra no PDF pelo componente Texto padrão do editor. */
@@ -33,7 +34,7 @@ export default async function DocumentTextTemplatePage({ searchParams }: { searc
       {returnQuote ? <input type="hidden" name="returnQuoteId" value={returnQuote.id} /> : null}
       {returnDocument ? <input type="hidden" name="returnDocumentId" value={returnDocument.id} /> : null}
       {updated ? <p className="form-success">Texto padrão de {info.shortName.toLowerCase()} salvo.{returnHref ? " Volte ao PDF e use COMPONENTES > Texto padrão para incluí-lo." : ""}</p> : null}
-      <section><p className="eyebrow">MODELO · {info.name.toUpperCase()}</p><label className="quote-template-content">Texto disponível para inserir em {info.kind === "proposal" ? "propostas" : info.kind === "memorial" ? "memoriais técnicos" : info.kind === "contract" ? "contratos" : "cessões"}<textarea name="content" defaultValue={template?.content ?? ""} maxLength={120_000} placeholder={placeholders[info.kind]} /><small>Use parágrafos para separar blocos de conteúdo. Ao ser inserido, o texto entra no ponto do cursor e pode ser ajustado no editor de cada documento.</small></label></section>
+      <section><p className="eyebrow">MODELO · {info.name.toUpperCase()}</p><label className="quote-template-content">Texto disponível para inserir em {info.kind === "proposal" ? "propostas" : info.kind === "memorial" ? "memoriais técnicos" : info.kind === "contract" ? "contratos" : info.kind === "free" ? "documentos livres" : "cessões"}<textarea name="content" defaultValue={template?.content ?? ""} maxLength={120_000} placeholder={placeholders[info.kind]} /><small>Use parágrafos para separar blocos de conteúdo. Ao ser inserido, o texto entra no ponto do cursor e pode ser ajustado no editor de cada documento.</small></label></section>
       <div className="form-actions"><Link className="text-link" href={backHref}>{returnCode ? `VOLTAR PARA O PDF ${returnCode}` : "CANCELAR"}</Link><button className="primary-action" type="submit">SALVAR TEXTO PADRÃO</button></div>
     </form>
   </section></div></main>;

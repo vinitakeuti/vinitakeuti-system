@@ -375,12 +375,15 @@ enum ClientDocumentKind {
   CONTRACT
   IP_ASSIGNMENT
   TECHNICAL_MEMORIAL
+  /// Documento livre: capa opcional, sem folha final e com cliente opcional.
+  FREE
 }
 
-/// Documentos produzidos para o cliente além da proposta comercial: contrato, cessão de direitos e memorial técnico.
+/// Documentos produzidos além da proposta comercial: contrato, cessão de direitos, memorial técnico e documento livre.
 model ClientDocument {
   id              String             @id @default(cuid())
-  clientId        String
+  /// Obrigatório nos documentos do cliente; opcional no documento livre.
+  clientId        String?
   /// Proposta de referência: traz os serviços para o documento. Opcional.
   quoteId         String?
   kind            ClientDocumentKind
@@ -391,7 +394,7 @@ model ClientDocument {
   completedAt     DateTime?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
-  client          Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client          Client?            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   quote           Quote?             @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   images          QuoteImage[]
   signedCopies    SignedDocument[]

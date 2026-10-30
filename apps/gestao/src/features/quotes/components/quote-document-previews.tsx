@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { CSSProperties } from "react";
-import { ASSIGNMENT_COVER_COLORS, BRAND_MARK_PATHS, BRAND_MARK_TRANSFORM, BRAND_MARK_VIEWBOX, CONTRACT_COVER_COLORS, coverTitleLayout, coverTitleSize, MEMORIAL_COVER_COLORS, MEMORIAL_GRID, pointsToCoverCqw } from "@/features/quotes/types/brand-mark";
+import { ASSIGNMENT_COVER_COLORS, BRAND_MARK_PATHS, BRAND_MARK_TRANSFORM, BRAND_MARK_VIEWBOX, CONTRACT_COVER_COLORS, coverTitleLayout, coverTitleSize, FREE_COVER_COLORS, FREE_COVER_LAYOUT, freeCoverTitleSize, MEMORIAL_COVER_COLORS, MEMORIAL_GRID, pointsToCoverCqw } from "@/features/quotes/types/brand-mark";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
 import type { ParsedSignature } from "@/features/professional-profile/services/signature";
 
@@ -72,8 +72,8 @@ const coverMono = '"Courier New", Courier, monospace';
 /** Na tela a grade usa linhas de 1px; um tom mais claro equivale às linhas de 0,5pt do PDF. */
 const PREVIEW_GRID_LINE = "#E5ECE7";
 
-function CoverMark({ color, style, outline = false }: { color: string; style: CSSProperties; outline?: boolean }) {
-  return <svg viewBox={BRAND_MARK_VIEWBOX} aria-hidden="true" focusable="false" style={{ position: "absolute", ...style }}><g transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => outline ? <path key={d} d={d} fill="none" stroke={color} strokeWidth={5} /> : <path key={d} d={d} fill={color} />)}</g></svg>;
+function CoverMark({ color, style, outline = false, strokeWidth = 5 }: { color: string; style: CSSProperties; outline?: boolean; strokeWidth?: number }) {
+  return <svg viewBox={BRAND_MARK_VIEWBOX} aria-hidden="true" focusable="false" style={{ position: "absolute", ...style }}><g transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => outline ? <path key={d} d={d} fill="none" stroke={color} strokeWidth={strokeWidth} /> : <path key={d} d={d} fill={color} />)}</g></svg>;
 }
 
 function CoverBrand({ professional, color, muted, left, top }: { professional: QuotePreviewProfessional; color: string; muted: string; left: number; top: number }) {
@@ -176,10 +176,38 @@ function MemorialCoverArt({ quote, professional }: { quote: DocumentCoverData; p
   </div>;
 }
 
+/** Capa do documento livre: página escura, a marca em traço fino recortada pela borda, o título no terço de baixo e uma linha de dados no rodapé. */
+function FreeCoverArt({ quote, professional, label, hasClient }: { quote: DocumentCoverData; professional: QuotePreviewProfessional; label: string; hasClient: boolean }) {
+  const C = FREE_COVER_COLORS;
+  const { mark, titleBottom, infoTop } = FREE_COVER_LAYOUT;
+  const info: Array<[string, string, string]> = [
+    ...(hasClient ? [["PREPARADO PARA", quote.client.name, clientDetailText(quote)] as [string, string, string]] : []),
+    ["DOCUMENTO", quote.code, ""],
+    ["EMISSÃO", longDate.format(new Date(quote.issuedAt)), ""],
+  ];
+  return <div className="quote-cover-art" style={{ background: C.background, color: C.text }}>
+    <CoverMark color={C.mark} outline strokeWidth={mark.stroke} style={{ left: pt(mark.left), top: pt(mark.top), width: pt(mark.width), height: pt(mark.height) }} />
+    <CoverBrand professional={professional} color={C.text} muted={C.soft} left={52} top={48} />
+    <div style={{ position: "absolute", left: pt(52), right: pt(52), bottom: pt(titleBottom), display: "grid", justifyItems: "start" }}>
+      <span style={{ color: C.muted, fontFamily: coverMono, fontSize: pt(7), letterSpacing: pt(0.9) }}>{quote.code} / {yearOf.format(new Date(quote.issuedAt))}</span>
+      {label ? <span style={{ marginTop: pt(14), color: C.label, fontSize: pt(11), fontWeight: 700, letterSpacing: pt(1.8) }}>{label.toUpperCase()}</span> : null}
+      <h2 style={{ margin: `${pt(label ? 10 : 14)} 0 0`, color: C.text, fontSize: pt(freeCoverTitleSize(quote.title)), fontWeight: 700, letterSpacing: pt(-1.2), lineHeight: 1.04, overflowWrap: "break-word" }}>{quote.title}</h2>
+    </div>
+    <div style={{ position: "absolute", left: pt(52), right: pt(52), top: pt(infoTop), display: "flex", borderTop: `1px solid ${C.line}` }}>
+      {info.map(([title, value, detail], index) => <div key={title} style={{ flex: `${index === 0 && hasClient ? 2 : 1} 1 0`, minWidth: 0, display: "grid", alignContent: "start", padding: `${pt(16)} ${pt(16)} 0 ${index ? pt(16) : 0}`, borderLeft: index ? `1px solid ${C.line}` : 0 }}>
+        <span style={{ color: C.muted, fontFamily: coverMono, fontSize: pt(6.4), letterSpacing: pt(0.8) }}>{title}</span>
+        <b style={{ marginTop: pt(7), color: C.text, fontSize: pt(9.5), lineHeight: 1.25, overflowWrap: "anywhere" }}>{value}</b>
+        {detail ? <small style={{ marginTop: pt(3), color: C.soft, fontSize: pt(7.6), lineHeight: 1.35, overflowWrap: "anywhere" }}>{detail}</small> : null}
+      </div>)}
+    </div>
+    <CoverFooter professional={professional} color={C.muted} left={52} />
+  </div>;
+}
+
 /** Réplica somente leitura da capa do PDF, em medidas proporcionais à largura da página. Cada tipo de documento tem a sua capa. */
-export function QuoteCoverPreview({ quote, professional, kind = "proposal" }: { quote: DocumentCoverData; professional: QuotePreviewProfessional; kind?: DocumentKind }) {
+export function QuoteCoverPreview({ quote, professional, kind = "proposal", label = "", hasClient = true }: { quote: DocumentCoverData; professional: QuotePreviewProfessional; kind?: DocumentKind; label?: string; hasClient?: boolean }) {
   if (kind !== "proposal") {
-    const art = kind === "contract" ? <ContractCoverArt quote={quote} professional={professional} /> : kind === "assignment" ? <AssignmentCoverArt quote={quote} professional={professional} /> : <MemorialCoverArt quote={quote} professional={professional} />;
+    const art = kind === "free" ? <FreeCoverArt quote={quote} professional={professional} label={label} hasClient={hasClient} /> : kind === "contract" ? <ContractCoverArt quote={quote} professional={professional} /> : kind === "assignment" ? <AssignmentCoverArt quote={quote} professional={professional} /> : <MemorialCoverArt quote={quote} professional={professional} />;
     return <div className="quote-docs-preview" id="quote-preview-cover"><article className="quote-docs-page quote-docs-cover is-text-document" aria-label="Capa do documento">{art}</article></div>;
   }
   const website = websiteForDisplay(professional.website);

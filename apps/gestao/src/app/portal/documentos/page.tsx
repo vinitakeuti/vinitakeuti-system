@@ -47,10 +47,12 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
   const params = await searchParams;
   const context = await getPortalContext();
   const documents = await getPortalDocuments(context.clientId);
-  // Via recusada volta para "Para assinar".
-  const pending = documents.filter((document) => !document.signed || document.signed.reviewStatus === "REJECTED");
-  const inReview = documents.filter((document) => document.signed?.reviewStatus === "IN_REVIEW");
-  const signed = documents.filter((document) => document.signed?.reviewStatus === "APPROVED");
+  // Via recusada volta para "Para assinar". O documento livre não se assina: fica em "Outros documentos", só para baixar.
+  const signable = documents.filter((document) => document.kind !== "FREE");
+  const others = documents.filter((document) => document.kind === "FREE");
+  const pending = signable.filter((document) => !document.signed || document.signed.reviewStatus === "REJECTED");
+  const inReview = signable.filter((document) => document.signed?.reviewStatus === "IN_REVIEW");
+  const signed = signable.filter((document) => document.signed?.reviewStatus === "APPROVED");
 
   return <PortalShell context={context} current="documents" section="DOCUMENTOS" title="Documentos." description="Propostas, contratos e demais documentos do seu projeto, separados entre o que falta assinar, o que está em conferência e o que já está assinado.">
     {params.enviado ? <p className="portal-feedback is-ok" role="status">Recebemos a via assinada de {params.enviado.slice(0, 30)}. Vamos conferir e, quando aprovada, ela aparece em Assinados.</p> : null}
@@ -113,6 +115,18 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
           </div>
         </li>)}</ul>
       </div>)}
+    </section> : null}
+
+    {others.length ? <section className="settings-panel portal-docs" aria-labelledby="portal-others-title">
+      <div className="settings-panel-heading"><div><h2 id="portal-others-title">Outros documentos <span className="portal-docs-count">{others.length}</span></h2><p>Documentos para consulta. Não precisam de assinatura.</p></div></div>
+      <div className="portal-docs-group"><ul>{others.map((document) => <li key={document.id} className="portal-doc">
+        <div className="portal-doc-head">
+          <span className="portal-doc-kind">DOCUMENTO</span>
+          <div><b>{document.title}</b><small>{document.code} · emitido em {day(document.completedAt)}</small></div>
+          <span className="portal-tag">Para consulta</span>
+        </div>
+        <div className="portal-doc-links"><a href={document.href} download>BAIXAR PDF</a></div>
+      </li>)}</ul></div>
     </section> : null}
   </PortalShell>;
 }

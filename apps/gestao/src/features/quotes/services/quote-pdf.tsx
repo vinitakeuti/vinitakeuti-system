@@ -5,9 +5,9 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_COLORS, richTextLineHeight, type RichTextBlock, type RichTextBox, type RichTextList, type RichTextRun } from "@/lib/rich-text";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
-import { TextDocumentCover } from "@/features/quotes/services/pdf-covers";
+import { FreeDocumentCover, TextDocumentCover } from "@/features/quotes/services/pdf-covers";
 import type { ParsedSignature } from "@/features/professional-profile/services/signature";
-import { QUOTE_PAGE_CONTENT_WIDTH, quoteDocumentBlockRole, quoteImageWidthShare, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
+import { QUOTE_PAGE_CONTENT_WIDTH, quoteDocumentBlockRole, quoteImageWidthShare, type DocumentCoverSettings, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
 
 type Style = Exclude<ComponentProps<typeof View>["style"], unknown[] | undefined>;
 
@@ -149,7 +149,10 @@ export type QuotePdfInput = {
   images?: Record<string, QuotePdfImage>;
   discountCents?: number;
   discountPercentBps?: number | null;
-  client: { name: string; company?: string | null; document?: string | null; email?: string | null };
+  /** Null só no documento livre sem cliente: o cabeçalho das páginas sai sem o bloco CLIENTE. */
+  client: { name: string; company?: string | null; document?: string | null; email?: string | null } | null;
+  /** Documento livre: capa opcional, com rótulo e título próprios. */
+  cover?: DocumentCoverSettings | null;
   items: Array<{ description: string; categoryName?: string | null; proposalText?: string | null; quantity: number; unitPriceCents: number }>;
   payments?: Array<{ amountCents: number; paidAt: Date }>;
   paymentNotes?: string | null;
@@ -324,7 +327,7 @@ function SignatureClosing({ quote, kind, signatureLine, clientDetails }: { quote
       <Text style={styles.closingPlace}>{signatureLine}</Text>
       <View style={styles.closingSignatures}>
         <View style={styles.closingSignature}><SignatureArea signature={quote.professional.signature} /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.professional.name}</Text>{quote.professional.document ? <Text style={styles.closingSignatureDetail}>{quote.professional.document}</Text> : null}<Text style={styles.closingSignatureRole}>{closing.professional.role}</Text></View>
-        <View style={styles.closingSignature}><SignatureArea /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>{closing.client.role}</Text></View>
+        <View style={styles.closingSignature}><SignatureArea /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client?.name ?? ""}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>{closing.client.role}</Text></View>
       </View>
       {closing.witnesses ? <View style={[styles.closingSignatures, { marginTop: 26 }]}>
         {["TESTEMUNHA 1", "TESTEMUNHA 2"].map((role) => <View style={styles.closingSignature} key={role}><SignatureArea /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>Nome:</Text><Text style={styles.closingSignatureDetail}>CPF:</Text><Text style={styles.closingSignatureRole}>{role}</Text></View>)}
@@ -337,10 +340,11 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
   const subtotalCents = quote.items.reduce((total, item) => total + item.quantity * item.unitPriceCents, 0);
   const discountCents = Math.max(0, Math.min(quote.discountCents ?? 0, subtotalCents));
   const totalCents = subtotalCents - discountCents;
-  const clientDetails = [quote.client.company, quote.client.document].filter(Boolean);
+  const client = quote.client ?? { name: "", company: null, document: null, email: null };
+  const clientDetails = [client.company, client.document].filter(Boolean);
   const website = websiteForDisplay(quote.professional.website);
   const footerDetails = [quote.professional.document, website].filter(Boolean).join(" · ");
-  const clientCompany = quote.client.company ?? "Não informado";
+  const clientCompany = client.company ?? "Não informado";
   const validity = quote.validUntil ? date.format(quote.validUntil) : "Conforme proposta";
   const payments = quote.payments ?? [];
   const paidCents = payments.reduce((total, payment) => total + payment.amountCents, 0);
@@ -352,6 +356,9 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
   const kind = quote.kind ?? "proposal";
   const kindInfo = documentKindInfo(kind);
   const isProposal = kind === "proposal";
+  const isFree = kind === "free";
+  // No documento livre, o rótulo da capa também identifica as páginas; sem rótulo, fica "DOCUMENTO".
+  const headerLabel = isFree ? quote.cover?.label.toUpperCase() || kindInfo.coverLabel : kindInfo.coverLabel;
 
   return (
     <Document title={`${isProposal ? "Orçamento" : kindInfo.shortName} ${quote.code}`} author={quote.professional.name} subject={quote.title}>
@@ -371,7 +378,7 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
         </View>
         <View style={styles.coverDetails}>
           <View style={styles.coverDetailsRow}>
-            <View style={styles.coverDetail}><Text style={styles.coverDetailLabel}>CLIENTE</Text><Text style={styles.coverDetailValue}>{quote.client.name}</Text></View>
+            <View style={styles.coverDetail}><Text style={styles.coverDetailLabel}>CLIENTE</Text><Text style={styles.coverDetailValue}>{client.name}</Text></View>
             <View style={styles.coverDetail}><Text style={styles.coverDetailLabel}>EMPRESA</Text><Text style={styles.coverDetailValue}>{clientCompany}</Text></View>
           </View>
           <View style={[styles.coverDetailsRow, { marginTop: 15 }]}>
@@ -380,19 +387,19 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
           </View>
         </View>
         <Text style={styles.coverFooter}>{quote.professional.name.toUpperCase()} {website ? `· ${website.toUpperCase()}` : ""}</Text>
-      </Page> : <TextDocumentCover kind={kind} cover={{ code: quote.code, issuedAt: quote.issuedAt, title: quote.title, client: quote.client, professional: quote.professional }} />}
+      </Page> : isFree ? quote.cover?.enabled ? <FreeDocumentCover cover={{ code: quote.code, issuedAt: quote.issuedAt, title: quote.title, label: quote.cover.label, client: quote.client, professional: quote.professional }} /> : null : <TextDocumentCover kind={kind as "contract" | "assignment" | "memorial"} cover={{ code: quote.code, issuedAt: quote.issuedAt, title: quote.title, client, professional: quote.professional }} />}
       <Page size="A4" style={styles.page}>
         <View style={styles.header} fixed>
           <View style={styles.headerTop}>
             <View style={styles.professional}>
               <View style={styles.logoBox}><Image src={logoSvg} style={styles.logo} /></View>
               <View style={styles.professionalDetails}>
-                <Text style={styles.documentKicker}>{kindInfo.coverLabel}</Text>
+                <Text style={styles.documentKicker}>{headerLabel}</Text>
                 <Text style={styles.professionalName}>{quote.professional.name}</Text>
                 {quote.professional.professionalTitle ? <Text style={styles.professionalTitle}>{quote.professional.professionalTitle}</Text> : null}
               </View>
             </View>
-            <View style={styles.clientInfo}><Text style={styles.clientInfoKicker}>CLIENTE</Text><Text style={styles.clientInfoName}>{quote.client.name}</Text>{clientDetails.map((detail) => <Text key={detail} style={styles.clientInfoLine}>{detail}</Text>)}</View>
+            {quote.client ? <View style={styles.clientInfo}><Text style={styles.clientInfoKicker}>CLIENTE</Text><Text style={styles.clientInfoName}>{client.name}</Text>{clientDetails.map((detail) => <Text key={detail} style={styles.clientInfoLine}>{detail}</Text>)}</View> : null}
           </View>
         </View>
 
@@ -403,8 +410,8 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
         <View style={styles.footer} fixed><Text style={styles.footerDetails} /><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
       </Page>
 
-      {/* Folha final própria: na proposta, investimento, composição, pagamentos, condições e aceite; nos demais documentos, as assinaturas. */}
-      <Page size="A4" style={styles.closingPage}>
+      {/* Folha final própria: na proposta, investimento, composição, pagamentos, condições e aceite; nos demais documentos, as assinaturas. O documento livre não tem folha final. */}
+      {isFree ? null : <Page size="A4" style={styles.closingPage}>
         <View style={styles.closingHeader}>
           <View style={styles.closingBrand}>
             <Svg viewBox={BRAND_MARK_VIEWBOX} style={styles.closingLogo}><G transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => <Path key={d} d={d} fill={colors.black} />)}</G></Svg>
@@ -446,13 +453,13 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
             <Text style={styles.closingPlace}>{signatureLine}</Text>
             <View style={styles.closingSignatures}>
               <View style={styles.closingSignature}><SignatureArea signature={quote.professional.signature} /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.professional.name}</Text>{quote.professional.document ? <Text style={styles.closingSignatureDetail}>{quote.professional.document}</Text> : null}<Text style={styles.closingSignatureRole}>PROFISSIONAL RESPONSÁVEL</Text></View>
-              <View style={styles.closingSignature}><SignatureArea /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{quote.client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>CLIENTE</Text></View>
+              <View style={styles.closingSignature}><SignatureArea /><View style={styles.closingSignatureLine} /><Text style={styles.closingSignatureName}>{client.name}</Text>{clientDetails.length ? <Text style={styles.closingSignatureDetail}>{clientDetails.join(" · ")}</Text> : null}<Text style={styles.closingSignatureRole}>CLIENTE</Text></View>
             </View>
           </View>
         </View> : <SignatureClosing quote={quote} kind={kind} signatureLine={signatureLine} clientDetails={clientDetails} />}
 
         <View style={styles.closingFooter} fixed><Text>{[quote.professional.name, footerDetails].filter(Boolean).join(" · ").toUpperCase()}</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
-      </Page>
+      </Page>}
     </Document>
   );
 }

@@ -9,12 +9,14 @@ export type SignedCopy = { id: string; createdAt: Date; fileName: string; byteSi
 
 /**
  * Assinatura do cliente em um documento: rascunho ainda não vai para o portal; concluído sem via aguarda o cliente;
- * com via, segue a conferência manual (em conferência, assinado ou recusado).
+ * com via, segue a conferência manual (em conferência, assinado ou recusado). Documento que não se assina (o livre)
+ * fica só concluído.
  */
-export type SignatureState = "draft" | "waiting" | "review" | "signed" | "rejected";
+export type SignatureState = "draft" | "done" | "waiting" | "review" | "signed" | "rejected";
 
-export function signatureState(completed: boolean, signed: Pick<SignedCopy, "reviewStatus"> | null): SignatureState {
+export function signatureState(completed: boolean, signed: Pick<SignedCopy, "reviewStatus"> | null, signable = true): SignatureState {
   if (!completed) return "draft";
+  if (!signable) return "done";
   if (!signed) return "waiting";
   return signed.reviewStatus === "APPROVED" ? "signed" : signed.reviewStatus === "REJECTED" ? "rejected" : "review";
 }

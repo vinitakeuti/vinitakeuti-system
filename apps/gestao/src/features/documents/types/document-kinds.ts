@@ -2,8 +2,8 @@
  * Tipos de documento produzidos para cada cliente. A proposta comercial é o orçamento (fluxo próprio, com
  * serviços e valores); os demais são documentos de texto com capa, páginas e folha de assinaturas.
  */
-export type DocumentKind = "proposal" | "contract" | "assignment" | "memorial";
-export type ClientDocumentKindValue = "CONTRACT" | "IP_ASSIGNMENT" | "TECHNICAL_MEMORIAL";
+export type DocumentKind = "proposal" | "contract" | "assignment" | "memorial" | "free";
+export type ClientDocumentKindValue = "CONTRACT" | "IP_ASSIGNMENT" | "TECHNICAL_MEMORIAL" | "FREE";
 
 type SignatureParty = { role: string };
 
@@ -21,6 +21,10 @@ export type DocumentKindInfo = {
   templateId: string;
   /** Folha final dos documentos de texto: título, declaração e as partes que assinam. */
   closing: { title: string; statement: string; professional: SignatureParty; client: SignatureParty; witnesses: boolean } | null;
+  /** O cliente assina e envia a via pelo portal. O documento livre é só para leitura. */
+  signable: boolean;
+  /** Cliente obrigatório na criação. */
+  requiresClient: boolean;
 };
 
 export const DOCUMENT_KINDS: DocumentKindInfo[] = [
@@ -34,6 +38,8 @@ export const DOCUMENT_KINDS: DocumentKindInfo[] = [
     codePrefix: "ORC",
     templateId: "default",
     closing: null,
+    signable: true,
+    requiresClient: true,
   },
   {
     kind: "contract",
@@ -45,6 +51,8 @@ export const DOCUMENT_KINDS: DocumentKindInfo[] = [
     codePrefix: "CTR",
     templateId: "contract",
     closing: { title: "Assinaturas", statement: "E, por estarem justas e de acordo, as partes assinam o presente contrato, que passa a valer a partir da data de assinatura.", professional: { role: "CONTRATADA" }, client: { role: "CONTRATANTE" }, witnesses: true },
+    signable: true,
+    requiresClient: true,
   },
   {
     kind: "assignment",
@@ -56,6 +64,8 @@ export const DOCUMENT_KINDS: DocumentKindInfo[] = [
     codePrefix: "CES",
     templateId: "assignment",
     closing: { title: "Assinaturas", statement: "Por estarem de acordo com a cessão e a transferência de propriedade descritas neste documento, as partes assinam o presente termo.", professional: { role: "CEDENTE" }, client: { role: "CESSIONÁRIO" }, witnesses: true },
+    signable: true,
+    requiresClient: true,
   },
   {
     kind: "memorial",
@@ -67,11 +77,26 @@ export const DOCUMENT_KINDS: DocumentKindInfo[] = [
     codePrefix: "MEM",
     templateId: "memorial",
     closing: { title: "Recebimento da documentação", statement: "Declaro ter recebido a documentação técnica do projeto descrita neste memorial.", professional: { role: "RESPONSÁVEL TÉCNICO" }, client: { role: "RECEBIDO POR" }, witnesses: false },
+    signable: true,
+    requiresClient: true,
+  },
+  {
+    kind: "free",
+    slug: "livre",
+    name: "Documento livre",
+    shortName: "Documento livre",
+    description: "Cabeçalho padrão e capa opcional, sem folha final. Com ou sem cliente vinculado.",
+    coverLabel: "DOCUMENTO",
+    codePrefix: "DOC",
+    templateId: "free",
+    closing: null,
+    signable: false,
+    requiresClient: false,
   },
 ];
 
-const kindByEnum: Record<ClientDocumentKindValue, DocumentKind> = { CONTRACT: "contract", IP_ASSIGNMENT: "assignment", TECHNICAL_MEMORIAL: "memorial" };
-const enumByKind: Record<Exclude<DocumentKind, "proposal">, ClientDocumentKindValue> = { contract: "CONTRACT", assignment: "IP_ASSIGNMENT", memorial: "TECHNICAL_MEMORIAL" };
+const kindByEnum: Record<ClientDocumentKindValue, DocumentKind> = { CONTRACT: "contract", IP_ASSIGNMENT: "assignment", TECHNICAL_MEMORIAL: "memorial", FREE: "free" };
+const enumByKind: Record<Exclude<DocumentKind, "proposal">, ClientDocumentKindValue> = { contract: "CONTRACT", assignment: "IP_ASSIGNMENT", memorial: "TECHNICAL_MEMORIAL", free: "FREE" };
 
 export function documentKindInfo(kind: DocumentKind) {
   return DOCUMENT_KINDS.find((item) => item.kind === kind)!;

@@ -8,7 +8,7 @@ const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const date = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Maceio" });
 const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Maceio" });
 
-const stateLabels: Record<SignatureState, string> = { draft: "Rascunho", waiting: "Aguardando assinatura", review: "Para conferir", signed: "Assinado", rejected: "Via recusada" };
+const stateLabels: Record<SignatureState, string> = { draft: "Rascunho", done: "Concluído", waiting: "Aguardando assinatura", review: "Para conferir", signed: "Assinado", rejected: "Via recusada" };
 
 type ProfileQuote = { id: string; code: string; title: string; amountCents: number; createdAt: Date; completedAt: Date | null; signedCopies: SignedCopy[] };
 type ProfileDocument = { id: string; code: string; title: string; kind: ClientDocumentKindValue; completedAt: Date | null; updatedAt: Date; signedCopies: SignedCopy[] };
@@ -20,7 +20,7 @@ function fileSize(bytes: number) {
 
 /** Data que acompanha a situação: quando foi concluído, enviado, aprovado ou recusado. */
 function stateDetail(row: Row) {
-  if (row.state === "waiting" && row.completedAt) return `concluído em ${date.format(row.completedAt)}`;
+  if ((row.state === "waiting" || row.state === "done") && row.completedAt) return `${row.state === "done" ? "em" : "concluído em"} ${date.format(row.completedAt)}`;
   if (row.state === "review" && row.signed) return `enviada em ${date.format(row.signed.createdAt)}`;
   if ((row.state === "signed" || row.state === "rejected") && row.signed?.reviewedAt) return `${row.state === "signed" ? "aprovada" : "recusada"} em ${date.format(row.signed.reviewedAt)}`;
   return null;
@@ -35,14 +35,14 @@ const feedback: Record<string, string> = {
 /**
  * Documentos no perfil do cliente. No topo, as vias assinadas enviadas pelo portal que aguardam conferência; abaixo,
  * um grupo por tipo com uma única situação por documento (rascunho, aguardando assinatura, para conferir, assinado
- * ou recusado). Tipos sem documento ficam resumidos no rodapé.
+ * ou recusado; o documento livre fica só concluído). Tipos sem documento ficam resumidos no rodapé.
  */
 export function ClientDocumentsSection({ clientId, quotes, documents, reviewed }: { clientId: string; quotes: ProfileQuote[]; documents: ProfileDocument[]; reviewed?: string }) {
   const rows: Row[] = [
     ...quotes.map((quote) => ({ id: quote.id, kind: "proposal" as const, kindLabel: "Proposta", code: quote.code, title: quote.title, detail: money.format(quote.amountCents / 100), date: quote.createdAt, completedAt: quote.completedAt, state: signatureState(Boolean(quote.completedAt), quote.signedCopies[0] ?? null), signed: quote.signedCopies[0] ?? null, href: `/orcamentos/${quote.id}/editor`, pdf: `/api/orcamentos/${quote.id}/pdf` })),
     ...documents.map((document) => {
       const info = documentKindFromEnum(document.kind);
-      return { id: document.id, kind: info.kind, kindLabel: info.shortName, code: document.code, title: document.title, detail: null, date: document.updatedAt, completedAt: document.completedAt, state: signatureState(Boolean(document.completedAt), document.signedCopies[0] ?? null), signed: document.signedCopies[0] ?? null, href: `/documentos/${document.id}/editor`, pdf: `/api/documentos/${document.id}/pdf` };
+      return { id: document.id, kind: info.kind, kindLabel: info.shortName, code: document.code, title: document.title, detail: null, date: document.updatedAt, completedAt: document.completedAt, state: signatureState(Boolean(document.completedAt), document.signedCopies[0] ?? null, info.signable), signed: document.signedCopies[0] ?? null, href: `/documentos/${document.id}/editor`, pdf: `/api/documentos/${document.id}/pdf` };
     }),
   ];
   const toReview = rows.filter((row) => row.state === "review");
@@ -51,7 +51,7 @@ export function ClientDocumentsSection({ clientId, quotes, documents, reviewed }
   const missing = groups.filter((group) => !group.rows.length);
 
   return <section className="client-panel client-docs">
-    <div className="client-panel-heading"><div><h2>Documentos</h2><p>Propostas, contratos, cessões e memoriais deste cliente, com a situação da assinatura de cada um.</p></div></div>
+    <div className="client-panel-heading"><div><h2>Documentos</h2><p>Propostas, contratos, cessões, memoriais e documentos livres deste cliente, com a situação da assinatura de cada um.</p></div></div>
     {reviewed && feedback[reviewed] ? <p className="client-docs-feedback" role="status">{feedback[reviewed]}</p> : null}
 
     {toReview.length ? <div className="client-docs-review" aria-labelledby="client-docs-review-title">

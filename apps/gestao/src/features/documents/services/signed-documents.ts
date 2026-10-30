@@ -25,8 +25,9 @@ async function findTarget(clientId: string, target: SignedTarget) {
     const quote = await prisma.quote.findFirst({ where: { id, clientId, completedAt: { not: null } }, select: { id: true, code: true, title: true, client: { select: { name: true } } } });
     return quote ? { code: quote.code, title: quote.title, clientName: quote.client.name, where: { quoteId: quote.id }, listPath: "/documentos" } : null;
   }
-  const document = await prisma.clientDocument.findFirst({ where: { id, clientId, completedAt: { not: null } }, select: { id: true, code: true, title: true, kind: true, client: { select: { name: true } } } });
-  return document ? { code: document.code, title: document.title, clientName: document.client.name, where: { documentId: document.id }, listPath: `/documentos?tipo=${documentKindFromEnum(document.kind).slug}` } : null;
+  // O documento livre é só para leitura no portal: não recebe via assinada.
+  const document = await prisma.clientDocument.findFirst({ where: { id, clientId, completedAt: { not: null }, kind: { not: "FREE" } }, select: { id: true, code: true, title: true, kind: true, client: { select: { name: true } } } });
+  return document ? { code: document.code, title: document.title, clientName: document.client?.name ?? "", where: { documentId: document.id }, listPath: `/documentos?tipo=${documentKindFromEnum(document.kind).slug}` } : null;
 }
 
 type SaveResult = { ok: true; code: string; duplicate: boolean } | { ok: false; error: "documento" | "aprovado" | "tamanho" | "formato" | "limite" };

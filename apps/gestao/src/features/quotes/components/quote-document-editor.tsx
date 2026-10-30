@@ -7,7 +7,7 @@ import { SidebarToggle } from "@/components/sidebar-toggle";
 import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest, type RichTextListChoice, type RichTextSelectionFormat } from "@/features/services/components/service-proposal-editor";
 import { DocumentSignaturePreview, QuoteClosingPreview, QuoteCoverPreview, type DocumentCoverData, type QuotePreviewData, type SignaturePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
-import { hasQuoteServicesComponent, type QuoteDividerStyle, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
+import { COVER_LABEL_MAX_LENGTH, COVER_TITLE_MAX_LENGTH, defaultFreeCover, type DocumentCoverSettings, hasQuoteServicesComponent, type QuoteDividerStyle, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
 import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_COLORS, RICH_TEXT_SIZES, serializeRichText, type RichTextAlign, type RichTextBlock, type RichTextBox, type RichTextColor, type RichTextParagraphStyle } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
@@ -41,8 +41,10 @@ type Props = {
   isCompleted: boolean;
   justSaved?: boolean;
   cover: DocumentCoverData;
-  /** Folha final: investimento e aceite (proposta) ou assinaturas (demais documentos). */
-  closing: { type: "investment"; quote: QuotePreviewData } | { type: "signatures"; document: SignaturePreviewData };
+  /** Sem cliente (documento livre), o cabeçalho das páginas e a capa saem sem os dados do cliente. */
+  hasClient?: boolean;
+  /** Folha final: investimento e aceite (proposta), assinaturas (contrato, cessão e memorial) ou nenhuma (documento livre). */
+  closing: { type: "investment"; quote: QuotePreviewData } | { type: "signatures"; document: SignaturePreviewData } | { type: "none" };
   /** Texto padrão em rich text; só entra no documento pelo componente Texto padrão. */
   templateText?: string | null;
   /** Serviços do orçamento, para o componente Serviços incluídos. */
@@ -486,7 +488,7 @@ function PlainEditable({ text, className, ariaLabel, style, onInput, onFocus, on
   return <div ref={ref} className={className} style={style} role="textbox" aria-label={ariaLabel} contentEditable suppressContentEditableWarning spellCheck onFocus={onFocus} onBlur={onBlur} onKeyDown={onKeyDown} onPaste={pastePlainLine} onInput={(event) => onInput(event.currentTarget.innerText.replace(/\n/g, " ").slice(0, 400))} />;
 }
 
-export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTitle, apiBase, saveAction, idFieldName, backHref, initialContent, professional, isCompleted, justSaved = false, cover, closing, templateText, services, savedAt }: Props) {
+export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTitle, apiBase, saveAction, idFieldName, backHref, initialContent, professional, isCompleted, justSaved = false, cover, hasClient = true, closing, templateText, services, savedAt }: Props) {
   const kindInfo = documentKindInfo(kind);
   const router = useRouter();
   const [content, setContent] = useState<QuoteDocumentContent>(() => ({ ...initialContent, blocks: normalizeFlow(initialContent.blocks.filter((block) => block.id !== "intro-title"), true) }));
@@ -518,7 +520,11 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
   const blocks = content.blocks;
   const activeBlock = blocks.find((block) => block.id === activeBlockId);
   const hasServices = hasQuoteServicesComponent(content);
-  const totalPages = layout.breaks.length + 3;
+  // Documento livre: capa opcional, com rótulo e título editáveis aqui mesmo.
+  const coverSettings = kind === "free" ? content.cover ?? defaultFreeCover(documentTitle) : null;
+  const coverPages = coverSettings && !coverSettings.enabled ? 0 : 1;
+  const closingPages = closing.type === "none" ? 0 : 1;
+  const totalPages = coverPages + layout.breaks.length + 1 + closingPages;
 
   const measure = useCallback(() => {
     const sheet = sheetRef.current;
@@ -688,6 +694,12 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     writeContent(next);
     setContent(next);
     if (focus) setFocusRequest(focus);
+  }
+
+  function updateCover(patch: Partial<DocumentCoverSettings>) {
+    const next = { ...contentRef.current, cover: { ...(contentRef.current.cover ?? defaultFreeCover(documentTitle)), ...patch } };
+    writeContent(next);
+    setContent(next);
   }
 
   function updateBlock(id: string, patch: Partial<QuoteDocumentBlock>) {
@@ -965,12 +977,12 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
       <div className="quote-sheet-brand">
         <span className="quote-sheet-logo"><img src="/assets/images/logo-vr.svg" alt="" /></span>
         <div className="quote-sheet-professional">
-          <span>{kindInfo.coverLabel}</span>
+          <span>{coverSettings?.label.toUpperCase() || kindInfo.coverLabel}</span>
           <strong>{professional.name}</strong>
           {professional.professionalTitle ? <small>{professional.professionalTitle}</small> : null}
         </div>
       </div>
-      <div className="quote-sheet-client"><span>CLIENTE</span><strong>{cover.client.name}</strong>{[cover.client.company, cover.client.document].filter(Boolean).map((detail) => <small key={detail}>{detail}</small>)}</div>
+      {hasClient ? <div className="quote-sheet-client"><span>CLIENTE</span><strong>{cover.client.name}</strong>{[cover.client.company, cover.client.document].filter(Boolean).map((detail) => <small key={detail}>{detail}</small>)}</div> : null}
     </header>;
   }
 
@@ -1021,7 +1033,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     <input ref={documentContentFieldRef} type="hidden" name="documentContent" defaultValue={JSON.stringify(content)} />
     <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; void uploadImages(files); }} />
     <section className="quote-docs-toolbar" aria-label="Ferramentas do editor">
-      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{kindInfo.shortName.toUpperCase()} · {documentCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{documentTitle}</strong><small className={`quote-docs-saved is-${saveState}`} role="status" aria-live="polite">{saveLabel}</small></div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">TEXTO PADRÃO</button><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
+      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{kindInfo.shortName.toUpperCase()} · {documentCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{coverSettings?.title || documentTitle}</strong><small className={`quote-docs-saved is-${saveState}`} role="status" aria-live="polite">{saveLabel}</small></div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">TEXTO PADRÃO</button><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
       <div className="quote-docs-toolbar-tools">
         <ComponentsMenu options={componentOptions} onOpen={() => { insertionPointRef.current = currentInsertionPoint(); }} onSelect={selectComponent} />
         {imageUpload.busy ? <span className="quote-docs-tool-context">ENVIANDO IMAGENS...</span> : null}
@@ -1070,7 +1082,12 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     </section>
     <section className="quote-docs-canvas" aria-label="Documento editável">
       <div className="quote-docs-pages">
-        <QuoteCoverPreview quote={cover} professional={professional} kind={kind} />
+        {coverSettings ? <div className="quote-docs-cover-settings">
+          <label className="quote-docs-cover-switch"><input type="checkbox" checked={coverSettings.enabled} onChange={(event) => updateCover({ enabled: event.currentTarget.checked })} /><span><b>Incluir capa</b><small>{coverSettings.enabled ? "A capa abre o PDF." : "O PDF começa sem capa."}</small></span></label>
+          <label className="quote-docs-cover-field"><span>RÓTULO DA CAPA</span><input value={coverSettings.label} maxLength={COVER_LABEL_MAX_LENGTH} placeholder="Ex.: Declaração, Relatório (opcional)" onChange={(event) => updateCover({ label: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} /></label>
+          <label className="quote-docs-cover-field is-title"><span>TÍTULO</span><input value={coverSettings.title} maxLength={COVER_TITLE_MAX_LENGTH} required placeholder="Título do documento" onChange={(event) => updateCover({ title: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} /></label>
+        </div> : null}
+        {coverSettings && !coverSettings.enabled ? null : <QuoteCoverPreview quote={coverSettings ? { ...cover, title: coverSettings.title || documentTitle } : cover} professional={professional} kind={kind} label={coverSettings?.label} hasClient={hasClient} />}
         <article ref={sheetRef} className="quote-sheet" style={{ "--pt": `${layout.pt}px`, paddingBottom: layout.tail + bottomSpace } as CSSProperties} aria-label="Páginas do documento">
           <style>{gapCss}</style>
           {pageHeader()}
@@ -1078,18 +1095,18 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
             {blocks.map(renderBlock)}
             <div ref={flowEndRef} className="quote-sheet-flow-end" />
           </div>
-          <span className="quote-sheet-page-number" aria-hidden="true">{totalPages - 1} / {totalPages}</span>
+          <span className="quote-sheet-page-number" aria-hidden="true">{totalPages - closingPages} / {totalPages}</span>
           {layout.breaks.map((pageBreak, index) => <div key={index} className="quote-sheet-break" aria-hidden="true" style={{ top: pageBreak.top, height: pageBreak.gap }}>
-            <div className="quote-sheet-break-end" style={{ height: pageBreak.remaining + bottomSpace }}><span className="quote-sheet-page-number">{index + 2} / {totalPages}</span></div>
+            <div className="quote-sheet-break-end" style={{ height: pageBreak.remaining + bottomSpace }}><span className="quote-sheet-page-number">{coverPages + index + 1} / {totalPages}</span></div>
             <div className="quote-sheet-break-gutter" />
             <div className="quote-sheet-break-start">{pageHeader(`header-${index}`)}</div>
           </div>)}
         </article>
-        <div className="quote-docs-closing-toggle">
+        {closing.type === "none" ? null : <><div className="quote-docs-closing-toggle">
           <div><span>PÁGINA FINAL</span><small>{closing.type === "investment" ? "Investimento, condições e aceite. Gerada a partir dos valores do orçamento." : kindInfo.closing?.witnesses ? "Assinaturas das partes e das testemunhas." : "Declaração de recebimento e assinaturas."}</small></div>
           <button type="button" className="secondary-action" aria-expanded={showClosing} onClick={() => setShowClosing((value) => !value)}>{showClosing ? "OCULTAR PÁGINA FINAL" : "EXIBIR PÁGINA FINAL"}</button>
         </div>
-        {showClosing ? closing.type === "investment" ? <QuoteClosingPreview quote={closing.quote} professional={professional} pageNumber={totalPages} /> : <DocumentSignaturePreview document={closing.document} professional={professional} kind={kind} pageNumber={totalPages} /> : null}
+        {showClosing ? closing.type === "investment" ? <QuoteClosingPreview quote={closing.quote} professional={professional} pageNumber={totalPages} /> : <DocumentSignaturePreview document={closing.document} professional={professional} kind={kind} pageNumber={totalPages} /> : null}</>}
       </div>
     </section>
   </form>;

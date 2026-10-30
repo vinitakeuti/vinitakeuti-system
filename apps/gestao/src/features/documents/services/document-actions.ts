@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { createDefaultQuoteDocument, QUOTE_DOCUMENT_MAX_JSON_LENGTH } from "@/features/quotes/types/document-content";
+import { createDefaultQuoteDocument, defaultFreeCover, QUOTE_DOCUMENT_MAX_JSON_LENGTH } from "@/features/quotes/types/document-content";
 import { documentKindEnum, documentKindFromEnum, documentKindFromSlug } from "@/features/documents/types/document-kinds";
 import { saveClientDocument } from "@/features/documents/services/client-document-service";
 import { discardSignedCopies, reviewSignedDocument } from "@/features/documents/services/signed-documents";
@@ -12,31 +12,31 @@ import { requireManagementUser } from "@/features/auth/services/auth-session";
 function text(formData: FormData, name: string, max: number) { const value = formData.get(name); return typeof value === "string" ? value.trim().slice(0, max) : ""; }
 function errorHref(href: string, message: string) { return `${href}${href.includes("?") ? "&" : "?"}error=${encodeURIComponent(message)}`; }
 
-function revalidateDocuments(clientId: string) {
+function revalidateDocuments(clientId: string | null) {
   revalidatePath("/documentos");
-  revalidatePath(`/clientes/${clientId}`);
+  if (clientId) revalidatePath(`/clientes/${clientId}`);
 }
 
-/** Cria um contrato, uma cessão ou um memorial para o cliente e abre o editor do documento. */
+/** Cria um contrato, uma cessão, um memorial ou um documento livre (este, com cliente opcional) e abre o editor. */
 export async function createClientDocumentAction(formData: FormData) {
   await requireManagementUser();
   const info = documentKindFromSlug(text(formData, "tipo", 20));
   const clientId = text(formData, "clientId", 50);
-  if (!info || info.kind === "proposal" || !clientId) redirect("/documentos");
-  const backHref = `/documentos?tipo=${info.slug}&clientId=${encodeURIComponent(clientId)}`;
-  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, name: true } });
-  if (!client) redirect(errorHref("/documentos?tipo=" + info.slug, "Cliente não encontrado."));
-  const quoteId = text(formData, "quoteId", 50);
-  const quote = quoteId ? await prisma.quote.findFirst({ where: { id: quoteId, clientId: client.id }, select: { id: true, title: true } }) : null;
+  if (!info || info.kind === "proposal" || (info.requiresClient && !clientId)) redirect("/documentos");
+  const backHref = `/documentos?tipo=${info.slug}${clientId ? `&clientId=${encodeURIComponent(clientId)}` : ""}`;
+  const client = clientId ? await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, name: true } }) : null;
+  if (clientId && !client) redirect(errorHref("/documentos?tipo=" + info.slug, "Cliente não encontrado."));
+  const quoteId = client ? text(formData, "quoteId", 50) : "";
+  const quote = client && quoteId ? await prisma.quote.findFirst({ where: { id: quoteId, clientId: client.id }, select: { id: true, title: true } }) : null;
   if (quoteId && !quote) redirect(errorHref(backHref, "A proposta selecionada não pertence a este cliente."));
   const title = text(formData, "title", 180) || quote?.title || "";
   if (!title) redirect(errorHref(backHref, "Dê um título ao documento."));
   const code = `${info.codePrefix}-${new Date().toISOString().slice(2, 10).replace(/-/g, "")}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
   const document = await prisma.clientDocument.create({
-    data: { clientId: client.id, quoteId: quote?.id ?? null, kind: documentKindEnum(info.kind), code, title, documentContent: createDefaultQuoteDocument({ title, clientName: client.name }) },
+    data: { clientId: client?.id ?? null, quoteId: quote?.id ?? null, kind: documentKindEnum(info.kind), code, title, documentContent: { ...createDefaultQuoteDocument({ title, clientName: client?.name ?? "" }), ...(info.kind === "free" ? { cover: defaultFreeCover(title) } : {}) } },
     select: { id: true },
   });
-  revalidateDocuments(client.id);
+  revalidateDocuments(client?.id ?? null);
   redirect(`/documentos/${document.id}/editor`);
 }
 
@@ -64,7 +64,7 @@ export async function updateClientDocumentAction(formData: FormData) {
     const record = await prisma.clientDocument.findUnique({ where: { id: documentId }, select: { kind: true } });
     redirect(`/documentos/texto-padrao?tipo=${record ? documentKindFromEnum(record.kind).slug : "contrato"}&documento=${documentId}`);
   }
-  redirect(complete ? `/documentos?concluido=${encodeURIComponent(result.document.code)}` : `/documentos/${documentId}/editor?salvo=1`);
+  redirect(complete ? `/documentos?tipo=${documentKindFromEnum(result.document.kind).slug}&concluido=${encodeURIComponent(result.document.code)}` : `/documentos/${documentId}/editor?salvo=1`);
 }
 
 export async function deleteClientDocumentAction(formData: FormData) {

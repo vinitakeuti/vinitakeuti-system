@@ -1,9 +1,9 @@
 import { G, Line, Page, Path, Polygon, Svg, Text, View } from "@react-pdf/renderer";
 import type { ComponentProps, ReactNode } from "react";
-import { ASSIGNMENT_COVER_COLORS, BRAND_MARK_PATHS, BRAND_MARK_TRANSFORM, BRAND_MARK_VIEWBOX, CONTRACT_COVER_COLORS, coverTitleSize, MEMORIAL_COVER_COLORS, MEMORIAL_GRID } from "@/features/quotes/types/brand-mark";
+import { ASSIGNMENT_COVER_COLORS, BRAND_MARK_PATHS, BRAND_MARK_TRANSFORM, BRAND_MARK_VIEWBOX, CONTRACT_COVER_COLORS, coverTitleSize, FREE_COVER_COLORS, FREE_COVER_LAYOUT, freeCoverTitleSize, MEMORIAL_COVER_COLORS, MEMORIAL_GRID } from "@/features/quotes/types/brand-mark";
 
 /**
- * Capas do contrato, da cessão e do memorial técnico. Cada uma tem identidade própria, mas todas usam a marca VR,
+ * Capas do contrato, da cessão, do memorial técnico e do documento livre. Cada uma tem identidade própria, mas todas usam a marca VR,
  * a mesma paleta e as mesmas fontes. As medidas (em pontos) são as mesmas da pré-visualização do editor.
  */
 export type CoverData = {
@@ -14,13 +14,16 @@ export type CoverData = {
   professional: { name: string; professionalTitle?: string | null; document?: string | null; website?: string | null };
 };
 
+/** Capa do documento livre: o cliente é opcional e o rótulo acima do título é livre. */
+export type FreeCoverData = Omit<CoverData, "client"> & { client: CoverData["client"] | null; label: string };
+
 type SvgStyle = ComponentProps<typeof Svg>["style"];
 
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
 const date = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "America/Maceio" });
 
-function footerText(cover: CoverData) {
+function footerText(cover: Pick<CoverData, "professional">) {
   const website = cover.professional.website?.trim().replace(/^https?:\/\//i, "").replace(/\/$/, "");
   return [cover.professional.name, website].filter(Boolean).join(" · ").toUpperCase();
 }
@@ -29,11 +32,11 @@ function clientDetail(cover: CoverData) {
   return [cover.client.company, cover.client.document].filter(Boolean).join(" · ");
 }
 
-function Mark({ color, style, outline = false }: { color: string; style: SvgStyle; outline?: boolean }) {
-  return <Svg viewBox={BRAND_MARK_VIEWBOX} style={style}><G transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => outline ? <Path key={d} d={d} fill="none" stroke={color} strokeWidth={5} /> : <Path key={d} d={d} fill={color} />)}</G></Svg>;
+function Mark({ color, style, outline = false, strokeWidth = 5 }: { color: string; style: SvgStyle; outline?: boolean; strokeWidth?: number }) {
+  return <Svg viewBox={BRAND_MARK_VIEWBOX} style={style}><G transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => outline ? <Path key={d} d={d} fill="none" stroke={color} strokeWidth={strokeWidth} /> : <Path key={d} d={d} fill={color} />)}</G></Svg>;
 }
 
-function Brand({ cover, color, muted, left, top }: { cover: CoverData; color: string; muted: string; left: number; top: number }) {
+function Brand({ cover, color, muted, left, top }: { cover: Pick<CoverData, "professional">; color: string; muted: string; left: number; top: number }) {
   return <View style={{ position: "absolute", left, top, flexDirection: "row", alignItems: "center", gap: 12 }}>
     <Mark color={color} style={{ width: 46, height: 34 }} />
     <View style={{ gap: 3 }}>
@@ -142,6 +145,34 @@ function MemorialCover({ cover }: { cover: CoverData }) {
         <Text style={{ flexBasis: 0, flexGrow: 1, flexShrink: 1, color: C.text, fontSize: 9.5, fontWeight: 700, lineHeight: 1.3 }}>{value}</Text>
       </View>)}
       <View style={{ borderTopWidth: 1, borderTopColor: C.line }} />
+    </View>
+    <Text style={{ position: "absolute", left: 52, bottom: 39, color: C.muted, fontFamily: "Courier", fontSize: 6.2, letterSpacing: 0.4 }}>{footerText(cover)}</Text>
+  </Page>;
+}
+
+/** Documento livre: página escura, a marca em traço fino recortada pela borda, o título no terço de baixo e uma linha de dados no rodapé. */
+export function FreeDocumentCover({ cover }: { cover: FreeCoverData }) {
+  const C = FREE_COVER_COLORS;
+  const { mark, titleBottom, infoTop } = FREE_COVER_LAYOUT;
+  const info: Array<[string, string, string]> = [
+    ...(cover.client ? [["PREPARADO PARA", cover.client.name, [cover.client.company, cover.client.document].filter(Boolean).join(" · ")] as [string, string, string]] : []),
+    ["DOCUMENTO", cover.code, ""],
+    ["EMISSÃO", date.format(cover.issuedAt), ""],
+  ];
+  return <Page size="A4" style={{ backgroundColor: C.background, color: C.text, fontFamily: "Helvetica" }}>
+    <Mark color={C.mark} outline strokeWidth={mark.stroke} style={{ position: "absolute", left: mark.left, top: mark.top, width: mark.width, height: mark.height }} />
+    <Brand cover={cover} color={C.text} muted={C.soft} left={52} top={48} />
+    <View style={{ position: "absolute", left: 52, right: 52, bottom: titleBottom }}>
+      <Text style={{ color: C.muted, fontFamily: "Courier", fontSize: 7, letterSpacing: 0.9 }}>{cover.code} / {cover.issuedAt.getFullYear()}</Text>
+      {cover.label ? <Text style={{ color: C.label, fontSize: 11, fontWeight: 700, letterSpacing: 1.8, marginTop: 14 }}>{cover.label.toUpperCase()}</Text> : null}
+      <Text style={{ color: C.text, fontSize: freeCoverTitleSize(cover.title), fontWeight: 700, letterSpacing: -1.2, lineHeight: 1.04, marginTop: cover.label ? 10 : 14 }}>{cover.title}</Text>
+    </View>
+    <View style={{ position: "absolute", left: 52, right: 52, top: infoTop, flexDirection: "row", borderTopWidth: 1, borderTopColor: C.line }}>
+      {info.map(([label, value, detail], index) => <View key={label} style={{ flexBasis: 0, flexGrow: index === 0 && cover.client ? 2 : 1, paddingTop: 16, paddingRight: 16, paddingLeft: index ? 16 : 0, borderLeftWidth: index ? 1 : 0, borderLeftColor: C.line }}>
+        <Text style={{ color: C.muted, fontFamily: "Courier", fontSize: 6.4, letterSpacing: 0.8 }}>{label}</Text>
+        <Text style={{ color: C.text, fontSize: 9.5, fontWeight: 700, lineHeight: 1.25, marginTop: 7 }}>{value}</Text>
+        {detail ? <Text style={{ color: C.soft, fontSize: 7.6, lineHeight: 1.35, marginTop: 3 }}>{detail}</Text> : null}
+      </View>)}
     </View>
     <Text style={{ position: "absolute", left: 52, bottom: 39, color: C.muted, fontFamily: "Courier", fontSize: 6.2, letterSpacing: 0.4 }}>{footerText(cover)}</Text>
   </Page>;

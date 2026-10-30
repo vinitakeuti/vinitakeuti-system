@@ -59,10 +59,30 @@ function parseImage(value: unknown): QuoteDocumentImage | null {
   return { id: image.id, width: image.width as number, height: image.height as number };
 }
 
+/** Capa do documento livre: opcional, com rótulo e título próprios. Os demais tipos têm capa fixa. */
+export type DocumentCoverSettings = { enabled: boolean; label: string; title: string };
+export const COVER_LABEL_MAX_LENGTH = 60;
+export const COVER_TITLE_MAX_LENGTH = 180;
+
 export type QuoteDocumentContent = {
   version: 1;
   blocks: QuoteDocumentBlock[];
+  /** Somente no documento livre. */
+  cover?: DocumentCoverSettings;
 };
+
+/** Capa do documento livre antes da primeira edição: incluída, sem rótulo e com o título do documento. */
+export function defaultFreeCover(title: string): DocumentCoverSettings {
+  return { enabled: true, label: "", title };
+}
+
+function parseCoverSettings(value: unknown): DocumentCoverSettings | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const cover = value as Partial<DocumentCoverSettings>;
+  if (typeof cover.enabled !== "boolean") return null;
+  const text = (input: unknown, max: number) => typeof input === "string" ? input.replace(/\s+/g, " ").trim().slice(0, max) : "";
+  return { enabled: cover.enabled, label: text(cover.label, COVER_LABEL_MAX_LENGTH), title: text(cover.title, COVER_TITLE_MAX_LENGTH) };
+}
 
 export type QuoteDocumentBlockRole = "section-label" | "service-title" | "service-category";
 
@@ -137,7 +157,7 @@ export function withQuoteServiceBlocks(content: QuoteDocumentContent, services: 
 
 export function parseQuoteDocumentContent(value: unknown, fallback: { title: string; clientName: string }): QuoteDocumentContent {
   if (!value || typeof value !== "object" || Array.isArray(value)) return createDefaultQuoteDocument(fallback);
-  const candidate = value as { version?: unknown; blocks?: unknown };
+  const candidate = value as { version?: unknown; blocks?: unknown; cover?: unknown };
   if (candidate.version !== 1 || !Array.isArray(candidate.blocks)) return createDefaultQuoteDocument(fallback);
   // Um documento grande demais é limitado, nunca trocado por um documento vazio.
   const blocks = candidate.blocks.slice(0, QUOTE_DOCUMENT_MAX_BLOCKS).flatMap((block, index): QuoteDocumentBlock[] => {
@@ -158,7 +178,9 @@ export function parseQuoteDocumentContent(value: unknown, fallback: { title: str
     return [{ id, type, text, fontSize: item.fontSize as QuoteDocumentFontSize, bold: Boolean(item.bold), italic: Boolean(item.italic), underline: Boolean(item.underline), align: item.align as QuoteDocumentAlign }];
   });
   const withoutLegacyDefaults = blocks.filter((block) => !(block.id === "intro-title" || (block.id === "intro-client" && block.text === `Olá, ${fallback.clientName}.`) || (block.id === "intro-body" && block.text === "Preparamos esta proposta com os serviços, prazos e investimento apresentados a seguir.")));
-  return withoutLegacyDefaults.length ? { version: 1, blocks: withoutLegacyDefaults } : createDefaultQuoteDocument(fallback);
+  const content = withoutLegacyDefaults.length ? { version: 1 as const, blocks: withoutLegacyDefaults } : createDefaultQuoteDocument(fallback);
+  const cover = parseCoverSettings(candidate.cover);
+  return cover ? { ...content, cover } : content;
 }
 
 export const QUOTE_INTRO_BLOCK_ID = "intro-text";
