@@ -27,7 +27,7 @@ export default function Portfolio() {
         <div>{story.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
       </section>
 
-      <PortfolioSkills skills={skills} projects={portfolio.projects} />
+      <PortfolioSkills skills={skills} />
 
       <PortfolioGallery projects={portfolio.projects} />
 

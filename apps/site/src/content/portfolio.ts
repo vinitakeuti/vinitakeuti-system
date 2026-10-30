@@ -15,12 +15,7 @@ export type ProjectLayer = { layer: string; tech: readonly string[]; note: strin
 export type ProjectMedia = { label: string; src?: string; alt: string; screen: "dashboard" | "site" | "portal" | "landing" };
 export type ArchitectureMedia = { src: string; alt: string };
 
-export type SkillGroup = { label: string; items: readonly { name: string; used: readonly string[] }[] };
-
-/** Onde as habilidades foram usadas: ids dos projetos abaixo e o sistema de gestão próprio (contado na história). */
-const P = "pacelab";
-const N = "nutripulse";
-const G = "Sistema de gestão próprio";
+export type SkillGroup = { label: string; items: readonly string[] };
 
 export const portfolio = {
   seo: {
@@ -39,28 +34,27 @@ export const portfolio = {
   ],
   /**
    * Habilidades por área. Só tecnologias que compõem um stack (linguagens, frameworks, bancos, plataformas),
-   * sem bibliotecas. `used` diz onde cada uma foi usada: o id de um projeto da lista abaixo (vira link para ele)
-   * ou um texto livre; vazio, a célula fica sem o indicador de uso. Para uma nova área, adicione outro item com os seus grupos.
+   * sem bibliotecas. Cada área vira uma aba; para uma nova área, adicione outro item com os seus grupos.
    */
   skills: [
     {
       area: "Software",
       groups: [
-        { label: "Linguagens", items: [{ name: "TypeScript", used: [P, N, G] }, { name: "Rust", used: [N] }, { name: "SQL", used: [P, N, G] }] },
-        { label: "Frontend", items: [{ name: "React", used: [P, N, G] }, { name: "Next.js", used: [P, G] }, { name: "CSS", used: [P, N, G] }, { name: "PWA", used: [P, G] }] },
-        { label: "Backend e APIs", items: [{ name: "Node.js", used: [P, G] }, { name: "Next.js API", used: [P, G] }, { name: "APIs REST", used: [P, G] }, { name: "Webhooks", used: [P, G] }] },
-        { label: "Desktop", items: [{ name: "Tauri", used: [N] }] },
-        { label: "Banco de dados", items: [{ name: "PostgreSQL", used: [P, G] }, { name: "SQLite", used: [N] }, { name: "Prisma", used: [P, G] }] },
-        { label: "Integrações", items: [{ name: "Asaas", used: [P, G] }, { name: "Appmax", used: [P] }, { name: "SMTP", used: [P, G] }] },
-        { label: "Infraestrutura", items: [{ name: "Docker", used: [P, G] }, { name: "Docker Compose", used: [P, G] }, { name: "EasyPanel", used: [P, G] }, { name: "VPS", used: [P, G] }] },
-        { label: "Ferramentas", items: [{ name: "Git", used: [P, N, G] }, { name: "GitHub", used: [G] }, { name: "Vite", used: [N] }, { name: "npm", used: [P, N, G] }] },
+        { label: "Linguagens", items: ["TypeScript", "Rust", "SQL"] },
+        { label: "Frontend", items: ["React", "Next.js", "CSS", "PWA"] },
+        { label: "Backend e APIs", items: ["Node.js", "Next.js API", "APIs REST", "Webhooks"] },
+        { label: "Desktop", items: ["Tauri"] },
+        { label: "Banco de dados", items: ["PostgreSQL", "SQLite", "Prisma"] },
+        { label: "Integrações", items: ["Asaas", "Appmax", "SMTP"] },
+        { label: "Infraestrutura", items: ["Docker", "Docker Compose", "EasyPanel", "VPS"] },
+        { label: "Ferramentas", items: ["Git", "GitHub", "Vite", "npm"] },
       ],
     },
     {
       area: "Inteligência Artificial",
       groups: [
-        { label: "Agentes de IA", items: [{ name: "Claude Code", used: [G] }, { name: "Codex", used: [G] }] },
-        { label: "Integrações", items: [{ name: "APIs de IA", used: [] }] },
+        { label: "Agentes de IA", items: ["Claude Code", "Codex"] },
+        { label: "Integrações", items: ["APIs de IA"] },
       ],
     },
   ],
