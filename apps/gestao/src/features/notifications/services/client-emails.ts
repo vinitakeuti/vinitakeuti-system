@@ -21,6 +21,7 @@ const OVERDUE_WINDOW_DAYS = 7;
 const MAX_REMINDER_CLIENTS = 500;
 
 const CLIENT_REASON = "Você recebe este e-mail porque tem acesso à área do cliente de Vinicius Riudi.";
+const SIGN_OFF = "Abraço,";
 const portal = (path = "") => `${clientPortalUrl()}${path}`;
 const hello = (name: string) => name ? `Olá, ${name}.` : "Olá.";
 const installmentLabel = (number: number | null, total: number) => number ? `Parcela ${number} de ${total}` : "Pagamento único";
@@ -36,6 +37,7 @@ function duration(ms: number) {
 
 export function accessEmail({ name, email, password, created, professional }: { name: string; email: string; password: string; created: boolean; professional: EmailProfessional }) {
   return renderBrandEmail({
+    layout: "noturno",
     subject: created ? "Seu acesso à área do cliente" : "Nova senha da área do cliente",
     preheader: created ? "Acompanhe serviços, pagamentos e documentos em um só lugar." : "Use a senha provisória e crie uma nova no primeiro acesso.",
     kicker: "ÁREA DO CLIENTE",
@@ -44,6 +46,7 @@ export function accessEmail({ name, email, password, created, professional }: { 
     credentials: [["E-mail", email], ["Senha provisória", password]],
     action: { label: "Entrar na área do cliente", href: portal("/entrar") },
     closing: ["No primeiro acesso, você cria uma senha sua. A provisória deixa de valer depois disso.", "Se não esperava este e-mail, responda esta mensagem."],
+    signOff: SIGN_OFF,
     reason: CLIENT_REASON,
     professional,
   });
@@ -51,6 +54,7 @@ export function accessEmail({ name, email, password, created, professional }: { 
 
 export function documentAvailableEmail({ name, kindName, title, code, signable, professional }: { name: string; kindName: string; title: string; code: string; signable: boolean; professional: EmailProfessional }) {
   return renderBrandEmail({
+    layout: "noturno",
     subject: signable ? `Documento para assinar: ${title}` : `Novo documento: ${title}`,
     preheader: signable ? "Baixe o PDF, assine pelo gov.br e envie a via assinada pela área do cliente." : "O PDF já está disponível na área do cliente.",
     kicker: "DOCUMENTO",
@@ -58,6 +62,7 @@ export function documentAvailableEmail({ name, kindName, title, code, signable, 
     paragraphs: [hello(name), signable ? "Baixe o PDF, assine pelo assinador do gov.br (gratuito) e envie a via assinada pela área do cliente. Eu confiro e aviso você." : "O documento já está na área do cliente, pronto para baixar."],
     details: [["Documento", kindName], ["Título", title], ["Código", code]],
     action: { label: signable ? "Ver e assinar" : "Baixar o documento", href: portal("/documentos") },
+    signOff: SIGN_OFF,
     reason: CLIENT_REASON,
     professional,
   });
@@ -73,6 +78,7 @@ export function signatureReviewedEmail({ name, title, code, approved, reason, pr
     details: [["Título", title], ["Código", code]],
     note: approved ? undefined : { tone: "attention", label: "Motivo", text: reason || "A via enviada não confere com o documento." },
     action: { label: approved ? "Ver documentos" : "Enviar nova via", href: portal("/documentos") },
+    signOff: SIGN_OFF,
     reason: CLIENT_REASON,
     professional,
   });
@@ -83,14 +89,17 @@ type InstallmentInfo = { description: string; number: number | null; total: numb
 export function paymentDueEmail({ name, installment, daysLeft, professional }: { name: string; installment: InstallmentInfo; daysLeft: number; professional: EmailProfessional }) {
   const when = daysLeft <= 0 ? "hoje" : daysLeft === 1 ? "amanhã" : `em ${daysLeft} dias`;
   return renderBrandEmail({
+    layout: "destaque",
     subject: `Seu pagamento vence ${when}`,
     preheader: `${money.format(installment.amountCents / 100)} com vencimento em ${longDate.format(installment.dueDate)}.`,
     kicker: "PAGAMENTO",
     title: `Seu pagamento vence ${when}.`,
     paragraphs: [hello(name), "Um lembrete do próximo vencimento. Pela área do cliente você vê os detalhes e as formas de pagamento."],
-    details: [["Referente a", installment.description], ["Parcela", installmentLabel(installment.number, installment.total)], ["Valor", money.format(installment.amountCents / 100)], ["Vencimento", longDate.format(installment.dueDate)]],
+    highlight: ["Valor", money.format(installment.amountCents / 100)],
+    details: [["Referente a", installment.description], ["Parcela", installmentLabel(installment.number, installment.total)], ["Vencimento", longDate.format(installment.dueDate)]],
     action: { label: "Ver pagamentos", href: portal("/pagamentos") },
     closing: ["Se você já pagou, desconsidere este lembrete."],
+    signOff: SIGN_OFF,
     reason: CLIENT_REASON,
     professional,
   });
@@ -98,14 +107,17 @@ export function paymentDueEmail({ name, installment, daysLeft, professional }: {
 
 export function paymentOverdueEmail({ name, installment, professional }: { name: string; installment: InstallmentInfo; professional: EmailProfessional }) {
   return renderBrandEmail({
+    layout: "destaque",
     subject: "Pagamento em aberto",
     preheader: `${money.format(installment.amountCents / 100)} venceu em ${longDate.format(installment.dueDate)}.`,
     kicker: "PAGAMENTO",
     title: "Um pagamento está em aberto.",
     paragraphs: [hello(name), "Não identifiquei o pagamento abaixo até o vencimento. Pela área do cliente você vê os detalhes e as formas de pagamento."],
-    details: [["Referente a", installment.description], ["Parcela", installmentLabel(installment.number, installment.total)], ["Valor em aberto", money.format(installment.amountCents / 100)], ["Venceu em", longDate.format(installment.dueDate)]],
+    highlight: ["Valor em aberto", money.format(installment.amountCents / 100)],
+    details: [["Referente a", installment.description], ["Parcela", installmentLabel(installment.number, installment.total)], ["Venceu em", longDate.format(installment.dueDate)]],
     note: { tone: "attention", label: "Já pagou?", text: "Pagamentos por Pix ou transferência podem levar um tempo para aparecer. Se já pagou, avise pela área do cliente em Pagamentos." },
     action: { label: "Ver pagamentos", href: portal("/pagamentos") },
+    signOff: SIGN_OFF,
     reason: CLIENT_REASON,
     professional,
   });
@@ -113,13 +125,16 @@ export function paymentOverdueEmail({ name, installment, professional }: { name:
 
 export function paymentReceiptEmail({ name, description, amountCents, paidAt, remainingCents, professional }: { name: string; description: string; amountCents: number; paidAt: Date; remainingCents: number; professional: EmailProfessional }) {
   return renderBrandEmail({
+    layout: "destaque",
     subject: `Pagamento confirmado: ${money.format(amountCents / 100)}`,
     preheader: `Recebi seu pagamento de ${money.format(amountCents / 100)}. Obrigado.`,
     kicker: "RECIBO",
     title: "Pagamento confirmado. Obrigado.",
     paragraphs: [hello(name), "Recebi o seu pagamento e ele já consta na área do cliente."],
-    details: [["Referente a", description], ["Valor pago", money.format(amountCents / 100)], ["Data", longDate.format(paidAt)], ["Saldo restante", remainingCents > 0 ? money.format(remainingCents / 100) : "Quitado"]],
+    highlight: ["Valor pago", money.format(amountCents / 100)],
+    details: [["Referente a", description], ["Data", longDate.format(paidAt)], ["Saldo restante", remainingCents > 0 ? money.format(remainingCents / 100) : "Quitado"]],
     action: { label: "Ver pagamentos", href: portal("/pagamentos") },
+    signOff: SIGN_OFF,
     reason: CLIENT_REASON,
     professional,
   });
@@ -135,6 +150,7 @@ export function systemStatusEmail({ name, system, url, down, durationMs, profess
     details: [["Sistema", system], ...(url ? [["Endereço", url.replace(/^https?:\/\//i, "")] as [string, string]] : []), ...(!down && durationMs !== null ? [["Tempo fora do ar", duration(durationMs)] as [string, string]] : [])],
     note: down ? { tone: "info", label: "Próximo aviso", text: "Você recebe outro e-mail assim que o sistema voltar." } : undefined,
     action: { label: "Ver serviços", href: portal("/servicos") },
+    signOff: SIGN_OFF,
     reason: CLIENT_REASON,
     professional,
   });

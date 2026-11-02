@@ -6,7 +6,7 @@ import { requireManagementUser } from "@/features/auth/services/auth-session";
 import { EmailModelTest, EmailTestPanel } from "@/features/settings/components/email-test-panel";
 import { emailProfessional } from "@/features/notifications/services/email-outbox";
 import { buildEmailPreview, EMAIL_MODELS, isEmailModel } from "@/features/notifications/services/email-previews";
-import { EMAIL_LOGO_PATH } from "@/features/notifications/templates/brand-email";
+import { EMAIL_LOGO_PATHS } from "@/features/notifications/templates/brand-email";
 import { managementUrl } from "@/features/auth/services/auth-host";
 import { emailConfigStatus } from "@/lib/integrations/email";
 import { LOG_LEVELS, LOG_SOURCES, getSystemLogSummary, listEmailLogs, listSystemLogs } from "@/features/system-logs/queries/system-log-queries";
@@ -49,7 +49,7 @@ async function EmailSection({ params, defaultTo }: { params: Awaited<SettingsPag
   const [{ data: logs, nextCursor }, professional] = await Promise.all([listEmailLogs({ cursor: params.cursor, status: params.envio }), emailProfessional()]);
   const email = buildEmailPreview(model, professional);
   // Na pré-visualização, a marca vem deste mesmo servidor (no e-mail, ela vem do endereço público da gestão).
-  const preview = { ...email, html: email.html.replaceAll(managementUrl(EMAIL_LOGO_PATH), EMAIL_LOGO_PATH) };
+  const preview = { ...email, html: EMAIL_LOGO_PATHS.reduce((html, path) => html.replaceAll(managementUrl(path), path), email.html) };
   const current = EMAIL_MODELS.find((item) => item.id === model)!;
   return <>
     <section className="settings-panel">
