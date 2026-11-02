@@ -878,10 +878,20 @@ model AiSettings {
   ownerPhones         String[]  @default([])
   /// Alterações pedidas à IA (lançar gasto, confirmar venda) esperam um "sim" da pessoa antes de executar.
   requireConfirmation Boolean   @default(true)
-  /// Instruções extras acrescentadas a todas as conversas (tom, regras do negócio).
+  /// Instruções gerais: valem em todas as conversas (quem é você, tom, regras do negócio).
   instructions        String?
+  /// Instruções de atendimento: só nas conversas com clientes e visitantes (site, área do cliente, WhatsApp).
+  serviceInstructions String?
+  /// Atende pelo WhatsApp números que não são do dono, em modo atendimento (serviços e contato).
+  whatsappAttendance  Boolean   @default(false)
   /// Limite de execuções por dia (todas as origens), para conter custo. Null = sem limite.
   dailyRunLimit       Int?      @default(300)
+  /// Preço do modelo em micro-dólares por milhão de tokens (US$ 3,00 = 3000000), para calcular o custo quando o
+  /// provedor não informa o custo de cada resposta. Preenchido pela lista de modelos ou à mão.
+  inputPriceMicros    Int?
+  outputPriceMicros   Int?
+  /// Cotação para mostrar o custo em reais, em centavos por dólar (R$ 5,50 = 550). Null mostra só em dólar.
+  usdBrlCents         Int?
   externalTokenHash   String?
   externalTokenHint   String?
   lastCheckedAt       DateTime?
@@ -941,6 +951,9 @@ model AiRun {
   steps          Int            @default(0)
   inputTokens    Int            @default(0)
   outputTokens   Int            @default(0)
+  /// Custo da resposta em micro-dólares (US$ 0,09 = 90000): o informado pelo provedor ou o calculado pelo preço do
+  /// modelo no momento. Null quando não havia como saber.
+  costMicros     Int?
   error          String?
   createdAt      DateTime       @default(now())
   startedAt      DateTime?

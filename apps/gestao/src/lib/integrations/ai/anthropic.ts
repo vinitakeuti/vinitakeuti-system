@@ -67,7 +67,7 @@ export function createAnthropicProvider(config: AiProviderConfig): AiProvider {
       return {
         text: blocks.filter((block) => block.type === "text").map((block) => block.text ?? "").join("\n").trim(),
         toolCalls,
-        usage: { inputTokens: body.usage?.input_tokens ?? 0, outputTokens: body.usage?.output_tokens ?? 0 },
+        usage: { inputTokens: body.usage?.input_tokens ?? 0, outputTokens: body.usage?.output_tokens ?? 0, costUsd: null },
         stopReason: body.stop_reason === "tool_use" ? "tool_use" : body.stop_reason === "max_tokens" ? "length" : body.stop_reason === "end_turn" ? "end" : "other",
         model: body.model ?? config.model,
       };

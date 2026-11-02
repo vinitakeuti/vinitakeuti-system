@@ -5,12 +5,12 @@ import { redirect } from "next/navigation";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
 import { prisma } from "@/lib/prisma";
 import { logEvent } from "@/features/system-logs/services/system-log";
-import { disableAi, listModelsForKey, revokeExternalToken, rotateExternalToken, saveAiConnection, saveAiRules, testAiConnection } from "@/features/ai/services/ai-settings";
+import { AI_INSTRUCTIONS_MAX, disableAi, listModelsForKey, revokeExternalToken, rotateExternalToken, saveAiConnection, saveAiContext, saveAiRules, testAiConnection } from "@/features/ai/services/ai-settings";
 import type { AiModelInfo } from "@/lib/integrations/ai/types";
 
 /** Ações do painel de IA em Integrações. */
 
-export type AiTab = "conexao" | "regras" | "acesso" | "atividade";
+export type AiTab = "conexao" | "contexto" | "regras" | "acesso" | "atividade";
 
 /** Volta para a aba da IA com um aviso ou erro. */
 function done(tab: AiTab, params: Record<string, string>): never {
@@ -26,7 +26,7 @@ const text = (formData: FormData, name: string, max: number) => {
 
 export async function saveAiConnectionAction(formData: FormData) {
   const user = await requireManagementUser();
-  const result = await saveAiConnection({ provider: text(formData, "provider", 30), baseUrl: text(formData, "baseUrl", 300), model: text(formData, "model", 120), apiKey: text(formData, "apiKey", 400) });
+  const result = await saveAiConnection({ provider: text(formData, "provider", 30), baseUrl: text(formData, "baseUrl", 300), model: text(formData, "model", 120), apiKey: text(formData, "apiKey", 400), inputPrice: text(formData, "inputPrice", 20), outputPrice: text(formData, "outputPrice", 20), usdBrl: text(formData, "usdBrl", 10) });
   if (!result.ok) done("conexao", { erro: result.error });
   await logEvent({ event: "ai.settings", message: "Conexão da IA atualizada (provedor, chave ou modelo).", actorEmail: user.email });
   done("conexao", { aviso: "salva" });
@@ -37,13 +37,21 @@ export async function saveAiRulesAction(formData: FormData) {
   const result = await saveAiRules({
     channels: formData.getAll("channels").filter((value): value is string => typeof value === "string"),
     ownerPhones: text(formData, "ownerPhones", 300),
+    whatsappAttendance: formData.get("whatsappAttendance") === "on",
     requireConfirmation: formData.get("requireConfirmation") === "on",
-    instructions: text(formData, "instructions", 4_000),
     dailyRunLimit: text(formData, "dailyRunLimit", 8),
   });
   if (!result.ok) done("regras", { erro: result.error });
   await logEvent({ event: "ai.settings", message: "Canais e regras da IA atualizados.", actorEmail: user.email });
   done("regras", { aviso: "regras" });
+}
+
+export async function saveAiContextAction(formData: FormData) {
+  const user = await requireManagementUser();
+  const result = await saveAiContext({ generalInstructions: text(formData, "generalInstructions", AI_INSTRUCTIONS_MAX + 1), serviceInstructions: text(formData, "serviceInstructions", AI_INSTRUCTIONS_MAX + 1) });
+  if (!result.ok) done("contexto", { erro: result.error });
+  await logEvent({ event: "ai.settings", message: "Contexto da IA atualizado (instruções gerais e de atendimento).", actorEmail: user.email });
+  done("contexto", { aviso: "contexto" });
 }
 
 export async function testAiConnectionAction() {

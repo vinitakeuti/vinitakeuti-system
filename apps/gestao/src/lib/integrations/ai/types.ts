@@ -25,7 +25,8 @@ export type AiCompletionRequest = {
 export type AiCompletion = {
   text: string;
   toolCalls: AiToolCall[];
-  usage: { inputTokens: number; outputTokens: number };
+  /** costUsd: custo informado pelo provedor (OpenRouter); null quando ele não informa. */
+  usage: { inputTokens: number; outputTokens: number; costUsd: number | null };
   stopReason: "end" | "tool_use" | "length" | "other";
   model: string;
 };

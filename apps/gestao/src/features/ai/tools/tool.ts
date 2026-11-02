@@ -15,6 +15,16 @@ export function scopeForChannel(channel: AiChannel): AiScope {
   return "owner";
 }
 
+/**
+ * Escopo de uma conversa. No WhatsApp depende de quem escreve: os números do dono têm acesso de gestão; os demais
+ * (clientes e interessados) são atendidos como no site. A regra é aplicada a cada resposta, então tirar um número
+ * da lista do dono já rebaixa a conversa dele.
+ */
+export function scopeForConversation(conversation: { channel: AiChannel; externalKey: string | null }, ownerPhones: string[]): AiScope {
+  if (conversation.channel === "WHATSAPP") return conversation.externalKey && ownerPhones.includes(conversation.externalKey) ? "owner" : "public";
+  return scopeForChannel(conversation.channel);
+}
+
 export type ToolContext = {
   scope: AiScope;
   channel: AiChannel;

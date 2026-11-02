@@ -4,8 +4,9 @@ import type { Prisma } from "@prisma/client";
 import { loadAiRuntime } from "@/features/ai/services/ai-settings";
 import { systemPrompt } from "@/features/ai/services/prompts";
 import { executeToolCall } from "@/features/ai/services/tool-executor";
+import { costFromPrice } from "@/features/ai/services/ai-costs";
 import { toolSpecs, toolsForScope } from "@/features/ai/tools/registry";
-import { scopeForChannel, type ToolContext } from "@/features/ai/tools/tool";
+import { scopeForConversation, type ToolContext } from "@/features/ai/tools/tool";
 
 /**
  * Uma resposta da IA: monta o histórico, chama o modelo e executa as ferramentas que ele pedir, em ciclos, até a
@@ -43,14 +44,16 @@ export async function executeRun(runId: string) {
   if (!loaded.ok) throw new AiProviderError(loaded.error);
   const runtime = loaded.runtime;
 
-  const scope = scopeForChannel(conversation.channel);
+  const scope = scopeForConversation(conversation, runtime.ownerPhones);
   const tools = toolsForScope(scope);
   const allowed = new Set(tools.map((tool) => tool.name));
-  const actor = conversation.channel === "SITE" ? "visitante do site" : conversation.externalKey ?? conversation.userId ?? conversation.channel.toLowerCase();
+  const actor = conversation.channel === "SITE" ? "visitante do site" : conversation.channel === "WHATSAPP" ? `whatsapp:${conversation.externalKey}` : conversation.userId ?? conversation.channel.toLowerCase();
   const context: ToolContext = { scope, channel: conversation.channel, conversationId: conversation.id, clientId: conversation.clientId, actor, runId: run.id };
-  const system = systemPrompt({ scope, channel: conversation.channel, clientName: conversation.client?.name, instructions: runtime.instructions });
+  const system = systemPrompt({ scope, channel: conversation.channel, clientName: conversation.client?.name, generalInstructions: runtime.generalInstructions, serviceInstructions: runtime.serviceInstructions });
   const messages = await history(conversation.id);
   const usage = { inputTokens: 0, outputTokens: 0 };
+  // Custo informado pelo provedor em todas as chamadas (OpenRouter), ou null para calcular pelo preço do modelo.
+  let providerCost: number | null = 0;
   let model = runtime.model;
   let finished = false;
   let steps = 0;
@@ -60,6 +63,7 @@ export async function executeRun(runId: string) {
     const completion = await runtime.provider.complete({ system, messages, tools: toolSpecs(tools), maxTokens: MAX_TOKENS });
     usage.inputTokens += completion.usage.inputTokens;
     usage.outputTokens += completion.usage.outputTokens;
+    providerCost = providerCost !== null && completion.usage.costUsd !== null ? providerCost + completion.usage.costUsd : null;
     model = completion.model;
 
     if (!completion.toolCalls.length) {
@@ -81,6 +85,7 @@ export async function executeRun(runId: string) {
   }
 
   if (!finished) await prisma.aiMessage.create({ data: { conversationId: conversation.id, role: "assistant", content: "Precisei de mais etapas do que o permitido para responder. Pode dividir o pedido em partes menores?" } });
-  await prisma.aiRun.update({ where: { id: run.id }, data: { status: "DONE", provider: runtime.providerId, model: model.slice(0, 120), steps, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, finishedAt: new Date(), error: null } });
+  const costMicros = providerCost !== null && steps > 0 ? Math.round(providerCost * 1_000_000) : costFromPrice(usage.inputTokens, usage.outputTokens, runtime);
+  await prisma.aiRun.update({ where: { id: run.id }, data: { status: "DONE", provider: runtime.providerId, model: model.slice(0, 120), steps, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, costMicros, finishedAt: new Date(), error: null } });
   await prisma.aiConversation.update({ where: { id: conversation.id }, data: { lastMessageAt: new Date() } });
 }

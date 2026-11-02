@@ -2,9 +2,12 @@ import Link from "next/link";
 import { ConfirmSubmitButton } from "@/features/finance/components/confirm-submit-button";
 import { managementUrl } from "@/features/auth/services/auth-host";
 import { AI_PROVIDERS, isAiProviderId } from "@/lib/integrations/ai/providers";
-import { providerOptions, type getAiSettingsView } from "@/features/ai/services/ai-settings";
-import { getAiUsage, listAiActivity } from "@/features/ai/queries/ai-queries";
-import { disableAiAction, revokeExternalTokenAction, saveAiConnectionAction, saveAiRulesAction, testAiConnectionAction } from "@/features/ai/services/ai-actions";
+import { AI_INSTRUCTIONS_MAX, providerOptions, type getAiSettingsView } from "@/features/ai/services/ai-settings";
+import { systemPrompt } from "@/features/ai/services/prompts";
+import { CountedTextarea } from "@/features/ai/components/counted-textarea";
+import { costFromPrice, formatCost, priceToInput } from "@/features/ai/services/ai-costs";
+import { getActivitySummary, getAiUsage, listActivitySessions, type ActivityScope } from "@/features/ai/queries/ai-queries";
+import { disableAiAction, revokeExternalTokenAction, saveAiConnectionAction, saveAiContextAction, saveAiRulesAction, testAiConnectionAction } from "@/features/ai/services/ai-actions";
 import { AiTokenPanel } from "@/features/ai/components/ai-token-panel";
 import { AiModelPicker } from "@/features/ai/components/ai-model-picker";
 
@@ -21,7 +24,7 @@ const CHANNELS = [
   { id: "GESTAO", label: "Gestão", detail: "Você, no Assistente IA. Consulta e altera o sistema." },
   { id: "PORTAL", label: "Área do cliente", detail: "O cliente pergunta sobre os próprios pagamentos, documentos e serviços. Só leitura." },
   { id: "SITE", label: "Site", detail: "Atendimento dos visitantes de viniciusriudi.com: serviços e contato." },
-  { id: "WHATSAPP", label: "WhatsApp", detail: "Seus números (abaixo) conversam com acesso de gestão, pela ponte do WhatsApp." },
+  { id: "WHATSAPP", label: "WhatsApp", detail: "Pela ponte do WhatsApp. Seus números (abaixo) têm acesso de gestão; os demais, só com o atendimento ligado." },
 ] as const;
 
 const runLabel = { PENDING: { text: "NA FILA", tone: "is-warning" }, RUNNING: { text: "RESPONDENDO", tone: "is-warning" }, DONE: { text: "RESPONDIDA", tone: "is-info" }, FAILED: { text: "FALHOU", tone: "is-error" } } as const;
@@ -61,7 +64,7 @@ export function AiConnectionPanel({ settings }: { settings: AiSettingsView | nul
       </ol>}
       {settings?.lastError ? <p className="settings-result is-error">{settings.lastError}</p> : null}
       <form className="settings-form" action={saveAiConnectionAction}>
-        <AiModelPicker providers={providerOptions} initial={{ provider: providerId, model: settings?.model ?? "", baseUrl: settings?.baseUrl ?? "", keyHint: settings?.keyHint ?? null, connected }} />
+        <AiModelPicker providers={providerOptions} initial={{ provider: providerId, model: settings?.model ?? "", baseUrl: settings?.baseUrl ?? "", keyHint: settings?.keyHint ?? null, connected, inputPrice: priceToInput(settings?.inputPriceMicros), outputPrice: priceToInput(settings?.outputPriceMicros), usdBrl: settings?.usdBrlCents ? (settings.usdBrlCents / 100).toFixed(2).replace(".", ",") : "" }} />
         <div className="settings-form-actions">
           <button className="primary-action" type="submit">{connected ? "SALVAR" : "CONECTAR"}</button>
           {connected ? <button className="secondary-action" type="submit" formAction={testAiConnectionAction} formNoValidate>TESTAR CONEXÃO</button> : null}
@@ -72,10 +75,49 @@ export function AiConnectionPanel({ settings }: { settings: AiSettingsView | nul
   </section>;
 }
 
+const GENERAL_PLACEHOLDER = `Exemplos do que escrever:
+- Quem é você e como trabalha (sozinho, com parceiros, remoto, cidade).
+- Tom de voz: formal ou próximo, como tratar as pessoas, palavras a evitar.
+- Regras do negócio: forma de pagamento padrão, prazo de validade das propostas, o que sempre conferir.
+- O que nunca fazer ou prometer.`;
+
+const SERVICE_PLACEHOLDER = `Exemplos do que escrever:
+- Como receber a pessoa e o que perguntar primeiro (nome, empresa, o que precisa).
+- Serviços em destaque e para quem cada um serve.
+- Perguntas frequentes e as respostas (prazos médios, suporte, hospedagem, manutenção).
+- Como funciona um orçamento e quais informações pedir.
+- Horário de atendimento e quando passar a conversa para você (e como).`;
+
+/** Contexto: instruções gerais e de atendimento, com a prévia do que a IA recebe em cada situação. */
+export function AiContextPanel({ settings }: { settings: AiSettingsView | null }) {
+  const general = settings?.instructions ?? "";
+  const service = settings?.serviceInstructions ?? "";
+  const previews = [
+    { id: "gestao", label: "Gestão e seu WhatsApp", detail: "Você conversando com a IA: só as instruções gerais.", prompt: systemPrompt({ scope: "owner", channel: "GESTAO", generalInstructions: general, serviceInstructions: service }) },
+    { id: "site", label: "Site", detail: "Visitantes de viniciusriudi.com: gerais e de atendimento.", prompt: systemPrompt({ scope: "public", channel: "SITE", generalInstructions: general, serviceInstructions: service }) },
+    { id: "whatsapp", label: "WhatsApp (atendimento)", detail: "Clientes e interessados pelo WhatsApp: gerais e de atendimento.", prompt: systemPrompt({ scope: "public", channel: "WHATSAPP", generalInstructions: general, serviceInstructions: service }) },
+    { id: "portal", label: "Área do cliente", detail: "Clientes logados no portal: gerais e de atendimento.", prompt: systemPrompt({ scope: "client", channel: "PORTAL", clientName: "Nome do cliente", generalInstructions: general, serviceInstructions: service }) },
+  ];
+  return <section className="settings-panel" aria-labelledby="ai-context-title">
+    <div className="settings-panel-heading"><div><h2 id="ai-context-title">Contexto.</h2><p>O que a IA precisa saber sobre você e o seu trabalho. As instruções gerais valem em todas as conversas; as de atendimento, só quando ela fala com clientes e visitantes. As regras de segurança (o que cada canal pode ver e alterar) continuam valendo acima destas instruções.</p></div></div>
+    <div className="settings-panel-body">
+      <form className="settings-form" action={saveAiContextAction}>
+        <CountedTextarea name="generalInstructions" label="INSTRUÇÕES GERAIS · TODAS AS CONVERSAS" defaultValue={general} max={AI_INSTRUCTIONS_MAX} rows={9} placeholder={GENERAL_PLACEHOLDER} />
+        <CountedTextarea name="serviceInstructions" label="INSTRUÇÕES DE ATENDIMENTO · SITE, WHATSAPP E ÁREA DO CLIENTE" defaultValue={service} max={AI_INSTRUCTIONS_MAX} rows={11} placeholder={SERVICE_PLACEHOLDER} />
+        <div className="settings-form-actions"><button className="primary-action" type="submit">SALVAR</button><small>Vale a partir da próxima mensagem. Instruções longas aumentam o custo de cada resposta.</small></div>
+      </form>
+      <div className="ai-previews">
+        <p className="ai-previews-title">COMO A IA RECEBE</p>
+        {previews.map((preview) => <details key={preview.id}><summary><b>{preview.label}</b><small>{preview.detail}</small></summary><pre>{preview.prompt}</pre></details>)}
+      </div>
+    </div>
+  </section>;
+}
+
 export function AiRulesPanel({ settings }: { settings: AiSettingsView | null }) {
   const channels = new Set(settings?.channels ?? []);
   return <section className="settings-panel" aria-labelledby="ai-rules-title">
-    <div className="settings-panel-heading"><div><h2 id="ai-rules-title">Canais e regras.</h2><p>Onde a IA atende, quem fala com ela pelo WhatsApp, quanto pode responder por dia e como ela deve se comportar.</p></div></div>
+    <div className="settings-panel-heading"><div><h2 id="ai-rules-title">Canais e regras.</h2><p>Onde a IA atende, quem fala com ela pelo WhatsApp, quanto pode responder por dia e o que precisa da sua confirmação.</p></div></div>
     <div className="settings-panel-body">
       <form className="settings-form" action={saveAiRulesAction}>
         <fieldset className="settings-form-wide ai-channels">
@@ -83,9 +125,9 @@ export function AiRulesPanel({ settings }: { settings: AiSettingsView | null }) 
           {CHANNELS.map((channel) => <label key={channel.id} className="ai-check"><input type="checkbox" name="channels" value={channel.id} defaultChecked={channels.has(channel.id)} /><span><b>{channel.label}</b><small>{channel.detail}</small></span></label>)}
         </fieldset>
         <label>SEUS NÚMEROS DE WHATSAPP<input name="ownerPhones" maxLength={300} defaultValue={settings?.ownerPhones.join(", ") ?? ""} placeholder="5582999990000 (DDI + DDD + número)" inputMode="tel" /></label>
+        <label className="ai-check ai-check-inline"><input type="checkbox" name="whatsappAttendance" defaultChecked={settings?.whatsappAttendance ?? false} /><span><b>Atender outros números no WhatsApp.</b><small>Clientes e interessados conversam em modo atendimento: serviços e contato, com as instruções de atendimento e no máximo 15 mensagens a cada 10 minutos por número.</small></span></label>
         <label>LIMITE DE RESPOSTAS POR DIA<input name="dailyRunLimit" type="number" min={1} max={100000} defaultValue={settings ? settings.dailyRunLimit ?? "" : 300} placeholder="Sem limite" /></label>
         <label className="settings-form-wide ai-check"><input type="checkbox" name="requireConfirmation" defaultChecked={settings?.requireConfirmation ?? true} /><span><b>Pedir confirmação antes de alterar dados.</b><small>Lançar gasto, registrar recebimento, confirmar venda ou cadastrar serviço no catálogo só acontecem depois de você responder “sim” na conversa. Clientes e rascunhos de orçamento e documento não pedem confirmação.</small></span></label>
-        <label className="settings-form-wide">INSTRUÇÕES EXTRAS<textarea name="instructions" rows={5} maxLength={4000} defaultValue={settings?.instructions ?? ""} placeholder="Tom de voz, regras do negócio, o que a IA do site deve ou não falar…" /></label>
         <div className="settings-form-actions"><button className="primary-action" type="submit">SALVAR</button></div>
       </form>
     </div>
@@ -105,27 +147,76 @@ export function AiAccessPanel({ settings }: { settings: AiSettingsView | null })
   </section>;
 }
 
-export async function AiActivityPanel({ settings, cursor }: { settings: AiSettingsView | null; cursor?: string }) {
-  const [usage, activity] = await Promise.all([getAiUsage(), listAiActivity(cursor)]);
+const compact = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
+const timeOnly = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Maceio" });
+
+function phoneLabel(digits: string | null) {
+  if (!digits) return "número desconhecido";
+  const match = digits.match(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/);
+  return match ? `+${match[1]} ${match[2]} ${match[3]}-${match[4]}` : `+${digits}`;
+}
+
+function sessionLabel(session: { channel: string; externalKey: string | null; client: { name: string } | null }) {
+  if (session.channel === "WHATSAPP") return `WhatsApp · ${phoneLabel(session.externalKey)}`;
+  if (session.channel === "PORTAL") return `Área do cliente${session.client ? ` · ${session.client.name}` : ""}`;
+  if (session.channel === "SITE") return "Site · visitante";
+  if (session.channel === "SISTEMA") return "MCP · agente externo";
+  return "Assistente";
+}
+
+function CostValue({ micros, rate, estimated }: { micros: number | null; rate: number | null; estimated?: boolean }) {
+  const cost = formatCost(micros, rate);
+  return <>{estimated ? "≈ " : ""}{cost.usd}{cost.brl ? <small> · {cost.brl}</small> : null}</>;
+}
+
+const SCOPES = [
+  { id: "gestao", label: "GESTÃO", detail: "Assistente, seu WhatsApp e MCP." },
+  { id: "atendimento", label: "ATENDIMENTO", detail: "Site, área do cliente e outros números do WhatsApp." },
+] as const;
+
+/**
+ * Atividade: uma sessão por conversa, separada em Gestão e Atendimento, com respostas, tokens e custo. Abrir a sessão
+ * mostra cada resposta com as ferramentas usadas.
+ */
+export async function AiActivityPanel({ settings, scope, cursor }: { settings: AiSettingsView | null; scope: ActivityScope; cursor?: string }) {
+  const ownerPhones = settings?.ownerPhones ?? [];
+  const price = { inputPriceMicros: settings?.inputPriceMicros ?? null, outputPriceMicros: settings?.outputPriceMicros ?? null };
+  const rate = settings?.usdBrlCents ?? null;
+  const [summary, sessions, usage] = await Promise.all([getActivitySummary(scope, ownerPhones, price), listActivitySessions(scope, ownerPhones, cursor), getAiUsage()]);
+  const current = SCOPES.find((item) => item.id === scope)!;
   return <section className="settings-panel" aria-labelledby="ai-activity-title">
-    <div className="settings-panel-heading"><div><h2 id="ai-activity-title">Atividade.</h2><p>Cada resposta, por canal, com as ferramentas que a IA usou e o consumo. Alterações ficam registradas com quem pediu.</p></div></div>
+    <div className="settings-panel-heading"><div><h2 id="ai-activity-title">Atividade.</h2><p>Cada conversa é uma sessão, com as respostas, os tokens e o custo. Abra uma sessão para ver as respostas e as ferramentas que a IA usou em cada uma.</p></div></div>
     <div className="settings-panel-body">
+      <nav className="ai-scope-switch" aria-label="Lado da atividade">{SCOPES.map((item) => <Link key={item.id} href={`/integracoes/ia?aba=atividade${item.id === "gestao" ? "" : `&escopo=${item.id}`}`} aria-current={item.id === scope ? "page" : undefined}><b>{item.label}</b><small>{item.detail}</small></Link>)}</nav>
       <dl className="settings-facts integration-facts">
-        <div><dt>RESPOSTAS HOJE</dt><dd>{usage.today}{settings?.dailyRunLimit ? ` de ${settings.dailyRunLimit}` : ""}</dd></div>
-        <div><dt>RESPOSTAS EM 30 DIAS</dt><dd>{number.format(usage.runs30d)}</dd></div>
-        <div><dt>TOKENS EM 30 DIAS</dt><dd>{number.format(usage.inputTokens30d)} entrada · {number.format(usage.outputTokens30d)} saída</dd></div>
-        <div><dt>AGUARDANDO CONFIRMAÇÃO</dt><dd>{usage.pendingConfirmations}</dd></div>
+        <div><dt>SESSÕES · 30 DIAS</dt><dd>{number.format(summary.sessions)}</dd></div>
+        <div><dt>RESPOSTAS · 30 DIAS</dt><dd>{number.format(summary.runs)} <small className="ai-fact-note">{summary.today} hoje</small></dd></div>
+        <div><dt>TOKENS · 30 DIAS</dt><dd>{number.format(summary.inputTokens)} entrada · {number.format(summary.outputTokens)} saída</dd></div>
+        <div><dt>CUSTO · 30 DIAS</dt><dd><CostValue micros={summary.costMicros} rate={rate} estimated={summary.estimated} />{summary.unpricedRuns ? <small className="ai-fact-note"> · {summary.unpricedRuns} sem preço</small> : null}</dd></div>
       </dl>
+      <p className="ai-activity-note">Respostas hoje, todas as origens: {usage.today}{settings?.dailyRunLimit ? ` de ${settings.dailyRunLimit}` : ""}.{usage.pendingConfirmations ? ` ${usage.pendingConfirmations} ${usage.pendingConfirmations === 1 ? "alteração aguarda" : "alterações aguardam"} confirmação.` : ""}{summary.estimated ? " ≈ inclui respostas antigas estimadas pelo preço atual do modelo." : ""}{!price.inputPriceMicros && settings?.provider !== "openrouter" ? " Para ver o custo, informe o preço do modelo em Conexão." : ""}</p>
     </div>
-    {activity.data.length ? <ul className="settings-log-list">{activity.data.map((run) => <li key={run.id}><details>
-      <summary><time>{dateTime.format(run.createdAt)}</time><span className={`settings-level ${runLabel[run.status].tone}`}>{runLabel[run.status].text}</span><b>{channelLabel[run.conversation.channel] ?? run.conversation.channel}{run.conversation.client ? ` · ${run.conversation.client.name}` : ""}</b><small>{run.conversation.title ?? "Sem título"}</small></summary>
-      <dl className="settings-log-detail">
-        <div><dt>Modelo</dt><dd><code>{run.model ?? "—"}</code></dd></div>
-        <div><dt>Etapas e tokens</dt><dd>{run.steps} {run.steps === 1 ? "etapa" : "etapas"} · {number.format(run.inputTokens)} entrada · {number.format(run.outputTokens)} saída</dd></div>
-        {run.actions.length ? <div><dt>Ferramentas</dt><dd>{run.actions.map((action, index) => <span key={index} className="ai-action">{action.tool}{action.mutates ? " (alteração)" : ""} · {actionLabel[action.status] ?? action.status}</span>)}</dd></div> : null}
-        {run.error ? <div><dt>Erro</dt><dd><code>{run.error}</code></dd></div> : null}
-      </dl>
-    </details></li>)}</ul> : <p className="settings-empty">Nenhuma conversa com a IA ainda.</p>}
-    {activity.nextCursor ? <div className="table-footer"><Link className="text-link" href={`/integracoes/ia?aba=atividade&cursor=${activity.nextCursor}`}>CARREGAR MAIS</Link></div> : null}
+    {sessions.data.length ? <ul className="ai-sessions">{sessions.data.map((session) => {
+      const status = session.lastStatus === "PENDING" || session.lastStatus === "RUNNING" ? { text: "RESPONDENDO", tone: "is-warning" } : session.failedRuns ? { text: `${session.failedRuns} ${session.failedRuns === 1 ? "FALHA" : "FALHAS"}`, tone: "is-error" } : null;
+      return <li key={session.id}><details>
+        <summary>
+          <span className="ai-session-main"><b>{sessionLabel(session)}</b><small>{session.title ?? "Sem título"}</small></span>
+          <span className="ai-session-when"><time>{dateTime.format(session.lastMessageAt)}</time>{status ? <span className={`settings-level ${status.tone}`}>{status.text}</span> : null}</span>
+          <span className="ai-session-metrics"><span><b>{session.runCount}</b> {session.runCount === 1 ? "resposta" : "respostas"}</span><span><b>{compact.format(session.inputTokens + session.outputTokens)}</b> tokens</span><span className="ai-session-cost"><CostValue micros={session.costMicros ?? (session.unpricedRuns ? costFromPrice(session.inputTokens, session.outputTokens, price) : null)} rate={rate} estimated={session.costMicros === null && session.unpricedRuns > 0} /></span></span>
+        </summary>
+        <div className="ai-session-detail">
+          <div className="ai-session-head"><span>Início {dateTime.format(session.createdAt)} · última mensagem {dateTime.format(session.lastMessageAt)}</span>{session.channel === "GESTAO" ? <Link className="text-link" href={`/assistente?c=${session.id}`}>ABRIR CONVERSA</Link> : null}</div>
+          <ol className="ai-session-runs">{session.runs.map((run) => <li key={run.id}>
+            <time>{timeOnly.format(run.createdAt)}</time>
+            <span className={`settings-level ${runLabel[run.status].tone}`}>{runLabel[run.status].text}</span>
+            <span className="ai-run-usage">{number.format(run.inputTokens)} + {number.format(run.outputTokens)} tokens · <CostValue micros={run.costMicros ?? costFromPrice(run.inputTokens, run.outputTokens, price)} rate={rate} estimated={run.costMicros === null} />{run.model ? <code>{run.model}</code> : null}</span>
+            {run.actions.length ? <span className="ai-run-tools">{run.actions.map((action, index) => <span key={index} className={action.mutates ? "is-change" : undefined}>{action.tool}{action.status !== "DONE" ? ` · ${actionLabel[action.status] ?? action.status}` : ""}</span>)}</span> : null}
+            {run.error ? <code className="ai-run-error">{run.error}</code> : null}
+          </li>)}</ol>
+          {session.runCount > session.runs.length ? <p className="ai-activity-note">Mostrando as {session.runs.length} respostas mais recentes de {session.runCount}.</p> : null}
+        </div>
+      </details></li>;
+    })}</ul> : <p className="settings-empty">Nenhuma conversa em {current.label === "GESTÃO" ? "Gestão" : "Atendimento"} ainda.</p>}
+    {sessions.nextCursor ? <div className="table-footer"><Link className="text-link" href={`/integracoes/ia?aba=atividade${scope === "gestao" ? "" : `&escopo=${scope}`}&cursor=${sessions.nextCursor}`}>CARREGAR MAIS</Link></div> : null}
   </section>;
 }

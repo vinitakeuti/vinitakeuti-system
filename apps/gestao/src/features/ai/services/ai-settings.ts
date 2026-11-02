@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret, hashToken } from "@/lib/crypto";
 import { AI_PROVIDERS, aiProviderBaseUrl, createAiProvider, isAiProviderId, listAiModels, type AiProviderId } from "@/lib/integrations/ai/providers";
 import { AiProviderError } from "@/lib/integrations/ai/types";
+import { parseUsd } from "@/features/ai/services/ai-costs";
 
 /**
  * Configuração da IA (Integrações). A chave do provedor fica criptografada e nunca volta para a tela; o token de
@@ -18,7 +19,7 @@ const SETTINGS_ID = "default";
 export async function getAiSettingsView() {
   return prisma.aiSettings.findUnique({
     where: { id: SETTINGS_ID },
-    select: { isActive: true, provider: true, baseUrl: true, model: true, keyHint: true, channels: true, ownerPhones: true, requireConfirmation: true, instructions: true, dailyRunLimit: true, externalTokenHint: true, lastCheckedAt: true, lastError: true, updatedAt: true },
+    select: { isActive: true, provider: true, baseUrl: true, model: true, keyHint: true, channels: true, ownerPhones: true, requireConfirmation: true, instructions: true, serviceInstructions: true, whatsappAttendance: true, dailyRunLimit: true, inputPriceMicros: true, outputPriceMicros: true, usdBrlCents: true, externalTokenHint: true, lastCheckedAt: true, lastError: true, updatedAt: true },
   });
 }
 
@@ -29,7 +30,11 @@ export type AiRuntime = {
   channels: Set<string>;
   ownerPhones: string[];
   requireConfirmation: boolean;
-  instructions: string | null;
+  generalInstructions: string | null;
+  serviceInstructions: string | null;
+  whatsappAttendance: boolean;
+  inputPriceMicros: number | null;
+  outputPriceMicros: number | null;
   dailyRunLimit: number | null;
 };
 
@@ -51,14 +56,23 @@ export async function loadAiRuntime(): Promise<{ ok: true; runtime: AiRuntime } 
       channels: new Set(settings.channels),
       ownerPhones: settings.ownerPhones,
       requireConfirmation: settings.requireConfirmation,
-      instructions: settings.instructions,
+      generalInstructions: settings.instructions,
+      serviceInstructions: settings.serviceInstructions,
+      whatsappAttendance: settings.whatsappAttendance,
+      inputPriceMicros: settings.inputPriceMicros,
+      outputPriceMicros: settings.outputPriceMicros,
       dailyRunLimit: settings.dailyRunLimit,
     },
   };
 }
 
-export type AiConnectionInput = { provider: string; baseUrl: string; model: string; apiKey: string };
-export type AiRulesInput = { channels: string[]; ownerPhones: string; requireConfirmation: boolean; instructions: string; dailyRunLimit: string };
+/** Preços em dólar por milhão de tokens e cotação em reais por dólar, como digitados ("3,00"); vazio = sem valor. */
+export type AiConnectionInput = { provider: string; baseUrl: string; model: string; apiKey: string; inputPrice: string; outputPrice: string; usdBrl: string };
+export type AiRulesInput = { channels: string[]; ownerPhones: string; whatsappAttendance: boolean; requireConfirmation: boolean; dailyRunLimit: string };
+export type AiContextInput = { generalInstructions: string; serviceInstructions: string };
+
+/** Limite de cada bloco de instruções: entram em toda resposta, então contam no custo de cada mensagem. */
+export const AI_INSTRUCTIONS_MAX = 6_000;
 
 /** Só dígitos, com DDI (5582999990000). */
 export function normalizePhone(value: string) {
@@ -120,7 +134,14 @@ export async function saveAiConnection(input: AiConnectionInput) {
   const current = await prisma.aiSettings.findUnique({ where: { id: SETTINGS_ID }, select: { apiKeyEncrypted: true, provider: true } });
   // Trocar de provedor exige a chave do novo provedor.
   if (!apiKey && (!current?.apiKeyEncrypted || current.provider !== provider)) return { ok: false as const, error: "Informe a chave de API do provedor." };
-  const data = { provider, baseUrl: checked.baseUrl || null, model, isActive: true, ...(apiKey ? { apiKeyEncrypted: encryptSecret(apiKey), keyHint: apiKey.slice(-4) } : {}) };
+  const inputPriceMicros = parseUsd(input.inputPrice);
+  const outputPriceMicros = parseUsd(input.outputPrice);
+  if (Number.isNaN(inputPriceMicros) || Number.isNaN(outputPriceMicros)) return { ok: false as const, error: "Preço por milhão de tokens inválido. Use dólares, como 3,00." };
+  if ((inputPriceMicros === null) !== (outputPriceMicros === null)) return { ok: false as const, error: "Informe os dois preços (entrada e saída) ou deixe os dois em branco." };
+  const rateText = input.usdBrl.trim().replace(/^R\$\s*/i, "");
+  const rate = rateText ? Number(rateText.replace(",", ".")) : null;
+  if (rate !== null && (!Number.isFinite(rate) || rate < 1 || rate > 50)) return { ok: false as const, error: "Cotação do dólar inválida (ex.: 5,50)." };
+  const data = { provider, baseUrl: checked.baseUrl || null, model, isActive: true, inputPriceMicros, outputPriceMicros, usdBrlCents: rate === null ? null : Math.round(rate * 100), ...(apiKey ? { apiKeyEncrypted: encryptSecret(apiKey), keyHint: apiKey.slice(-4) } : {}) };
   await prisma.aiSettings.upsert({ where: { id: SETTINGS_ID }, create: { id: SETTINGS_ID, ...data, channels: ["GESTAO"] }, update: data });
   return { ok: true as const };
 }
@@ -131,11 +152,21 @@ export async function saveAiRules(input: AiRulesInput) {
   const phones = input.ownerPhones.split(/[\n,;]+/).map((value) => value.trim()).filter(Boolean);
   const ownerPhones = [...new Set(phones.map(normalizePhone).filter((value): value is string => Boolean(value)))].slice(0, 5);
   if (phones.length && ownerPhones.length !== Math.min(phones.length, 5)) return { ok: false as const, error: "Informe os números de WhatsApp com DDI e DDD, só dígitos (ex.: 5582999990000)." };
-  if (channels.includes("WHATSAPP") && !ownerPhones.length) return { ok: false as const, error: "Para liberar o WhatsApp, informe ao menos um número seu." };
+  if (channels.includes("WHATSAPP") && !ownerPhones.length && !input.whatsappAttendance) return { ok: false as const, error: "Para liberar o WhatsApp, informe ao menos um número seu ou ative o atendimento de outros números." };
   const limitText = input.dailyRunLimit.trim();
   const dailyRunLimit = limitText ? Math.floor(Number(limitText)) : null;
   if (dailyRunLimit !== null && (!Number.isFinite(dailyRunLimit) || dailyRunLimit < 1 || dailyRunLimit > 100_000)) return { ok: false as const, error: "Limite diário inválido." };
-  const data = { channels, ownerPhones, requireConfirmation: input.requireConfirmation, instructions: input.instructions.trim().slice(0, 4_000) || null, dailyRunLimit };
+  const data = { channels, ownerPhones, whatsappAttendance: input.whatsappAttendance, requireConfirmation: input.requireConfirmation, dailyRunLimit };
+  await prisma.aiSettings.upsert({ where: { id: SETTINGS_ID }, create: { id: SETTINGS_ID, ...data }, update: data });
+  return { ok: true as const };
+}
+
+/** Contexto: instruções gerais (todas as conversas) e de atendimento (clientes e visitantes). */
+export async function saveAiContext(input: AiContextInput) {
+  const general = input.generalInstructions.trim();
+  const service = input.serviceInstructions.trim();
+  if (general.length > AI_INSTRUCTIONS_MAX || service.length > AI_INSTRUCTIONS_MAX) return { ok: false as const, error: `Cada bloco de instruções aceita até ${AI_INSTRUCTIONS_MAX.toLocaleString("pt-BR")} caracteres.` };
+  const data = { instructions: general || null, serviceInstructions: service || null };
   await prisma.aiSettings.upsert({ where: { id: SETTINGS_ID }, create: { id: SETTINGS_ID, ...data }, update: data });
   return { ok: true as const };
 }

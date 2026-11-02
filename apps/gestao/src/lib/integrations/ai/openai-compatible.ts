@@ -13,7 +13,7 @@ type OpenAiMessage =
 type OpenAiResponse = {
   model?: string;
   choices?: Array<{ finish_reason?: string; message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: unknown } }> } }>;
-  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
 };
 
 function toOpenAi(message: AiChatMessage): OpenAiMessage {
@@ -49,6 +49,8 @@ export function createOpenAiCompatibleProvider(config: AiProviderConfig, label: 
             ...(request.tools?.length ? { tools: request.tools.map((tool) => ({ type: "function", function: { name: tool.name, description: tool.description, parameters: tool.parameters } })) } : {}),
             max_tokens: request.maxTokens ?? 1_500,
             ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+            // O OpenRouter devolve o custo da resposta (em dólar) quando pedido; os demais recusariam o parâmetro.
+            ...(config.provider === "openrouter" ? { usage: { include: true } } : {}),
           }),
         });
       } catch (error) {
@@ -62,7 +64,7 @@ export function createOpenAiCompatibleProvider(config: AiProviderConfig, label: 
       return {
         text: choice?.message?.content?.trim() ?? "",
         toolCalls,
-        usage: { inputTokens: body.usage?.prompt_tokens ?? 0, outputTokens: body.usage?.completion_tokens ?? 0 },
+        usage: { inputTokens: body.usage?.prompt_tokens ?? 0, outputTokens: body.usage?.completion_tokens ?? 0, costUsd: typeof body.usage?.cost === "number" && Number.isFinite(body.usage.cost) ? body.usage.cost : null },
         stopReason: toolCalls.length || finish === "tool_calls" ? "tool_use" : finish === "length" ? "length" : finish === "stop" ? "end" : "other",
         model: body.model ?? config.model,
       };

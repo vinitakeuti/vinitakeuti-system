@@ -2,21 +2,22 @@ import Link from "next/link";
 import { AppSidebar } from "@/components/app-sidebar";
 import { IntegrationHeader } from "@/features/integrations/components/integration-header";
 import { getAiSettingsView } from "@/features/ai/services/ai-settings";
-import { AiAccessPanel, AiActivityPanel, AiConnectionPanel, AiRulesPanel, aiIsConnected, aiProviderLabel } from "@/features/ai/components/ai-settings-panel";
+import { AiAccessPanel, AiActivityPanel, AiConnectionPanel, AiContextPanel, AiRulesPanel, aiIsConnected, aiProviderLabel } from "@/features/ai/components/ai-settings-panel";
 
 export const dynamic = "force-dynamic";
 
-const TABS = [{ id: "conexao", label: "CONEXÃO" }, { id: "regras", label: "CANAIS E REGRAS" }, { id: "acesso", label: "ACESSO EXTERNO" }, { id: "atividade", label: "ATIVIDADE" }] as const;
+const TABS = [{ id: "conexao", label: "CONEXÃO" }, { id: "contexto", label: "CONTEXTO" }, { id: "regras", label: "CANAIS E REGRAS" }, { id: "acesso", label: "ACESSO EXTERNO" }, { id: "atividade", label: "ATIVIDADE" }] as const;
 type Tab = (typeof TABS)[number]["id"];
 
 const notices: Record<string, string> = {
   salva: "Conexão salva. Use TESTAR CONEXÃO para conferir a chave e o modelo.",
   desligada: "IA desligada. A chave foi apagada.",
   regras: "Canais e regras salvos.",
+  contexto: "Contexto salvo. Vale a partir da próxima mensagem.",
   "token-revogado": "Token de acesso externo revogado.",
 };
 
-type AiPageProps = { searchParams: Promise<{ aba?: string; aviso?: string; erro?: string; cursor?: string; resposta?: string; modelo?: string; ms?: string }> };
+type AiPageProps = { searchParams: Promise<{ aba?: string; escopo?: string; aviso?: string; erro?: string; cursor?: string; resposta?: string; modelo?: string; ms?: string }> };
 
 /** Inteligência artificial: conexão com o provedor, canais e regras, acesso externo (site, WhatsApp, MCP) e atividade. */
 export default async function AiIntegrationPage({ searchParams }: AiPageProps) {
@@ -31,8 +32,9 @@ export default async function AiIntegrationPage({ searchParams }: AiPageProps) {
     {params.aviso === "teste" ? <p className="form-success" role="status">Conexão funcionando: o modelo {params.modelo?.slice(0, 120)} respondeu “{params.resposta?.slice(0, 120)}” em {Number(params.ms) || 0} ms. <Link className="text-link" href="/assistente">ABRIR O ASSISTENTE</Link></p> : null}
     {params.erro ? <p className="form-error" role="alert">{params.erro.slice(0, 300)}</p> : null}
     {tab === "conexao" ? <AiConnectionPanel settings={settings} /> : null}
+    {tab === "contexto" ? <AiContextPanel settings={settings} /> : null}
     {tab === "regras" ? <AiRulesPanel settings={settings} /> : null}
     {tab === "acesso" ? <AiAccessPanel settings={settings} /> : null}
-    {tab === "atividade" ? <AiActivityPanel settings={settings} cursor={params.cursor} /> : null}
+    {tab === "atividade" ? <AiActivityPanel settings={settings} scope={params.escopo === "atendimento" ? "atendimento" : "gestao"} cursor={params.cursor} /> : null}
   </section></div></main>;
 }

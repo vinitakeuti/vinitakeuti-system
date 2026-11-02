@@ -23,7 +23,9 @@ function modelMeta(model: AiModelInfo) {
   ].filter(Boolean).join(" · ");
 }
 
-export function AiModelPicker({ providers, initial }: { providers: ProviderOption[]; initial: { provider: string; model: string; baseUrl: string; keyHint: string | null; connected: boolean } }) {
+const priceText = (dollars: number) => String(Math.round(dollars * 10_000) / 10_000).replace(".", ",");
+
+export function AiModelPicker({ providers, initial }: { providers: ProviderOption[]; initial: { provider: string; model: string; baseUrl: string; keyHint: string | null; connected: boolean; inputPrice: string; outputPrice: string; usdBrl: string } }) {
   const [provider, setProvider] = useState(initial.provider);
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl);
@@ -33,6 +35,15 @@ export function AiModelPicker({ providers, initial }: { providers: ProviderOptio
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
+  const [inputPrice, setInputPrice] = useState(initial.inputPrice);
+  const [outputPrice, setOutputPrice] = useState(initial.outputPrice);
+  const [usdBrl, setUsdBrl] = useState(initial.usdBrl);
+
+  /** Escolher um modelo com preço na lista (OpenRouter) preenche o preço usado no cálculo do custo. */
+  const choose = (item: AiModelInfo) => {
+    setModel(item.id);
+    if (item.price) { setInputPrice(priceText(item.price.input)); setOutputPrice(priceText(item.price.output)); }
+  };
   const loadedFor = useRef<string | null>(null);
 
   const option = providers.find((item) => item.id === provider) ?? providers[0];
@@ -96,7 +107,7 @@ export function AiModelPicker({ providers, initial }: { providers: ProviderOptio
         </div>
         <div className="ai-model-list" role="radiogroup" aria-label="Modelos disponíveis">
           {filtered.length ? filtered.map((item) => <label key={item.id} className={item.id === model ? "is-selected" : ""}>
-            <input type="radio" name="modelChoice" value={item.id} checked={item.id === model} onChange={() => setModel(item.id)} />
+            <input type="radio" name="modelChoice" value={item.id} checked={item.id === model} onChange={() => choose(item)} />
             <span><b>{item.label}</b><code>{item.id}</code>{modelMeta(item) ? <small>{modelMeta(item)}</small> : null}</span>
           </label>) : <p>Nenhum modelo encontrado para “{query}”.</p>}
         </div>
@@ -106,6 +117,16 @@ export function AiModelPicker({ providers, initial }: { providers: ProviderOptio
         {models ? <button type="button" className="text-link" onClick={() => setManual(false)}>VOLTAR PARA A LISTA</button> : null}
       </>}
       {error ? <p className="ai-model-error" role="alert">{error}</p> : null}
+    </div>
+
+    <div className="ai-price">
+      <span className="ai-price-title">CUSTO</span>
+      <div className="ai-price-row">
+        <label>ENTRADA · US$ POR 1M TOKENS<input name="inputPrice" inputMode="decimal" value={inputPrice} onChange={(event) => setInputPrice(event.target.value)} placeholder="ex.: 3,00" maxLength={12} /></label>
+        <label>SAÍDA · US$ POR 1M TOKENS<input name="outputPrice" inputMode="decimal" value={outputPrice} onChange={(event) => setOutputPrice(event.target.value)} placeholder="ex.: 15,00" maxLength={12} /></label>
+        <label>COTAÇÃO DO DÓLAR · R$<input name="usdBrl" inputMode="decimal" value={usdBrl} onChange={(event) => setUsdBrl(event.target.value)} placeholder="ex.: 5,50" maxLength={8} /></label>
+      </div>
+      <small>{provider === "openrouter" ? "O OpenRouter informa o custo real de cada resposta; o preço acima serve de referência." : "Use a tabela de preços do provedor para o modelo escolhido. Sem preço, a atividade mostra só os tokens."} Com a cotação, o custo também aparece em reais.</small>
     </div>
   </div>;
 }

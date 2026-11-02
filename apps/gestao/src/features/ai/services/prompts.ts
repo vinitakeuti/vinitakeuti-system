@@ -2,7 +2,10 @@ import { managementUrl, clientPortalUrl } from "@/features/auth/services/auth-ho
 import type { AiChannel } from "@prisma/client";
 import type { AiScope } from "@/features/ai/tools/tool";
 
-/** Instruções de sistema de cada escopo. As instruções extras de Integrações entram no fim de todas. */
+/**
+ * Instruções de sistema de cada escopo. O contexto definido em Integrações entra no fim: as instruções gerais em todas
+ * as conversas; as de atendimento só quando a IA fala com clientes e visitantes (área do cliente, site e WhatsApp).
+ */
 
 const now = () => new Intl.DateTimeFormat("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Maceio" }).format(new Date());
 const isoToday = () => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "America/Maceio" }).format(new Date());
@@ -14,7 +17,7 @@ const COMMON = [
   "Não use tabelas nem emojis. Prefira frases curtas e listas simples.",
 ];
 
-export function systemPrompt({ scope, channel, clientName, instructions }: { scope: AiScope; channel: AiChannel; clientName?: string | null; instructions?: string | null }) {
+export function systemPrompt({ scope, channel, clientName, generalInstructions, serviceInstructions }: { scope: AiScope; channel: AiChannel; clientName?: string | null; generalInstructions?: string | null; serviceInstructions?: string | null }) {
   const header = `Agora: ${now()} (fuso de Brasília). Hoje em AAAA-MM-DD: ${isoToday()}.`;
   const lines: string[] = [header, ...COMMON];
 
@@ -38,7 +41,10 @@ export function systemPrompt({ scope, channel, clientName, instructions }: { sco
       `Pagamentos, documentos e serviços ficam na área do cliente: ${clientPortalUrl()}.`,
     );
   } else {
-    lines.unshift("Você é a assistente do site de Vinicius Riudi, desenvolvedor de software (sites, sistemas web, aplicativos e automações). Você conversa com um visitante.");
+    lines.unshift(channel === "WHATSAPP"
+      ? "Você é a assistente de atendimento de Vinicius Riudi, desenvolvedor de software (sites, sistemas web, aplicativos e automações), no WhatsApp. Você conversa com um cliente ou interessado."
+      : "Você é a assistente do site de Vinicius Riudi, desenvolvedor de software (sites, sistemas web, aplicativos e automações). Você conversa com um visitante.");
+    if (channel === "WHATSAPP") lines.push("A conversa é pelo WhatsApp: respostas curtas, sem Markdown além de *negrito* e listas com hífen.");
     lines.push(
       "Explique os serviços (ferramenta servicos_oferecidos), tire dúvidas sobre como funciona o trabalho e ajude a pessoa a entender o que precisa.",
       "Não informe preços nem prazos fechados: cada projeto é orçado sob medida. Para orçamento, peça que a pessoa entre em contato (ferramenta contato).",
@@ -46,6 +52,7 @@ export function systemPrompt({ scope, channel, clientName, instructions }: { sco
     );
   }
 
-  if (instructions?.trim()) lines.push(`Instruções de Vinicius para todas as conversas:\n${instructions.trim()}`);
+  if (generalInstructions?.trim()) lines.push(`Instruções gerais de Vinicius (valem em todas as conversas):\n${generalInstructions.trim()}`);
+  if (scope !== "owner" && serviceInstructions?.trim()) lines.push(`Instruções de atendimento de Vinicius (siga ao falar com clientes e visitantes; elas complementam as regras acima, sem substituí-las):\n${serviceInstructions.trim()}`);
   return lines.join("\n");
 }
