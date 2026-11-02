@@ -156,6 +156,8 @@ model User {
   role         UserRole      @default(CLIENT)
   clientId     String?
   isActive     Boolean       @default(true)
+  /// Senha provisória (gerada pela gestão e enviada por e-mail): o portal pede a troca antes de qualquer outra página.
+  mustChangePassword Boolean @default(false)
   lastLoginAt  DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -717,6 +719,30 @@ model EmailLog {
 
 /// Eventos da aplicação (logins, senhas, acessos, envios e erros), separados por origem e nível.
 /// Append-only, com retenção de 90 dias.
+/// Fila de e-mails para clientes: o envio acontece fora da requisição (logo depois da resposta e no ciclo do
+/// agendador, com novas tentativas). Depois de enviado, o corpo é apagado; o resultado fica em EmailLog.
+model EmailOutbox {
+  id          String    @id @default(cuid())
+  kind        String
+  toAddress   String
+  subject     String
+  html        String
+  text        String
+  /// PENDING, SENDING, SENT ou FAILED (desistiu depois das tentativas).
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  lastError   String?
+  /// Evita o mesmo aviso duas vezes (lembrete da mesma parcela, documento já anunciado).
+  dedupeKey   String?   @unique
+  clientId    String?
+  sendAfter   DateTime  @default(now())
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, sendAfter])
+  @@index([createdAt, id])
+}
+
 model SystemLog {
   id         String   @id @default(cuid())
   source     String

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { parseQuoteDocumentContent, quoteDocumentImageIds } from "@/features/quotes/types/document-content";
 import { deleteUnusedQuoteImages } from "@/features/quotes/services/quote-images";
+import { notifyDocumentAvailable, notifySafely } from "@/features/notifications/services/client-emails";
 
 export type SaveQuoteDocumentResult =
   | { ok: true; quote: { id: string; clientId: string }; updatedAt: Date }
@@ -14,8 +15,10 @@ export async function saveQuoteDocument(quoteId: string, rawDocument: unknown, o
   const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, clientId: true, completedAt: true, title: true, client: { select: { name: true } } } });
   if (!quote) return { ok: false, status: 404, error: "Orçamento não encontrado." };
   const documentContent = parseQuoteDocumentContent(rawDocument, { title: quote.title, clientName: quote.client.name });
-  const updated = await prisma.quote.update({ where: { id: quote.id }, data: { documentContent, ...(options.complete && !quote.completedAt ? { completedAt: new Date() } : {}) }, select: { updatedAt: true } });
+  const completing = Boolean(options.complete && !quote.completedAt);
+  const updated = await prisma.quote.update({ where: { id: quote.id }, data: { documentContent, ...(completing ? { completedAt: new Date() } : {}) }, select: { updatedAt: true } });
   if (options.cleanImages) await deleteUnusedQuoteImages(quote.id, quoteDocumentImageIds(documentContent));
+  if (completing) await notifySafely(() => notifyDocumentAvailable({ quoteId: quote.id }));
   return { ok: true, quote: { id: quote.id, clientId: quote.clientId }, updatedAt: updated.updatedAt };
 }
 

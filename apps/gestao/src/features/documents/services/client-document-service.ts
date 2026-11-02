@@ -2,6 +2,7 @@ import type { ClientDocumentKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { defaultFreeCover, parseQuoteDocumentContent, quoteDocumentImageIds } from "@/features/quotes/types/document-content";
 import { deleteUnusedDocumentImages } from "@/features/quotes/services/quote-images";
+import { notifyDocumentAvailable, notifySafely } from "@/features/notifications/services/client-emails";
 
 export type SaveClientDocumentResult =
   | { ok: true; document: { id: string; clientId: string | null; code: string; kind: ClientDocumentKind }; updatedAt: Date }
@@ -16,8 +17,10 @@ export async function saveClientDocument(documentId: string, rawDocument: unknow
   const { cover, ...withoutCover } = parsed;
   const documentContent = document.kind === "FREE" ? { ...withoutCover, cover: cover ?? defaultFreeCover(document.title) } : withoutCover;
   const title = document.kind === "FREE" && cover?.title ? cover.title : document.title;
-  const updated = await prisma.clientDocument.update({ where: { id: document.id }, data: { documentContent, title, ...(options.complete && !document.completedAt ? { completedAt: new Date() } : {}) }, select: { updatedAt: true } });
+  const completing = Boolean(options.complete && !document.completedAt);
+  const updated = await prisma.clientDocument.update({ where: { id: document.id }, data: { documentContent, title, ...(completing ? { completedAt: new Date() } : {}) }, select: { updatedAt: true } });
   if (options.cleanImages) await deleteUnusedDocumentImages({ documentId: document.id }, quoteDocumentImageIds(documentContent));
+  if (completing) await notifySafely(() => notifyDocumentAvailable({ documentId: document.id }));
   return { ok: true, document: { id: document.id, clientId: document.clientId, code: document.code, kind: document.kind }, updatedAt: updated.updatedAt };
 }
 

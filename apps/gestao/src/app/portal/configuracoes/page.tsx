@@ -5,7 +5,7 @@ import { getPortalContext, getPortalPaymentOptions } from "@/features/client-por
 export const dynamic = "force-dynamic";
 
 export default async function PortalSettingsPage() {
-  const context = await getPortalContext();
+  const context = await getPortalContext(true);
   const { profile } = await getPortalPaymentOptions();
   const { client, user } = context;
 
@@ -19,9 +19,9 @@ export default async function PortalSettingsPage() {
         <div><dt>CPF / CNPJ</dt><dd>{client?.document || "—"}</dd></div>
       </dl></div>
     </section>
-    <section className="settings-panel" aria-labelledby="portal-password-title">
-      <div className="settings-panel-heading"><div><h2 id="portal-password-title">Senha de acesso.</h2><p>No primeiro acesso, troque a senha provisória por uma sua. Ao trocar, os outros aparelhos conectados precisam entrar de novo.</p></div></div>
-      <div className="settings-panel-body"><PasswordChangeForm className="settings-password" /></div>
+    <section className={`settings-panel${user.mustChangePassword ? " is-required" : ""}`} aria-labelledby="portal-password-title">
+      <div className="settings-panel-heading"><div><h2 id="portal-password-title">{user.mustChangePassword ? "Crie sua senha para continuar." : "Senha de acesso."}</h2><p>{user.mustChangePassword ? "Você entrou com a senha provisória recebida por e-mail. Crie uma senha sua, com pelo menos 8 caracteres, para liberar a área do cliente." : "Ao trocar, os outros aparelhos conectados precisam entrar de novo."}</p></div></div>
+      <div className="settings-panel-body"><PasswordChangeForm className="settings-password" provisional={user.mustChangePassword} /></div>
     </section>
     {profile?.email || profile?.phone || profile?.website ? <section className="settings-panel" aria-labelledby="portal-contact-title">
       <div className="settings-panel-heading"><div><h2 id="portal-contact-title">Contato.</h2><p>Dúvidas, pedidos e suporte.</p></div></div>

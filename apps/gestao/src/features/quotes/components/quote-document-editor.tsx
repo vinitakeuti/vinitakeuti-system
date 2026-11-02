@@ -972,6 +972,8 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     { key: "page-break", label: "Quebra de página", detail: "O conteúdo seguinte começa numa nova página." },
   ];
 
+  const contact = [professional.email?.trim(), professional.phone?.trim()].filter(Boolean).join(" · ");
+
   function pageHeader(key?: string) {
     return <header className="quote-sheet-header" key={key}>
       <div className="quote-sheet-brand">
@@ -980,6 +982,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
           <span>{coverSettings?.label.toUpperCase() || kindInfo.coverLabel}</span>
           <strong>{professional.name}</strong>
           {professional.professionalTitle ? <small>{professional.professionalTitle}</small> : null}
+          {contact ? <small className="quote-sheet-contact">{contact}</small> : null}
         </div>
       </div>
       {hasClient ? <div className="quote-sheet-client"><span>CLIENTE</span><strong>{cover.client.name}</strong>{[cover.client.company, cover.client.document].filter(Boolean).map((detail) => <small key={detail}>{detail}</small>)}</div> : null}

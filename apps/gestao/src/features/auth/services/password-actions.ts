@@ -18,13 +18,16 @@ export async function changeOwnPasswordAction(_previous: PasswordChangeState, fo
   const next = value("next");
   if (next.length < MIN_PASSWORD_LENGTH) return { status: "error", message: `A nova senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` };
   if (next !== value("confirm")) return { status: "error", message: "A confirmação não é igual à nova senha." };
-  const stored = await prisma.user.findUnique({ where: { id: current.user.id }, select: { passwordHash: true } });
+  const stored = await prisma.user.findUnique({ where: { id: current.user.id }, select: { passwordHash: true, mustChangePassword: true } });
   if (!stored || !(await verifyPassword(value("current"), stored.passwordHash))) {
     await logEvent({ level: "warning", event: "auth.password.change_failed", message: "Troca de senha com a senha atual incorreta.", actorEmail: current.user.email });
     return { status: "error", message: "A senha atual não confere." };
   }
-  await prisma.user.update({ where: { id: current.user.id }, data: { passwordHash: await hashPassword(next) } });
+  if (await verifyPassword(next, stored.passwordHash)) return { status: "error", message: "A nova senha precisa ser diferente da atual." };
+  await prisma.user.update({ where: { id: current.user.id }, data: { passwordHash: await hashPassword(next), mustChangePassword: false } });
   await revokeOtherSessions(current.user.id);
   await logEvent({ event: "auth.password.changed", message: `Senha alterada por ${current.user.name}.`, actorEmail: current.user.email });
+  // Saindo da senha provisória, o cliente segue para o Início do portal.
+  if (stored.mustChangePassword) redirect("/?senha=criada");
   return { status: "ok", message: "Senha alterada. Outros aparelhos conectados precisam entrar de novo." };
 }

@@ -9,7 +9,7 @@ const date = new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: 
 
 function shareMessage(name: string, portalUrl: string, email: string, password: string) {
   const firstName = name.trim().split(/\s+/)[0] || "";
-  return `Olá${firstName ? `, ${firstName}` : ""}! Seu acesso à área do cliente está pronto.\n\nEndereço: ${portalUrl}\nE-mail: ${email}\nSenha provisória: ${password}\n\nNo primeiro acesso, troque a senha em "Sua conta".`;
+  return `Olá${firstName ? `, ${firstName}` : ""}! Seu acesso à área do cliente está pronto.\n\nEndereço: ${portalUrl}\nE-mail: ${email}\nSenha provisória: ${password}\n\nNo primeiro acesso, você cria uma senha sua.`;
 }
 
 /** Acesso do cliente ao portal: criar, gerar nova senha, desativar/reativar e trocar o e-mail. */
@@ -28,7 +28,7 @@ export function PortalAccessPanel({ clientId, clientName, clientEmail, access, p
     {state.status === "error" ? <p className="form-error" role="alert">{state.message}</p> : null}
     {state.status === "ok" ? <p className="form-success" role="status">{state.message}</p> : null}
     {state.status === "password" ? <div className="client-access-secret" role="status">
-      <p><b>{state.created ? "Acesso criado." : "Nova senha gerada."}</b> Copie agora: a senha não será mostrada de novo.</p>
+      <p><b>{state.created ? "Acesso criado." : "Nova senha gerada."}</b> O acesso foi enviado por e-mail para {state.email}, e no primeiro acesso o cliente cria uma senha dele. Para mandar também por outro canal, copie a mensagem agora: a senha não será mostrada de novo.</p>
       <dl><div><dt>E-mail</dt><dd>{state.email}</dd></div><div><dt>Senha provisória</dt><dd><code>{state.password}</code></dd></div></dl>
       <textarea readOnly rows={7} value={message} aria-label="Mensagem para enviar ao cliente" />
       <button type="button" className="secondary-action" onClick={copy}>{copied ? "MENSAGEM COPIADA" : "COPIAR MENSAGEM"}</button>

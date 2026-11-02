@@ -53,7 +53,7 @@ export async function loginAction(formData: FormData) {
   await ensureLocalTestAccount();
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, name: true, email: true, passwordHash: true, role: true, clientId: true, isActive: true },
+    select: { id: true, name: true, email: true, passwordHash: true, role: true, clientId: true, isActive: true, mustChangePassword: true },
   });
   if (!user || !user.isActive || !(await verifyPassword(password, user.passwordHash))) {
     await logEvent({ level: "warning", event: "auth.login.failed", message: !user ? "Login com e-mail não cadastrado." : !user.isActive ? "Login de conta desativada." : "Login com senha incorreta.", actorEmail: email });
@@ -72,7 +72,8 @@ export async function loginAction(formData: FormData) {
   ]);
   await createAuthenticatedSession(user);
   await logEvent({ event: "auth.login.success", message: `Login de ${user.name}.`, actorEmail: user.email, metadata: { role: user.role } });
-  redirect("/");
+  // Senha provisória (enviada por e-mail): o cliente cria a senha dele antes de usar o portal.
+  redirect(portal === "client" && user.mustChangePassword ? "/configuracoes?senha=provisoria" : "/");
 }
 
 export async function logoutAction() {

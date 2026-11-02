@@ -3,7 +3,11 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { PasswordChangeForm } from "@/features/auth/components/password-change-form";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
-import { EmailTestPanel } from "@/features/settings/components/email-test-panel";
+import { EmailModelTest, EmailTestPanel } from "@/features/settings/components/email-test-panel";
+import { emailProfessional } from "@/features/notifications/services/email-outbox";
+import { buildEmailPreview, EMAIL_MODELS, isEmailModel } from "@/features/notifications/services/email-previews";
+import { EMAIL_LOGO_PATH } from "@/features/notifications/templates/brand-email";
+import { managementUrl } from "@/features/auth/services/auth-host";
 import { emailConfigStatus } from "@/lib/integrations/email";
 import { LOG_LEVELS, LOG_SOURCES, getSystemLogSummary, listEmailLogs, listSystemLogs } from "@/features/system-logs/queries/system-log-queries";
 
@@ -13,7 +17,7 @@ const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyl
 const SECTIONS = [{ id: "email", label: "E-MAIL" }, { id: "senha", label: "SENHA" }, { id: "logs", label: "LOGS DO SISTEMA" }] as const;
 type Section = (typeof SECTIONS)[number]["id"];
 
-type SettingsPageProps = { searchParams: Promise<{ secao?: string; cursor?: string; origem?: string; nivel?: string; busca?: string; envio?: string }> };
+type SettingsPageProps = { searchParams: Promise<{ secao?: string; cursor?: string; origem?: string; nivel?: string; busca?: string; envio?: string; modelo?: string }> };
 
 function href(params: Record<string, string | undefined>) {
   const query = new URLSearchParams();
@@ -41,7 +45,12 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
 
 async function EmailSection({ params, defaultTo }: { params: Awaited<SettingsPageProps["searchParams"]>; defaultTo: string }) {
   const config = emailConfigStatus();
-  const { data: logs, nextCursor } = await listEmailLogs({ cursor: params.cursor, status: params.envio });
+  const model = isEmailModel(params.modelo) ? params.modelo : EMAIL_MODELS[0].id;
+  const [{ data: logs, nextCursor }, professional] = await Promise.all([listEmailLogs({ cursor: params.cursor, status: params.envio }), emailProfessional()]);
+  const email = buildEmailPreview(model, professional);
+  // Na pré-visualização, a marca vem deste mesmo servidor (no e-mail, ela vem do endereço público da gestão).
+  const preview = { ...email, html: email.html.replaceAll(managementUrl(EMAIL_LOGO_PATH), EMAIL_LOGO_PATH) };
+  const current = EMAIL_MODELS.find((item) => item.id === model)!;
   return <>
     <section className="settings-panel">
       <div className="settings-panel-heading"><div><h2>Servidor de envio.</h2><p>E-mails saem por SMTP, configurado nas variáveis de ambiente do serviço no Easypanel.</p></div><span className={config.configured ? "settings-badge is-ok" : "settings-badge is-warning"}>{config.configured ? "CONFIGURADO" : "NÃO CONFIGURADO"}</span></div>
@@ -54,6 +63,17 @@ async function EmailSection({ params, defaultTo }: { params: Awaited<SettingsPag
         </dl>
         {!config.configured ? <p className="settings-note">Faltam as variáveis <b>{config.missing.join(", ")}</b>. Exemplo: <code>SMTP_HOST=smtp.hostinger.com</code>, <code>SMTP_PORT=465</code>, <code>SMTP_SECURE=true</code>, <code>SMTP_USER=contato@viniciusriudi.com</code>, <code>SMTP_PASSWORD=…</code>, <code>EMAIL_FROM=Vinicius Riudi &lt;contato@viniciusriudi.com&gt;</code>.</p> : null}
         <EmailTestPanel configured={config.configured} defaultTo={defaultTo} />
+      </div>
+    </section>
+    <section className="settings-panel" id="modelos">
+      <div className="settings-panel-heading"><div><h2>Modelos de e-mail.</h2><p>O que sai automaticamente para seus clientes e para você, aqui com dados de exemplo. O cliente só recebe e-mails se tiver acesso ativo ao portal, no e-mail desse acesso.</p></div></div>
+      <div className="settings-email-models">
+        <nav aria-label="Modelos de e-mail">{["Cliente", "Você"].map((group) => <div key={group}><p>{group === "Cliente" ? "PARA O CLIENTE" : "PARA VOCÊ"}</p><ul>{EMAIL_MODELS.filter((item) => item.group === group).map((item) => <li key={item.id}><Link href={`${href({ secao: "email", modelo: item.id })}#previa`} aria-current={item.id === model ? "true" : undefined}><b>{item.name}</b><small>{item.when}</small></Link></li>)}</ul></div>)}</nav>
+        <div className="settings-email-preview" id="previa">
+          <div className="settings-email-subject"><span>ASSUNTO</span><b>{preview.subject}</b><small>{current.when}</small></div>
+          <iframe title={`Pré-visualização: ${current.name}`} srcDoc={preview.html} sandbox="allow-popups allow-popups-to-escape-sandbox" loading="lazy" />
+          <EmailModelTest model={model} configured={config.configured} defaultTo={defaultTo} />
+        </div>
       </div>
     </section>
     <section className="settings-panel">

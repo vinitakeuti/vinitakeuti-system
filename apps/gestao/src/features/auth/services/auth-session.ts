@@ -15,6 +15,7 @@ const userSelect = {
   role: true,
   clientId: true,
   isActive: true,
+  mustChangePassword: true,
 } as const;
 
 export function isManagementRole(role: UserRole) {

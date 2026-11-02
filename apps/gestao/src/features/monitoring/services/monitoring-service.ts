@@ -2,6 +2,7 @@ import { MonitoringEventType, MonitoringStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { monitoringRules } from "@/lib/monitoring";
 import { formatDuration, sendMonitoringEmail } from "@/features/monitoring/services/monitoring-alerts";
+import { notifySafely, notifySystemStatus } from "@/features/notifications/services/client-emails";
 
 type CheckResult = {
   status: MonitoringStatus;
@@ -191,8 +192,10 @@ async function alertTransition(app: { id: string; name: string; url: string | nu
     // O lembrete (a cada 6 h enquanto continuar fora) conta a partir desta tentativa de aviso.
     await sendMonitoringEmail({ critical: true, subject: `Fora do ar: ${app.name}`, title: `${app.name} está fora do ar.`, lines: [app.url ? `Endereço: ${app.url}` : "", details ? `Última verificação: ${details}` : "", "A queda foi confirmada em duas tentativas. Você recebe outro aviso quando o sistema voltar."].filter(Boolean), path });
     await prisma.monitoredApp.update({ where: { id: app.id }, data: { lastAlertAt: new Date() } });
+    await notifySafely(() => notifySystemStatus({ appId: app.id, down: true, durationMs: null }));
   } else if (transition.from === MonitoringStatus.DOWN) {
     await sendMonitoringEmail({ subject: `Voltou: ${app.name}${transition.durationMs !== null ? ` (fora por ${formatDuration(transition.durationMs)})` : ""}`, title: `${app.name} voltou a responder.`, lines: [transition.durationMs !== null ? `Ficou fora do ar por ${formatDuration(transition.durationMs)}.` : "", details ? `Verificação: ${details}` : "", transition.to === MonitoringStatus.DEGRADED ? "Atenção: voltou, mas ainda está degradado." : ""].filter(Boolean), path });
     await prisma.monitoredApp.update({ where: { id: app.id }, data: { lastAlertAt: null } });
+    await notifySafely(() => notifySystemStatus({ appId: app.id, down: false, durationMs: transition.durationMs }));
   }
 }

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { createQuote } from "@/features/quotes/services/create-quote";
 import { createDefaultQuoteDocument, QUOTE_DOCUMENT_MAX_JSON_LENGTH } from "@/features/quotes/types/document-content";
 import { saveQuoteDocument } from "@/features/quotes/services/quote-document-service";
+import { notifyDocumentAvailable, notifySafely } from "@/features/notifications/services/client-emails";
 import { parseQuotePayments } from "@/features/quotes/schemas/quote-payments";
 import { syncQuotePayments } from "@/features/finance/services/payment-plan";
 import { recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
@@ -113,7 +114,8 @@ export async function completeQuoteAction(formData: FormData) {
   if (!quoteId) redirect("/orcamentos/pendentes");
   const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, clientId: true } });
   if (!quote) redirect("/orcamentos/pendentes");
-  await prisma.quote.updateMany({ where: { id: quote.id, completedAt: null }, data: { completedAt: new Date() } });
+  const completed = await prisma.quote.updateMany({ where: { id: quote.id, completedAt: null }, data: { completedAt: new Date() } });
+  if (completed.count) await notifySafely(() => notifyDocumentAvailable({ quoteId: quote.id }));
   revalidateQuoteLists(quote.id, quote.clientId);
   redirect(`/orcamentos/${quote.id}?concluido=1`);
 }

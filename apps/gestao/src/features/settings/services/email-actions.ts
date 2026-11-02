@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
 import { emailErrorDetails, sendEmail, verifyEmailConnection } from "@/lib/integrations/email";
 import { logEvent } from "@/features/system-logs/services/system-log";
+import { renderBrandEmail } from "@/features/notifications/templates/brand-email";
+import { emailProfessional } from "@/features/notifications/services/email-outbox";
+import { buildEmailPreview, EMAIL_MODELS, isEmailModel } from "@/features/notifications/services/email-previews";
 
 export type EmailTestState = { status: "idle" } | { status: "ok"; message: string; detail: string | null } | { status: "error"; message: string; detail: string | null };
 
@@ -25,7 +28,8 @@ export async function sendTestEmailAction(_previous: EmailTestState, formData: F
 
   const startedAt = Date.now();
   try {
-    const result = await sendEmail({ to, subject, text: body, html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1f1f1f"><p>${body.replace(/[<>&]/g, (char) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[char]!).replace(/\n/g, "<br>")}</p><p style="color:#6b706c;font-size:12px">Enviado pela VR Gestão · ${new Date().toLocaleString("pt-BR", { timeZone: "America/Maceio" })}</p></div>` });
+    const message = renderBrandEmail({ subject, preheader: body.slice(0, 120), kicker: "TESTE DE ENVIO", title: subject, paragraphs: body.split(/\n+/).filter(Boolean), reason: `Enviado pelas Configurações da VR Gestão em ${new Date().toLocaleString("pt-BR", { timeZone: "America/Maceio" })}.`, professional: await emailProfessional() });
+    const result = await sendEmail({ to, subject, html: message.html, text: message.text });
     const durationMs = Date.now() - startedAt;
     const detail = [result.response, result.rejected.length ? `recusados: ${result.rejected.join(", ")}` : null].filter(Boolean).join(" · ") || null;
     await prisma.emailLog.create({ data: { kind: "test", status: "SENT", toAddress: to, subject, messageId: result.messageId, response: detail, durationMs, actorEmail: actor.email } });
@@ -60,5 +64,28 @@ export async function verifyEmailConnectionAction(_previous: EmailTestState): Pr
     await logEvent({ level: "error", event: "email.smtp.failed", message: "Falha na conexão SMTP.", actorEmail: actor.email, metadata: { error: detail, durationMs } });
     revalidatePath("/configuracoes");
     return { status: "error", message: "A conexão falhou.", detail };
+  }
+}
+
+/** Envia um modelo de e-mail, com dados de exemplo, para conferir como ele chega na caixa de entrada. */
+export async function sendModelTestAction(_previous: EmailTestState, formData: FormData): Promise<EmailTestState> {
+  const actor = await requireManagementUser();
+  const to = text(formData, "to", 254).toLowerCase();
+  const model = text(formData, "model", 40);
+  if (!EMAIL_PATTERN.test(to)) return { status: "error", message: "Informe um destinatário válido.", detail: null };
+  if (!isEmailModel(model)) return { status: "error", message: "Modelo desconhecido.", detail: null };
+  const email = buildEmailPreview(model, await emailProfessional());
+  const subject = `[Teste] ${email.subject}`.slice(0, 300);
+  const startedAt = Date.now();
+  try {
+    const result = await sendEmail({ to, subject, html: email.html, text: email.text });
+    await prisma.emailLog.create({ data: { kind: "test", status: "SENT", toAddress: to, subject, messageId: result.messageId, response: result.response, durationMs: Date.now() - startedAt, actorEmail: actor.email } });
+    revalidatePath("/configuracoes");
+    return { status: "ok", message: `Modelo "${EMAIL_MODELS.find((item) => item.id === model)!.name}" enviado para ${to}.`, detail: null };
+  } catch (error) {
+    const detail = emailErrorDetails(error);
+    await prisma.emailLog.create({ data: { kind: "test", status: "FAILED", toAddress: to, subject, error: detail, durationMs: Date.now() - startedAt, actorEmail: actor.email } });
+    revalidatePath("/configuracoes");
+    return { status: "error", message: "O envio falhou.", detail };
   }
 }

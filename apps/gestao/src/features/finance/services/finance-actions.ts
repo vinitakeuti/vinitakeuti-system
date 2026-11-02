@@ -10,6 +10,7 @@ import { MAX_INSTALLMENTS, buildInstallmentPlan, nextOpenInstallment } from "@/f
 import { rebuildInstallments, syncQuotePayments } from "@/features/finance/services/payment-plan";
 import { isMonthKey } from "@/features/finance/services/recurring-entries";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
+import { notifyPaymentReceipt, notifySafely } from "@/features/notifications/services/client-emails";
 
 function text(formData: FormData, name: string, max: number) {
   const value = formData.get(name);
@@ -202,10 +203,12 @@ export async function addFinancialPaymentAction(formData: FormData) {
   if (!payment) backToEntry(entryId, { error: "Informe o valor e a data do recebimento." });
   const problem = await paymentFits(entryId, payment.amountCents);
   if (problem) backToEntry(entryId, { error: problem });
-  await prisma.$transaction(async (tx) => {
-    await tx.financialPayment.create({ data: { entryId, ...payment } });
+  const created = await prisma.$transaction(async (tx) => {
+    const row = await tx.financialPayment.create({ data: { entryId, ...payment }, select: { id: true } });
     await recalculateFinancialEntry(tx, entryId, { syncSale: true });
+    return row;
   });
+  await notifySafely(() => notifyPaymentReceipt(created.id));
   revalidateFinance(entryId);
   backToEntry(entryId, { notice: "payment-added" });
 }
@@ -283,10 +286,12 @@ export async function markNextInstallmentPaidAction(formData: FormData) {
   const allocated = next;
   const amountCents = allocated ? allocated.remaining : entry.amountCents - entry.paidCents;
   if (amountCents < 1) fail("Não há valor em aberto.");
-  await prisma.$transaction(async (tx) => {
-    await tx.financialPayment.create({ data: { entryId, amountCents, paidAt, notes: allocated ? `Parcela ${allocated.number}/${entry.installments.length}` : null } });
+  const created = await prisma.$transaction(async (tx) => {
+    const row = await tx.financialPayment.create({ data: { entryId, amountCents, paidAt, notes: allocated ? `Parcela ${allocated.number}/${entry.installments.length}` : null }, select: { id: true } });
     await recalculateFinancialEntry(tx, entryId, { syncSale: true });
+    return row;
   });
+  await notifySafely(() => notifyPaymentReceipt(created.id));
   revalidateFinance(entryId);
   revalidatePath("/financeiro/condicoes");
   if (returnTo === "conditions") redirect("/financeiro/condicoes?notice=paid");

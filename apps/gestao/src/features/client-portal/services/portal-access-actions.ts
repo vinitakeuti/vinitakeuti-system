@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
 import { hashPassword } from "@/features/auth/services/passwords";
 import { logEvent } from "@/features/system-logs/services/system-log";
+import { notifyPortalAccess, notifySafely } from "@/features/notifications/services/client-emails";
 
 export type PortalAccessState =
   | { status: "idle" }
@@ -39,7 +40,8 @@ function isEmailTaken(error: unknown) {
 
 /**
  * Acesso do cliente ao portal, a partir do perfil na gestão: criar a conta com uma senha provisória, gerar uma
- * nova senha, desativar, reativar ou trocar o e-mail. A senha gerada aparece uma única vez, para ser enviada ao cliente.
+ * nova senha, desativar, reativar ou trocar o e-mail. A senha gerada aparece uma única vez e também vai por e-mail ao
+ * cliente; ela é provisória, e o portal pede a troca no primeiro acesso.
  */
 export async function portalAccessAction(_previous: PortalAccessState, formData: FormData): Promise<PortalAccessState> {
   const actor = await requireManagementUser();
@@ -57,12 +59,13 @@ export async function portalAccessAction(_previous: PortalAccessState, formData:
     if (existing) return { status: "error", message: "Este cliente já tem acesso ao portal." };
     const password = temporaryPassword();
     try {
-      await prisma.user.create({ data: { name: client.name, email, passwordHash: await hashPassword(password), role: UserRole.CLIENT, clientId: client.id } });
+      await prisma.user.create({ data: { name: client.name, email, passwordHash: await hashPassword(password), mustChangePassword: true, role: UserRole.CLIENT, clientId: client.id } });
     } catch (error) {
       if (isEmailTaken(error)) return { status: "error", message: "Este e-mail já é usado por outra conta." };
       throw error;
     }
     await audit("portal.access.created", `Acesso ao portal criado para ${client.name} (${email}).`);
+    await notifySafely(() => notifyPortalAccess({ clientId: client.id, email, password, created: true }));
     revalidatePath(profilePath);
     return { status: "password", email, password, created: true };
   }
@@ -74,10 +77,11 @@ export async function portalAccessAction(_previous: PortalAccessState, formData:
     const password = temporaryPassword();
     // A senha antiga deixa de valer e quem estava conectado precisa entrar de novo.
     await prisma.$transaction([
-      prisma.user.update({ where: { id: access.id }, data: { passwordHash: await hashPassword(password), isActive: true } }),
+      prisma.user.update({ where: { id: access.id }, data: { passwordHash: await hashPassword(password), mustChangePassword: true, isActive: true } }),
       prisma.authSession.deleteMany({ where: { userId: access.id } }),
     ]);
     await audit("portal.access.password_reset", `Nova senha gerada para ${client.name} (${access.email}).`);
+    await notifySafely(() => notifyPortalAccess({ clientId: client.id, email: access.email, password, created: false }));
     revalidatePath(profilePath);
     return { status: "password", email: access.email, password, created: false };
   }

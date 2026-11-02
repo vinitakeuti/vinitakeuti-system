@@ -2,6 +2,7 @@ import { FinancialEntryStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
 import { sendOwnerEmail } from "@/features/notifications/services/owner-email";
+import { notifyPaymentReceipt, notifySafely } from "@/features/notifications/services/client-emails";
 import { logEvent } from "@/features/system-logs/services/system-log";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -20,16 +21,16 @@ export async function settlePortalCharge(asaasPaymentId: string, { valueCents, p
   if (!charge?.financialEntryId) return false;
   const entryId = charge.financialEntryId;
   const amountCents = valueCents && valueCents > 0 ? valueCents : charge.amountCents;
-  let registered = false;
+  let registered: string | null = null;
   try {
     registered = await prisma.$transaction(async (tx) => {
       const existing = await tx.financialPayment.findUnique({ where: { chargeId: charge.id }, select: { id: true } });
-      if (existing) return false;
+      if (existing) return null;
       const entry = await tx.financialEntry.findUnique({ where: { id: entryId }, select: { status: true } });
-      if (!entry || entry.status === FinancialEntryStatus.CANCELLED) return false;
-      await tx.financialPayment.create({ data: { entryId, amountCents, paidAt: paymentDate(paidOn), notes: "Pago pelo portal do cliente (Asaas).", chargeId: charge.id } });
+      if (!entry || entry.status === FinancialEntryStatus.CANCELLED) return null;
+      const payment = await tx.financialPayment.create({ data: { entryId, amountCents, paidAt: paymentDate(paidOn), notes: "Pago pelo portal do cliente (Asaas).", chargeId: charge.id }, select: { id: true } });
       await recalculateFinancialEntry(tx, entryId, { syncSale: true });
-      return true;
+      return payment.id;
     });
   } catch (error) {
     // Dois avisos do mesmo pagamento ao mesmo tempo: o segundo esbarra na cobrança única e é ignorado.
@@ -37,6 +38,8 @@ export async function settlePortalCharge(asaasPaymentId: string, { valueCents, p
     throw error;
   }
   if (!registered) return false;
+  const paymentId = registered;
+  await notifySafely(() => notifyPaymentReceipt(paymentId));
   await logEvent({ source: "clientes", event: "portal.payment.received", message: `Pagamento online de ${charge.client.name}: ${money.format(amountCents / 100)}.`, metadata: { chargeId: charge.id, entryId } });
   await sendOwnerEmail({ kind: "portal", footer: "Portal do cliente", subject: `Pagamento recebido: ${charge.client.name} · ${money.format(amountCents / 100)}`, title: "Pagamento recebido pelo portal.", lines: [`Cliente: ${charge.client.name}`, `Valor: ${money.format(amountCents / 100)}`, charge.description, "O recebimento já foi registrado no Financeiro."], path: `/financeiro/lancamentos/${entryId}` });
   return true;

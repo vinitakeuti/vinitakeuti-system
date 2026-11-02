@@ -52,6 +52,7 @@ const styles = StyleSheet.create({
   documentKicker: { color: colors.accent, fontFamily: "Courier", fontSize: 7.3, letterSpacing: 0.9, marginBottom: 4 },
   professionalName: { color: colors.black, fontSize: 13, fontWeight: 700, letterSpacing: -0.25, marginBottom: 3 },
   professionalTitle: { color: colors.charcoal, fontSize: 8.5, lineHeight: 1.3 },
+  professionalContact: { color: colors.charcoal, fontSize: 7.3, lineHeight: 1.38, marginTop: 2 },
   clientInfo: { alignItems: "flex-end", flexShrink: 1, maxWidth: 200 },
   clientInfoKicker: { color: colors.accent, fontFamily: "Courier", fontSize: 7, letterSpacing: 0.9, marginBottom: 4 },
   clientInfoName: { color: colors.black, fontSize: 9.5, fontWeight: 700, marginBottom: 2, textAlign: "right" },
@@ -342,6 +343,8 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
   const totalCents = subtotalCents - discountCents;
   const client = quote.client ?? { name: "", company: null, document: null, email: null };
   const clientDetails = [client.company, client.document].filter(Boolean);
+  // Contato do profissional no cabeçalho de todas as páginas (Perfil profissional).
+  const contact = [quote.professional.email?.trim(), quote.professional.phone?.trim()].filter(Boolean).join(" · ");
   const website = websiteForDisplay(quote.professional.website);
   const footerDetails = [quote.professional.document, website].filter(Boolean).join(" · ");
   const clientCompany = client.company ?? "Não informado";
@@ -397,6 +400,7 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
                 <Text style={styles.documentKicker}>{headerLabel}</Text>
                 <Text style={styles.professionalName}>{quote.professional.name}</Text>
                 {quote.professional.professionalTitle ? <Text style={styles.professionalTitle}>{quote.professional.professionalTitle}</Text> : null}
+                {contact ? <Text style={styles.professionalContact}>{contact}</Text> : null}
               </View>
             </View>
             {quote.client ? <View style={styles.clientInfo}><Text style={styles.clientInfoKicker}>CLIENTE</Text><Text style={styles.clientInfoName}>{client.name}</Text>{clientDetails.map((detail) => <Text key={detail} style={styles.clientInfoLine}>{detail}</Text>)}</View> : null}

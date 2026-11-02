@@ -8,6 +8,8 @@ import { checkCertificate } from "@/features/monitoring/services/certificate-che
 import { checkDomainExpiration, registrableDomain } from "@/features/monitoring/services/domain-check";
 import { formatDuration, sendMonitoringEmail } from "@/features/monitoring/services/monitoring-alerts";
 import { runAsaasCycle } from "@/features/integrations/services/asaas-scheduler";
+import { deliverEmailOutbox } from "@/features/notifications/services/email-outbox";
+import { enqueuePaymentReminders } from "@/features/notifications/services/client-emails";
 
 const TICK_MS = 60_000;
 const CONCURRENCY = 4;
@@ -17,6 +19,8 @@ const REMINDER_EVERY_MS = 6 * HOUR;
 const CERTIFICATE_EVERY_MS = 12 * HOUR;
 const DOMAIN_EVERY_MS = DAY;
 const SUMMARY_HOUR = 8;
+/** Lembretes de vencimento e atraso aos clientes saem uma vez por dia, a partir das 9 h. */
+const PAYMENT_REMINDER_HOUR = 9;
 const RETENTION_DAYS = 90;
 const EXPIRY_THRESHOLDS = [1, 7, 30];
 
@@ -34,6 +38,9 @@ export function startMonitoringScheduler() {
     running = true;
     try { await runMonitoringCycle(); }
     catch (error) { await logEvent({ source: "sistema", level: "error", event: "monitoring.scheduler.failed", message: `Falha no ciclo do monitoramento: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
+    // E-mails para clientes que ainda estão na fila (novas tentativas e os que entraram fora de uma requisição).
+    try { await deliverEmailOutbox(); }
+    catch (error) { await logEvent({ source: "sistema", level: "error", event: "email.outbox.failed", message: `Falha no envio da fila de e-mails: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
     // O mesmo ciclo cuida dos pagamentos do Asaas (eventos que falharam e sincronização a cada 30 minutos).
     try { await runAsaasCycle(); }
     catch (error) { await logEvent({ source: "sistema", level: "error", event: "asaas.scheduler.failed", message: `Falha no ciclo do Asaas: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
@@ -153,6 +160,10 @@ async function runDailyTasks(now: Date) {
     if (removed.count) await logEvent({ source: "sistema", event: "monitoring.retention", message: `${removed.count} verificações com mais de ${RETENTION_DAYS} dias removidas.` });
   }
   if (hourOf(now) >= SUMMARY_HOUR && await claimDaily("monitoring-daily-summary", today)) await sendDailySummary(now);
+  if (hourOf(now) >= PAYMENT_REMINDER_HOUR && await claimDaily("client-payment-reminders", today)) {
+    const queued = await enqueuePaymentReminders(now);
+    if (queued) await logEvent({ source: "sistema", event: "email.client.payment_reminders", message: `${queued} ${queued === 1 ? "lembrete de pagamento" : "lembretes de pagamento"} na fila para clientes.` });
+  }
 }
 
 /** Resumo diário: o que pede atenção primeiro, depois quantos sistemas estão bem. */

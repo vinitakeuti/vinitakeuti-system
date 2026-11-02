@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { sendOwnerEmail } from "@/features/notifications/services/owner-email";
+import { notifySafely, notifySignatureReviewed } from "@/features/notifications/services/client-emails";
 import { logEvent } from "@/features/system-logs/services/system-log";
 import { documentKindFromEnum } from "@/features/documents/types/document-kinds";
 
@@ -63,6 +64,7 @@ export async function reviewSignedDocument({ id, decision, reason, reviewer }: {
   await prisma.signedDocument.update({ where: { id: copy.id }, data: { reviewStatus: approved ? "APPROVED" : "REJECTED", reviewedAt: new Date(), reviewedBy: reviewer, rejectionReason: approved ? null : reason.slice(0, 300) || null } });
   const code = copy.quote?.code ?? copy.document?.code ?? "documento";
   await logEvent({ source: "gestao", event: approved ? "document.signed_approved" : "document.signed_rejected", message: `Via assinada de ${code} (${copy.client.name}) ${approved ? "aprovada" : "recusada"}.`, actorEmail: reviewer });
+  await notifySafely(() => notifySignatureReviewed(copy.id));
   return { clientId: copy.clientId };
 }
 

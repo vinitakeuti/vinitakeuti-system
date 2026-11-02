@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { sendTestEmailAction, verifyEmailConnectionAction, type EmailTestState } from "@/features/settings/services/email-actions";
+import { sendModelTestAction, sendTestEmailAction, verifyEmailConnectionAction, type EmailTestState } from "@/features/settings/services/email-actions";
 
 function Result({ state }: { state: EmailTestState }) {
   if (state.status === "idle") return null;
@@ -29,4 +29,15 @@ export function EmailTestPanel({ configured, defaultTo }: { configured: boolean;
     </form>
     <Result state={sendState} />
   </>;
+}
+
+/** Envio de um modelo de e-mail (com dados de exemplo) para conferir na caixa de entrada. */
+export function EmailModelTest({ model, configured, defaultTo }: { model: string; configured: boolean; defaultTo: string }) {
+  const [state, send, sending] = useActionState<EmailTestState, FormData>(sendModelTestAction, { status: "idle" });
+  return <form action={send} className="settings-model-test">
+    <input type="hidden" name="model" value={model} />
+    <label>Enviar este modelo para<input name="to" type="email" required maxLength={254} defaultValue={defaultTo} /></label>
+    <button className="secondary-action" type="submit" disabled={!configured || sending}>{sending ? "ENVIANDO..." : "ENVIAR TESTE"}</button>
+    <Result state={state} />
+  </form>;
 }

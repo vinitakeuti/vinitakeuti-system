@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { redirect } from "next/navigation";
 import { FinancialEntryStatus, FinancialEntryType, Prisma, ProjectStatus, SaleStatus, SubscriptionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isAsaasConfigured } from "@/lib/integrations/asaas";
@@ -64,7 +65,8 @@ export function entrySchedule(entry: EntryRow, todayStart = portalTodayStart()):
   }));
 }
 
-async function loadReceivables(clientId: string) {
+/** Parcelas do cliente (em aberto, em atraso e totais). Também usada pelos lembretes de pagamento por e-mail. */
+export async function loadReceivables(clientId: string) {
   const keys = await clientQuoteKeys(clientId);
   if (!keys.length) return { entries: [], open: [], overdue: { count: 0, amountCents: 0, oldest: null as Date | null }, dueSoon: [], totals: { contractedCents: 0, paidCents: 0, remainingCents: 0 } };
   const rows = await prisma.financialEntry.findMany({
@@ -95,8 +97,10 @@ async function loadReceivables(clientId: string) {
  * Dados comuns a todas as páginas do portal (sessão, cliente e situação dos pagamentos, para o alerta de atraso).
  * `cache` evita repetir as consultas entre a página e a moldura dentro da mesma requisição.
  */
-export const getPortalContext = cache(async () => {
+export const getPortalContext = cache(async (allowProvisionalPassword: boolean = false) => {
   const user = await requireClientUser();
+  // Com a senha provisória, só a tela de Configurações (onde se cria a senha nova) fica disponível.
+  if (user.mustChangePassword && !allowProvisionalPassword) redirect("/configuracoes?senha=provisoria");
   const clientId = user.clientId!;
   const [client, receivables] = await Promise.all([
     prisma.client.findUnique({ where: { id: clientId }, select: { id: true, name: true, company: true, email: true, document: true, cpf: true, cnpj: true, phone: true } }),
