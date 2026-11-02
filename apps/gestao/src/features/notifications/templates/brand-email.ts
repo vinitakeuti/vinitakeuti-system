@@ -2,7 +2,7 @@ import { managementUrl } from "@/features/auth/services/auth-host";
 
 /**
  * Layout único dos e-mails (para clientes e para você), na identidade da marca: faixa preta com a marca VR, fio verde,
- * corpo em papel claro com rótulos em fonte mono, linhas finas de 1px e botão preto de cantos retos. HTML em tabelas e
+ * corpo branco contínuo (sem caixas de fundo) com rótulos em fonte mono, linhas finas de 1px e botão preto de cantos retos. HTML em tabelas e
  * estilos inline, que é o que Gmail, Outlook e Apple Mail entendem; toda mensagem também sai em texto puro.
  */
 
@@ -34,7 +34,7 @@ export type BrandEmail = {
 /** Marca em PNG branco (e-mails não exibem SVG), servida pela gestão. */
 export const EMAIL_LOGO_PATH = "/assets/images/email-logo.png";
 
-const C = { page: "#ECEEEB", band: "#000000", accent: "#4B6156", label: "#A9C2B4", paper: "#FFFFFF", soft: "#F5F6F4", ink: "#111111", body: "#3A3D3B", muted: "#666B66", line: "#D9DED9", attention: "#8C4427", attentionSoft: "#FBF2EF", onBand: "#FFFFFF", onBandMuted: "#B9BDB8" } as const;
+const C = { page: "#FFFFFF", band: "#000000", accent: "#4B6156", label: "#A9C2B4", paper: "#FFFFFF", ink: "#111111", body: "#3A3D3B", muted: "#666B66", line: "#D9DED9", attention: "#8C4427", onBand: "#FFFFFF", onBandMuted: "#B9BDB8" } as const;
 const SANS = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 const MONO = "'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace";
 
@@ -60,8 +60,8 @@ function contactParts(professional: EmailProfessional) {
 
 const label = (text: string, color: string = C.muted) => `<span style="font-family:${MONO};font-size:11px;line-height:16px;letter-spacing:1.2px;text-transform:uppercase;color:${color}">${escape(text)}</span>`;
 
-function rows(items: Array<[string, string]>, mono = false) {
-  return items.map(([name, value], index) => `<tr><td style="padding:12px 0;${index ? `border-top:1px solid ${C.line};` : ""}vertical-align:top;width:38%">${label(name)}</td><td style="padding:12px 0 12px 16px;${index ? `border-top:1px solid ${C.line};` : ""}vertical-align:top;font-family:${mono ? MONO : SANS};font-size:${mono ? 16 : 15}px;line-height:22px;font-weight:bold;color:${C.ink};word-break:break-word">${escape(value)}</td></tr>`).join("");
+function rows(items: Array<[string, string]>) {
+  return items.map(([name, value], index) => `<tr><td style="padding:12px 0;${index ? `border-top:1px solid ${C.line};` : ""}vertical-align:top;width:38%">${label(name)}</td><td style="padding:12px 0 12px 16px;${index ? `border-top:1px solid ${C.line};` : ""}vertical-align:top;font-family:${SANS};font-size:15px;line-height:22px;font-weight:bold;color:${C.ink};word-break:break-word">${escape(value)}</td></tr>`).join("");
 }
 
 export function renderBrandEmail(email: BrandEmail) {
@@ -71,7 +71,7 @@ export function renderBrandEmail(email: BrandEmail) {
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><title>${escape(email.subject)}</title></head>
 <body style="margin:0;padding:0;background:${C.page};-webkit-text-size-adjust:100%">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${C.page}">${escape(email.preheader)}&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.page}"><tr><td align="center" style="padding:32px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.page}"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px">
 <tr><td style="background:${C.band};padding:26px 32px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
@@ -86,8 +86,8 @@ export function renderBrandEmail(email: BrandEmail) {
 <h1 style="margin:0 0 20px;font-family:${SANS};font-size:26px;line-height:32px;font-weight:bold;letter-spacing:-0.5px;color:${C.ink}">${escape(email.title)}</h1>
 ${email.paragraphs.map(paragraph).join("")}
 ${email.details?.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;border-top:1px solid ${C.ink};border-bottom:1px solid ${C.line}">${rows(email.details)}</table>` : ""}
-${email.credentials?.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;background:${C.soft};border-left:3px solid ${C.accent}"><tr><td style="padding:8px 20px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows(email.credentials, true)}</table></td></tr></table>` : ""}
-${email.note ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;background:${email.note.tone === "attention" ? C.attentionSoft : C.soft};border-left:3px solid ${email.note.tone === "attention" ? C.attention : C.accent}"><tr><td style="padding:16px 20px">${label(email.note.label, email.note.tone === "attention" ? C.attention : C.accent)}<div style="margin-top:6px;font-family:${SANS};font-size:15px;line-height:23px;color:${C.ink}">${escape(email.note.text)}</div></td></tr></table>` : ""}
+${email.credentials?.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;border-left:3px solid ${C.accent}">${email.credentials.map(([name, value], index) => `<tr><td style="padding:${index ? 14 : 2}px 0 ${index === email.credentials!.length - 1 ? 2 : 0}px 18px">${label(name)}<div style="margin-top:4px;font-family:${MONO};font-size:17px;line-height:24px;font-weight:bold;color:${C.ink};word-break:break-all">${escape(value)}</div></td></tr>`).join("")}</table>` : ""}
+${email.note ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;border-left:3px solid ${email.note.tone === "attention" ? C.attention : C.accent}"><tr><td style="padding:2px 0 2px 18px">${label(email.note.label, email.note.tone === "attention" ? C.attention : C.accent)}<div style="margin-top:6px;font-family:${SANS};font-size:15px;line-height:23px;color:${C.ink}">${escape(email.note.text)}</div></td></tr></table>` : ""}
 ${email.action ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0 8px"><tr><td style="background:${C.band}"><a href="${escape(email.action.href)}" style="display:inline-block;padding:15px 24px;font-family:${MONO};font-size:12px;line-height:14px;letter-spacing:1.4px;text-transform:uppercase;color:#FFFFFF;text-decoration:none;font-weight:bold">${escape(email.action.label)}</a></td></tr></table>` : ""}
 ${email.closing?.length ? `<div style="margin-top:24px">${email.closing.map((text) => `<p style="margin:0 0 10px;font-family:${SANS};font-size:14px;line-height:22px;color:${C.muted}">${escape(text)}</p>`).join("")}</div>` : ""}
 </td></tr>
