@@ -893,7 +893,7 @@ model AiSettings {
   serviceInstructions String?
   /// Atende pelo WhatsApp números que não são do dono, em modo atendimento (serviços e contato).
   whatsappAttendance  Boolean   @default(false)
-  /// Nome da assistente (ex.: Velana), usado na apresentação e na saudação do site.
+  /// Nome da assistente (ex.: Eliza), usado na apresentação e na saudação do site.
   assistantName       String?
   /// Limite de execuções por dia (todas as origens), para conter custo. Null = sem limite.
   dailyRunLimit       Int?      @default(300)
