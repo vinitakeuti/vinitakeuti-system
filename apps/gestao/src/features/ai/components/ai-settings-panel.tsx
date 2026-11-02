@@ -6,6 +6,8 @@ import { AI_INSTRUCTIONS_MAX, providerOptions, type getAiSettingsView } from "@/
 import { systemPrompt } from "@/features/ai/services/prompts";
 import { CountedTextarea } from "@/features/ai/components/counted-textarea";
 import { costFromPrice, formatCost, priceToInput } from "@/features/ai/services/ai-costs";
+import { formatPhone } from "@/features/ai/services/site-attendance";
+import { CopyField } from "@/features/ai/components/copy-field";
 import { getActivitySummary, getAiUsage, listActivitySessions, type ActivityScope } from "@/features/ai/queries/ai-queries";
 import { disableAiAction, revokeExternalTokenAction, saveAiConnectionAction, saveAiContextAction, saveAiRulesAction, testAiConnectionAction } from "@/features/ai/services/ai-actions";
 import { AiTokenPanel } from "@/features/ai/components/ai-token-panel";
@@ -31,7 +33,7 @@ const runLabel = { PENDING: { text: "NA FILA", tone: "is-warning" }, RUNNING: { 
 const actionLabel: Record<string, string> = { DONE: "feito", ERROR: "erro", PENDING_CONFIRMATION: "aguardando confirmação", CONFIRMED: "confirmado", CANCELLED: "cancelado", EXPIRED: "expirou" };
 
 const ENDPOINTS = [
-  { label: "Site", method: "POST/GET", path: "/api/ia/site", note: "Público, liberado só para viniciusriudi.com. O site envia { sessionId, message } e acompanha a resposta com ?sessionId=…&run=…." },
+  { label: "Site", method: "POST/GET", path: "/api/ia/site", note: "Usada pelo widget. Público, liberado para viniciusriudi.com (e para os domínios em AI_SITE_ORIGINS). O atendimento começa em /api/ia/site/inicio, com nome, telefone e e-mail." },
   { label: "WhatsApp", method: "POST/GET", path: "/api/ia/mensagens", note: "Com o token. A ponte envia { de, texto } e acompanha a resposta com ?de=…&run=…. Só seus números são atendidos." },
   { label: "MCP", method: "POST", path: "/api/ia/mcp", note: "Com o token. Servidor MCP (HTTP) com as ferramentas da gestão, para agentes externos." },
   { label: "Gestão", method: "POST/GET", path: "/api/ia/conversas", note: "Usada pelo Assistente IA, com a sessão da gestão." },
@@ -138,6 +140,10 @@ export function AiAccessPanel({ settings }: { settings: AiSettingsView | null })
   return <section className="settings-panel" aria-labelledby="ai-access-title">
     <div className="settings-panel-heading"><div><h2 id="ai-access-title">Acesso externo.</h2><p>Como o site, a ponte do WhatsApp e agentes externos (MCP) falam com a IA da gestão. Cada canal precisa estar liberado em Canais e regras.</p></div></div>
     <div className="settings-panel-body">
+      <div className="ai-embed">
+        <div><b>Atendimento no site.</b><p>Cole esta linha no site, antes de fechar o &lt;/body&gt;. Aparece um botão flutuante de atendimento; para conversar, o visitante informa nome, telefone e e-mail, e você recebe um e-mail com o contato. O botão só aparece com o canal Site liberado em Canais e regras{settings?.channels.includes("SITE") ? " (liberado)" : " (hoje está desligado)"}.</p></div>
+        <CopyField value={`<script src="${managementUrl("/widget/atendimento.js")}" defer></script>`} label="Código do widget" />
+      </div>
       <AiTokenPanel hint={settings?.externalTokenHint ?? null} />
       {settings?.externalTokenHint ? <form className="ai-token-revoke"><ConfirmSubmitButton formAction={revokeExternalTokenAction} className="text-link integration-disconnect" message="Revogar o token? O MCP e a ponte do WhatsApp deixam de funcionar até um novo token ser configurado neles.">REVOGAR TOKEN</ConfirmSubmitButton></form> : null}
       <dl className="ai-endpoints">
@@ -156,10 +162,10 @@ function phoneLabel(digits: string | null) {
   return match ? `+${match[1]} ${match[2]} ${match[3]}-${match[4]}` : `+${digits}`;
 }
 
-function sessionLabel(session: { channel: string; externalKey: string | null; client: { name: string } | null }) {
+function sessionLabel(session: { channel: string; externalKey: string | null; contactName: string | null; client: { name: string } | null }) {
   if (session.channel === "WHATSAPP") return `WhatsApp · ${phoneLabel(session.externalKey)}`;
   if (session.channel === "PORTAL") return `Área do cliente${session.client ? ` · ${session.client.name}` : ""}`;
-  if (session.channel === "SITE") return "Site · visitante";
+  if (session.channel === "SITE") return `Site · ${session.contactName ?? "visitante"}`;
   if (session.channel === "SISTEMA") return "MCP · agente externo";
   return "Assistente";
 }
@@ -205,6 +211,7 @@ export async function AiActivityPanel({ settings, scope, cursor }: { settings: A
           <span className="ai-session-metrics"><span><b>{session.runCount}</b> {session.runCount === 1 ? "resposta" : "respostas"}</span><span><b>{compact.format(session.inputTokens + session.outputTokens)}</b> tokens</span><span className="ai-session-cost"><CostValue micros={session.costMicros ?? (session.unpricedRuns ? costFromPrice(session.inputTokens, session.outputTokens, price) : null)} rate={rate} estimated={session.costMicros === null && session.unpricedRuns > 0} /></span></span>
         </summary>
         <div className="ai-session-detail">
+          {session.contactName ? <dl className="ai-session-contact"><div><dt>NOME</dt><dd>{session.contactName}</dd></div>{session.contactPhone ? <div><dt>TELEFONE</dt><dd><a href={`https://wa.me/${session.contactPhone}`} target="_blank" rel="noreferrer noopener">{formatPhone(session.contactPhone)}</a></dd></div> : null}{session.contactEmail ? <div><dt>E-MAIL</dt><dd><a href={`mailto:${session.contactEmail}`}>{session.contactEmail}</a></dd></div> : null}</dl> : null}
           <div className="ai-session-head"><span>Início {dateTime.format(session.createdAt)} · última mensagem {dateTime.format(session.lastMessageAt)}</span>{session.channel === "GESTAO" ? <Link className="text-link" href={`/assistente?c=${session.id}`}>ABRIR CONVERSA</Link> : null}</div>
           <ol className="ai-session-runs">{session.runs.map((run) => <li key={run.id}>
             <time>{timeOnly.format(run.createdAt)}</time>

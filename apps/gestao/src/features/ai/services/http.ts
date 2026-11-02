@@ -46,3 +46,16 @@ export function rateLimited(key: string, limit: number, windowMs: number) {
 export function clientIp(request: Request) {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "desconhecido";
 }
+
+/**
+ * CORS das rotas públicas do atendimento (widget do site). Liberadas para viniciusriudi.com e para os domínios em
+ * AI_SITE_ORIGINS (separados por vírgula), útil para testar o site em outro endereço.
+ */
+const SITE_ORIGINS = ["https://viniciusriudi.com", "https://www.viniciusriudi.com"];
+
+export function siteCors(request: Request) {
+  const origin = request.headers.get("origin") ?? "";
+  const extra = (process.env.AI_SITE_ORIGINS ?? "").split(",").map((value) => value.trim().replace(/\/$/, "")).filter(Boolean);
+  const allowed = SITE_ORIGINS.includes(origin) || extra.includes(origin) || (process.env.NODE_ENV !== "production" && /^http:\/\/localhost(:\d+)?$/.test(origin));
+  return { ...(allowed ? { "access-control-allow-origin": origin, vary: "Origin" } : {}), "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type", "access-control-max-age": "600", "cache-control": "no-store" };
+}

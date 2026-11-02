@@ -85,7 +85,7 @@ export async function listActivitySessions(scope: ActivityScope, ownerPhones: st
     orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }],
     take: SESSION_PAGE + 1,
     ...(cursor ? { cursor: { id: cursor.slice(0, 50) }, skip: 1 } : {}),
-    select: { id: true, channel: true, title: true, externalKey: true, createdAt: true, lastMessageAt: true, client: { select: { name: true } } },
+    select: { id: true, channel: true, title: true, externalKey: true, contactName: true, contactPhone: true, contactEmail: true, createdAt: true, lastMessageAt: true, client: { select: { name: true } } },
   });
   const sessions = rows.slice(0, SESSION_PAGE);
   const ids = sessions.map((session) => session.id);

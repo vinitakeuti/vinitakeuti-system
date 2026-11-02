@@ -46,7 +46,7 @@ async function emailBody({ subject, title, lines, path, footer, critical }: { su
 }
 
 /** `kind` identifica o envio no registro de e-mails e prefixa os eventos de log ("monitoring" → monitoring.alert.sent). */
-export async function sendOwnerEmail({ kind, footer, subject, title, lines, path, critical = false }: { kind: "monitoring" | "portal" | "payments"; footer: string; subject: string; title: string; lines: string[]; path: string; critical?: boolean }) {
+export async function sendOwnerEmail({ kind, footer, subject, title, lines, path, critical = false }: { kind: "monitoring" | "portal" | "payments" | "attendance"; footer: string; subject: string; title: string; lines: string[]; path: string; critical?: boolean }) {
   const to = await ownerEmailRecipient();
   if (!to) {
     await logEvent({ source: "sistema", level: "warning", event: `${kind}.alert.no_recipient`, message: `Alerta não enviado (sem destinatário): ${subject}`, metadata: { hint: "Preencha o e-mail no Perfil profissional ou defina MONITORING_ALERT_EMAIL." } });

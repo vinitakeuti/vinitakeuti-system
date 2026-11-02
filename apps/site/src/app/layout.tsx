@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "@fontsource-variable/inter";
 import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
@@ -17,5 +18,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#000000", colorScheme: "dark" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR"><body>{children}</body></html>;
+  return <html lang="pt-BR"><body>
+    {children}
+    {/* Atendimento com IA: botão flutuante servido pela gestão (tema escuro, para o fundo preto do site). */}
+    {site.attendanceWidgetUrl ? <Script src={site.attendanceWidgetUrl} strategy="afterInteractive" data-tema="escuro" /> : null}
+  </body></html>;
 }

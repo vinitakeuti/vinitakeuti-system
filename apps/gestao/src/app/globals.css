@@ -1947,3 +1947,16 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
   .ai-session-runs li .ai-run-usage,.ai-run-tools,.ai-run-error { grid-column:1 / -1; }
   .ai-run-usage code { display:block; margin:3px 0 0; }
 }
+/* Integrações › IA: código do widget do site e contato do visitante na atividade. */
+.ai-embed { display:grid; gap:10px; }
+.ai-embed b { font-size:.86rem; font-weight:620; }
+.ai-embed p { margin:4px 0 0; color:var(--muted); font-size:.78rem; line-height:1.5; }
+.ai-copy { display:flex; align-items:stretch; gap:8px; min-width:0; }
+.ai-copy code { flex:1; min-width:0; padding:11px 12px; border:1px solid var(--line); background:var(--paper); font-family:var(--mono); font-size:.7rem; line-height:1.5; overflow-wrap:anywhere; }
+.ai-copy button { min-width:96px; cursor:pointer; }
+.ai-session-contact { display:flex; flex-wrap:wrap; gap:8px 28px; margin:12px 0 0; }
+.ai-session-contact div { display:grid; gap:2px; }
+.ai-session-contact dt { color:var(--muted); font-family:var(--mono); font-size:.56rem; letter-spacing:.04em; }
+.ai-session-contact dd { margin:0; font-size:.82rem; }
+.ai-session-contact a { color:var(--accent); }
+@media (max-width:640px) { .ai-copy { flex-direction:column; } }

@@ -909,6 +909,10 @@ model AiConversation {
   /// Identificador externo: sessão do visitante no site ou número do WhatsApp.
   externalKey   String?
   title         String?
+  /// Contato informado pelo visitante para iniciar o atendimento no site (obrigatório nele).
+  contactName   String?
+  contactPhone  String?
+  contactEmail  String?
   createdAt     DateTime       @default(now())
   lastMessageAt DateTime       @default(now())
   client        Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)

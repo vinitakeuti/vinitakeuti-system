@@ -7,6 +7,11 @@ export const site = {
   title: "Desenvolvedor de software",
   url: "https://viniciusriudi.com",
   clientAreaUrl: "https://clientes.viniciusriudi.com",
+  /**
+   * Atendimento com IA (widget servido pela gestão). O botão só aparece com o canal Site liberado em Integrações.
+   * NEXT_PUBLIC_ATENDIMENTO_URL troca o endereço (teste local); vazio desliga o widget.
+   */
+  attendanceWidgetUrl: process.env.NEXT_PUBLIC_ATENDIMENTO_URL ?? "https://gestao.viniciusriudi.com/widget/atendimento.js",
   contact: {
     email: "contato@viniciusriudi.com",
     whatsapp: "5582993460647",

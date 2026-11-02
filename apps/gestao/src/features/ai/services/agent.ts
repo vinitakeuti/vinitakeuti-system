@@ -37,7 +37,7 @@ async function history(conversationId: string): Promise<AiChatMessage[]> {
 }
 
 export async function executeRun(runId: string) {
-  const run = await prisma.aiRun.findUnique({ where: { id: runId }, select: { id: true, conversation: { select: { id: true, channel: true, clientId: true, externalKey: true, userId: true, client: { select: { name: true } } } } } });
+  const run = await prisma.aiRun.findUnique({ where: { id: runId }, select: { id: true, conversation: { select: { id: true, channel: true, clientId: true, externalKey: true, userId: true, contactName: true, contactPhone: true, contactEmail: true, client: { select: { name: true } } } } } });
   if (!run) return;
   const conversation = run.conversation;
   const loaded = await loadAiRuntime();
@@ -47,9 +47,9 @@ export async function executeRun(runId: string) {
   const scope = scopeForConversation(conversation, runtime.ownerPhones);
   const tools = toolsForScope(scope);
   const allowed = new Set(tools.map((tool) => tool.name));
-  const actor = conversation.channel === "SITE" ? "visitante do site" : conversation.channel === "WHATSAPP" ? `whatsapp:${conversation.externalKey}` : conversation.userId ?? conversation.channel.toLowerCase();
+  const actor = conversation.channel === "SITE" ? `site:${conversation.contactEmail ?? "visitante"}` : conversation.channel === "WHATSAPP" ? `whatsapp:${conversation.externalKey}` : conversation.userId ?? conversation.channel.toLowerCase();
   const context: ToolContext = { scope, channel: conversation.channel, conversationId: conversation.id, clientId: conversation.clientId, actor, runId: run.id };
-  const system = systemPrompt({ scope, channel: conversation.channel, clientName: conversation.client?.name, generalInstructions: runtime.generalInstructions, serviceInstructions: runtime.serviceInstructions });
+  const system = systemPrompt({ scope, channel: conversation.channel, clientName: conversation.client?.name, visitor: conversation.contactName ? { name: conversation.contactName, phone: conversation.contactPhone, email: conversation.contactEmail } : null, generalInstructions: runtime.generalInstructions, serviceInstructions: runtime.serviceInstructions });
   const messages = await history(conversation.id);
   const usage = { inputTokens: 0, outputTokens: 0 };
   // Custo informado pelo provedor em todas as chamadas (OpenRouter), ou null para calcular pelo preço do modelo.
