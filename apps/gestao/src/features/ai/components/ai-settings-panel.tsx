@@ -95,15 +95,16 @@ export function AiContextPanel({ settings }: { settings: AiSettingsView | null }
   const general = settings?.instructions ?? "";
   const service = settings?.serviceInstructions ?? "";
   const previews = [
-    { id: "gestao", label: "Gestão e seu WhatsApp", detail: "Você conversando com a IA: só as instruções gerais.", prompt: systemPrompt({ scope: "owner", channel: "GESTAO", generalInstructions: general, serviceInstructions: service }) },
-    { id: "site", label: "Site", detail: "Visitantes de viniciusriudi.com: gerais e de atendimento.", prompt: systemPrompt({ scope: "public", channel: "SITE", generalInstructions: general, serviceInstructions: service }) },
-    { id: "whatsapp", label: "WhatsApp (atendimento)", detail: "Clientes e interessados pelo WhatsApp: gerais e de atendimento.", prompt: systemPrompt({ scope: "public", channel: "WHATSAPP", generalInstructions: general, serviceInstructions: service }) },
-    { id: "portal", label: "Área do cliente", detail: "Clientes logados no portal: gerais e de atendimento.", prompt: systemPrompt({ scope: "client", channel: "PORTAL", clientName: "Nome do cliente", generalInstructions: general, serviceInstructions: service }) },
+    { id: "gestao", label: "Gestão e seu WhatsApp", detail: "Você conversando com a IA: só as instruções gerais.", prompt: systemPrompt({ scope: "owner", channel: "GESTAO", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
+    { id: "site", label: "Site", detail: "Visitantes de viniciusriudi.com: gerais e de atendimento.", prompt: systemPrompt({ scope: "public", channel: "SITE", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
+    { id: "whatsapp", label: "WhatsApp (atendimento)", detail: "Clientes e interessados pelo WhatsApp: gerais e de atendimento.", prompt: systemPrompt({ scope: "public", channel: "WHATSAPP", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
+    { id: "portal", label: "Área do cliente", detail: "Clientes logados no portal: gerais e de atendimento.", prompt: systemPrompt({ scope: "client", channel: "PORTAL", clientName: "Nome do cliente", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
   ];
   return <section className="settings-panel" aria-labelledby="ai-context-title">
     <div className="settings-panel-heading"><div><h2 id="ai-context-title">Contexto.</h2><p>O que a IA precisa saber sobre você e o seu trabalho. As instruções gerais valem em todas as conversas; as de atendimento, só quando ela fala com clientes e visitantes. As regras de segurança (o que cada canal pode ver e alterar) continuam valendo acima destas instruções.</p></div></div>
     <div className="settings-panel-body">
       <form className="settings-form" action={saveAiContextAction}>
+        <label>NOME DA ASSISTENTE<input name="assistantName" maxLength={40} defaultValue={settings?.assistantName ?? ""} placeholder="Ex.: Velana" autoComplete="off" /><small className="ai-field-hint">Usado na apresentação, na saudação do site e no cabeçalho do atendimento.</small></label>
         <CountedTextarea name="generalInstructions" label="INSTRUÇÕES GERAIS · TODAS AS CONVERSAS" defaultValue={general} max={AI_INSTRUCTIONS_MAX} rows={9} placeholder={GENERAL_PLACEHOLDER} />
         <CountedTextarea name="serviceInstructions" label="INSTRUÇÕES DE ATENDIMENTO · SITE, WHATSAPP E ÁREA DO CLIENTE" defaultValue={service} max={AI_INSTRUCTIONS_MAX} rows={11} placeholder={SERVICE_PLACEHOLDER} />
         <div className="settings-form-actions"><button className="primary-action" type="submit">SALVAR</button><small>Vale a partir da próxima mensagem. Instruções longas aumentam o custo de cada resposta.</small></div>
@@ -211,6 +212,7 @@ export async function AiActivityPanel({ settings, scope, cursor }: { settings: A
           <span className="ai-session-metrics"><span><b>{session.runCount}</b> {session.runCount === 1 ? "resposta" : "respostas"}</span><span><b>{compact.format(session.inputTokens + session.outputTokens)}</b> tokens</span><span className="ai-session-cost"><CostValue micros={session.costMicros ?? (session.unpricedRuns ? costFromPrice(session.inputTokens, session.outputTokens, price) : null)} rate={rate} estimated={session.costMicros === null && session.unpricedRuns > 0} /></span></span>
         </summary>
         <div className="ai-session-detail">
+          {session.summary ? <div className="ai-session-summary"><span>RESUMO DO ATENDIMENTO{session.summaryUpdatedAt ? ` · ${dateTime.format(session.summaryUpdatedAt)}` : ""}</span><p>{session.summary}</p></div> : null}
           {session.contactName ? <dl className="ai-session-contact"><div><dt>NOME</dt><dd>{session.contactName}</dd></div>{session.contactPhone ? <div><dt>TELEFONE</dt><dd><a href={`https://wa.me/${session.contactPhone}`} target="_blank" rel="noreferrer noopener">{formatPhone(session.contactPhone)}</a></dd></div> : null}{session.contactEmail ? <div><dt>E-MAIL</dt><dd><a href={`mailto:${session.contactEmail}`}>{session.contactEmail}</a></dd></div> : null}</dl> : null}
           <div className="ai-session-head"><span>Início {dateTime.format(session.createdAt)} · última mensagem {dateTime.format(session.lastMessageAt)}</span>{session.channel === "GESTAO" ? <Link className="text-link" href={`/assistente?c=${session.id}`}>ABRIR CONVERSA</Link> : null}</div>
           <ol className="ai-session-runs">{session.runs.map((run) => <li key={run.id}>

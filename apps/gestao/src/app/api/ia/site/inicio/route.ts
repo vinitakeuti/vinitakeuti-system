@@ -1,10 +1,10 @@
 import { isAiChannelOpen } from "@/features/ai/services/ai-settings";
 import { clientIp, field, rateLimited, readJson, siteCors } from "@/features/ai/services/http";
-import { parseVisitor, SITE_SESSION_ID, startSiteSession } from "@/features/ai/services/site-attendance";
+import { checkVisitor, parseVisitor, SITE_SESSION_ID, startSiteSession } from "@/features/ai/services/site-attendance";
 
 /**
- * Início do atendimento no site: nome, telefone e e-mail são obrigatórios.
- *   POST { sessionId, nome, telefone, email } → { ok, nome } | 400 { error, field }
+ * Início do atendimento no site: nome, telefone e e-mail são obrigatórios e passam pelo filtro de dados falsos.
+ *   POST { sessionId, nome, telefone, email } → { ok, nome, saudacao } | 400 { error, field }
  */
 
 export function OPTIONS(request: Request) {
@@ -20,6 +20,8 @@ export async function POST(request: Request) {
   if (!(await isAiChannelOpen("SITE"))) return Response.json({ error: "Atendimento indisponível no momento." }, { status: 503, headers });
   const parsed = parseVisitor({ nome: body.nome, telefone: body.telefone, email: body.email });
   if (!parsed.ok) return Response.json({ error: parsed.error, field: parsed.field }, { status: 400, headers });
+  const checked = await checkVisitor(parsed.visitor);
+  if (!checked.ok) return Response.json({ error: checked.error, field: checked.field, ...(checked.suggestion ? { sugestao: checked.suggestion } : {}) }, { status: 400, headers });
   const session = await startSiteSession(sessionId, parsed.visitor);
-  return Response.json({ ok: true, nome: session.firstName }, { headers });
+  return Response.json({ ok: true, nome: session.firstName, saudacao: session.welcome }, { headers });
 }

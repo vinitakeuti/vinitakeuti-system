@@ -79,6 +79,8 @@ export const ATTENDANCE_WIDGET_SOURCE = String.raw`(function () {
     ".primary:disabled{opacity:.4;cursor:default}",
     ".legal{margin:2px 0 0;color:var(--muted);font-size:11px;line-height:1.5}",
     ".error{margin:0;padding:9px 11px;border:1px solid #c9a191;background:#f8eeea;color:#8c4427;font-size:12px;line-height:1.45}",
+    ".error .fix{display:block;margin-top:7px;padding:6px 9px;border:1px solid #8c4427;background:#fff;color:#8c4427;font-size:10px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}",
+    ".error .fix:hover{background:#8c4427;color:#fff}",
     ".msgs{display:grid;gap:14px}",
     ".msg{display:grid;gap:4px;min-width:0}",
     ".msg.user{justify-items:end}",
@@ -128,15 +130,20 @@ export const ATTENDANCE_WIDGET_SOURCE = String.raw`(function () {
     return html;
   }
 
+  /** Máscara (DDD) número. Colado com +55 ou com zero antes do DDD, o prefixo sai. */
   function phoneMask(value) {
-    var d = value.replace(/\D/g, "").slice(0, 11);
+    var d = value.replace(/\D/g, "");
+    if (d.length > 11 && d.indexOf("55") === 0) d = d.slice(2);
+    d = d.replace(/^0+/, "").slice(0, 11);
     if (d.length <= 2) return d ? "(" + d : "";
     if (d.length <= 6) return "(" + d.slice(0, 2) + ") " + d.slice(2);
     if (d.length <= 10) return "(" + d.slice(0, 2) + ") " + d.slice(2, 6) + "-" + d.slice(6);
     return "(" + d.slice(0, 2) + ") " + d.slice(2, 7) + "-" + d.slice(7);
   }
 
-  function start() {
+  function start(identity) {
+    var who = identity.assistente || identity.profissional || "Atendimento";
+    var role = identity.assistente ? "Assistente de " + (identity.profissional || "") : "Atendimento online";
     var host = document.createElement("div");
     host.id = "vr-atendimento";
     document.body.appendChild(host);
@@ -144,7 +151,7 @@ export const ATTENDANCE_WIDGET_SOURCE = String.raw`(function () {
     root.innerHTML = '<style>' + CSS + '</style><div class="vr' + (DARK ? ' dark' : '') + '">' +
       '<button class="launcher mono" type="button" aria-haspopup="dialog" aria-expanded="false">' + ICON_CHAT + '<span class="label">' + escapeHtml(LABEL) + '</span><span class="dot" aria-hidden="true"></span></button>' +
       '<section class="panel" role="dialog" aria-modal="false" aria-label="Atendimento" aria-hidden="true">' +
-        '<header class="head"><img class="mark" src="' + LOGO + '" alt="" aria-hidden="true"><span class="who"><b>Vinicius Riudi</b><small class="mono"><i aria-hidden="true"></i>Atendimento online</small></span><button class="close" type="button" aria-label="Fechar atendimento">' + ICON_CLOSE + '</button></header>' +
+        '<header class="head"><img class="mark" src="' + LOGO + '" alt="" aria-hidden="true"><span class="who"><b>' + escapeHtml(who) + '</b><small class="mono"><i aria-hidden="true"></i>' + escapeHtml(role) + '</small></span><button class="close" type="button" aria-label="Fechar atendimento">' + ICON_CLOSE + '</button></header>' +
         '<div class="body"></div>' +
         '<form class="composer" hidden><textarea rows="1" maxlength="1000" placeholder="Escreva sua mensagem…" aria-label="Mensagem"></textarea><button class="primary mono" type="submit">Enviar</button></form>' +
         '<div class="foot mono">Atendimento com IA · Vinicius Riudi</div>' +
@@ -173,10 +180,16 @@ export const ATTENDANCE_WIDGET_SOURCE = String.raw`(function () {
     // Esc fecha o painel, onde quer que esteja o foco (dentro do widget ou na página).
     document.addEventListener("keydown", function (event) { if (event.key === "Escape" && panel.classList.contains("is-open")) close(); });
 
-    function showError(container, text) {
+    function showError(container, text, fix) {
       var old = container.querySelector(".error"); if (old) old.remove();
       if (!text) return;
       var p = document.createElement("p"); p.className = "error"; p.setAttribute("role", "alert"); p.textContent = text;
+      // Sugestão de correção (e-mail digitado errado): um toque aplica.
+      if (fix) {
+        var use = document.createElement("button"); use.type = "button"; use.className = "fix mono"; use.textContent = "Usar " + fix.value;
+        use.addEventListener("click", function () { fix.input.value = fix.value; fix.input.removeAttribute("aria-invalid"); p.remove(); fix.input.focus(); });
+        p.appendChild(use);
+      }
       container.appendChild(p);
     }
 
@@ -186,7 +199,7 @@ export const ATTENDANCE_WIDGET_SOURCE = String.raw`(function () {
       body.innerHTML = '<div class="intro"><h2>Olá! Vamos conversar?</h2><p>Para começar o atendimento, me conte quem é você. Assim Vinicius também consegue retornar o seu contato.</p></div>' +
         '<form class="lead" novalidate>' +
           '<label>Nome<input name="nome" autocomplete="name" maxlength="120" required></label>' +
-          '<label>Telefone (WhatsApp)<input name="telefone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(82) 99999-0000" maxlength="16" required></label>' +
+          '<label>Telefone (WhatsApp)<input name="telefone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(82) 99999-0000" maxlength="22" required></label>' +
           '<label>E-mail<input name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required></label>' +
           '<button class="primary mono" type="submit">Começar atendimento</button>' +
           '<p class="legal">Seus dados são usados só para responder ao seu contato.</p>' +
@@ -198,7 +211,7 @@ export const ATTENDANCE_WIDGET_SOURCE = String.raw`(function () {
         event.preventDefault();
         var data = { nome: form.nome.value.trim(), telefone: phone.value, email: form.email.value.trim() };
         Array.prototype.forEach.call(form.querySelectorAll("input"), function (field) { field.removeAttribute("aria-invalid"); });
-        var local = data.nome.length < 2 ? ["nome", "Informe seu nome."] : phone.value.replace(/\D/g, "").length < 10 ? ["telefone", "Informe um telefone com DDD."] : !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email) ? ["email", "Informe um e-mail válido."] : null;
+        var local = data.nome.length < 2 ? ["nome", "Informe seu nome."] : phone.value.replace(/\D/g, "").length < 10 ? ["telefone", "Informe o telefone com DDD, por exemplo (82) 99999-0000."] : !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email) ? ["email", "Informe um e-mail válido."] : null;
         if (local) { form[local[0]].setAttribute("aria-invalid", "true"); form[local[0]].focus(); showError(form, local[1]); return; }
         var button = form.querySelector("button"); button.disabled = true; button.textContent = "Iniciando…";
         data.sessionId = state.sessionId;
@@ -206,11 +219,14 @@ export const ATTENDANCE_WIDGET_SOURCE = String.raw`(function () {
           button.disabled = false; button.textContent = "Começar atendimento";
           if (result.__status !== 200) {
             if (result.field && form[result.field]) { form[result.field].setAttribute("aria-invalid", "true"); form[result.field].focus(); }
-            showError(form, result.error || "Não foi possível iniciar agora. Tente de novo em instantes.");
+            showError(form, result.error || "Não foi possível iniciar agora. Tente de novo em instantes.", result.sugestao && result.field ? { input: form[result.field], value: result.sugestao } : null);
             return;
           }
           state.name = result.nome; save(state);
-          chat([], "Prazer, " + result.nome + "! Como posso ajudar? Pode me contar sobre o seu projeto ou tirar dúvidas sobre os serviços.");
+          // A saudação (com a apresentação da assistente) fica gravada na conversa: a tela mostra o histórico.
+          request("GET", "?sessionId=" + encodeURIComponent(state.sessionId)).then(function (session) {
+            chat(session.messages || [], result.saudacao || ("Olá, " + result.nome + "! Como posso ajudar?"));
+          }).catch(function () { chat([], result.saudacao || ("Olá, " + result.nome + "! Como posso ajudar?")); });
         }).catch(function () { button.disabled = false; button.textContent = "Começar atendimento"; showError(form, "Sem conexão. Tente de novo em instantes."); });
       });
     }
@@ -277,7 +293,7 @@ export const ATTENDANCE_WIDGET_SOURCE = String.raw`(function () {
   }
 
   function boot() {
-    request("GET", "?status=1").then(function (result) { if (result.available) start(); }).catch(function () {});
+    request("GET", "?status=1").then(function (result) { if (result.available) start(result); }).catch(function () {});
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();

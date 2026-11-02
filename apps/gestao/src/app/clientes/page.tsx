@@ -5,16 +5,17 @@ import { listClients } from "@/features/clients/queries/client-queries";
 
 export const dynamic = "force-dynamic";
 
-type ClientsPageProps = { searchParams: Promise<{ cursor?: string; q?: string }> };
+type ClientsPageProps = { searchParams: Promise<{ cursor?: string; q?: string; excluido?: string }> };
 
 export default async function ClientsPage({ searchParams }: ClientsPageProps) {
-  const { cursor, q } = await searchParams;
+  const { cursor, q, excluido } = await searchParams;
   const { data: clients, nextCursor } = await listClients({ cursor, query: q });
   const nextHref = nextCursor ? `/clientes?${new URLSearchParams({ ...(q ? { q } : {}), cursor: nextCursor })}` : null;
 
   return (
     <main className="app-shell"><AppSidebar current="clients" /><div className="workspace"><section className="directory-page">
       <header className="directory-header"><div><p className="eyebrow">RELACIONAMENTO / BASE</p><h1>Clientes.</h1><p>Perfis que concentram serviços, orçamentos, assinaturas e pagamentos.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="primary-action" href="/clientes/novo">NOVO CLIENTE</Link></div></header>
+      {excluido ? <p className="form-success" role="status">Cliente excluído: {excluido.slice(0, 160)}.</p> : null}
       <section className="directory-surface" aria-label="Lista de clientes">
         <form className="client-search" action="/clientes"><div className="search-control"><label htmlFor="client-query">BUSCAR CLIENTE</label><input id="client-query" name="q" defaultValue={q ?? ""} placeholder="Nome, empresa ou e-mail" /></div><button type="submit">BUSCAR</button></form>
         {clients.length ? <div className="table-scroll"><table><thead><tr><th>CLIENTE</th><th>CONTATO</th><th>ORÇAMENTOS</th><th>SERVIÇOS</th><th>ASSINATURAS</th><th /></tr></thead><tbody>

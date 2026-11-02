@@ -2,11 +2,11 @@ import { sendAiMessage } from "@/features/ai/services/ai-runs";
 import { isAiChannelOpen } from "@/features/ai/services/ai-settings";
 import { runView } from "@/features/ai/services/conversations";
 import { aiErrorResponse, clientIp, field, rateLimited, readJson, siteCors } from "@/features/ai/services/http";
-import { SITE_SESSION_ID, siteSession } from "@/features/ai/services/site-attendance";
+import { attendanceIdentity, SITE_SESSION_ID, siteSession } from "@/features/ai/services/site-attendance";
 
 /**
  * Atendimento do site (widget), público. O widget gera um sessionId por visitante.
- *   GET  ?status=1                     → { available } (o botão só aparece com o canal Site liberado)
+ *   GET  ?status=1                     → { available, assistente, profissional } (o botão só aparece com o canal Site liberado)
  *   GET  ?sessionId=…                  → { started, name, messages, pendingRun } (retomar a conversa)
  *   GET  ?sessionId=…&run=…            → { status, reply }
  *   POST { sessionId, message }        → 202 { runId } (só depois de /api/ia/site/inicio com nome, telefone e e-mail)
@@ -37,7 +37,10 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const headers = siteCors(request);
   const params = new URL(request.url).searchParams;
-  if (params.get("status")) return Response.json({ available: await isAiChannelOpen("SITE") }, { headers });
+  if (params.get("status")) {
+    const [available, identity] = await Promise.all([isAiChannelOpen("SITE"), attendanceIdentity()]);
+    return Response.json({ available, assistente: identity.assistant, profissional: identity.professional }, { headers });
+  }
   const sessionId = params.get("sessionId") ?? "";
   if (!SITE_SESSION_ID.test(sessionId)) return Response.json({ error: "Sessão inválida." }, { status: 400, headers });
   const session = await siteSession(sessionId);

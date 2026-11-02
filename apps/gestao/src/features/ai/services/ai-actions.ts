@@ -48,7 +48,7 @@ export async function saveAiRulesAction(formData: FormData) {
 
 export async function saveAiContextAction(formData: FormData) {
   const user = await requireManagementUser();
-  const result = await saveAiContext({ generalInstructions: text(formData, "generalInstructions", AI_INSTRUCTIONS_MAX + 1), serviceInstructions: text(formData, "serviceInstructions", AI_INSTRUCTIONS_MAX + 1) });
+  const result = await saveAiContext({ assistantName: text(formData, "assistantName", 60), generalInstructions: text(formData, "generalInstructions", AI_INSTRUCTIONS_MAX + 1), serviceInstructions: text(formData, "serviceInstructions", AI_INSTRUCTIONS_MAX + 1) });
   if (!result.ok) done("contexto", { erro: result.error });
   await logEvent({ event: "ai.settings", message: "Contexto da IA atualizado (instruções gerais e de atendimento).", actorEmail: user.email });
   done("contexto", { aviso: "contexto" });

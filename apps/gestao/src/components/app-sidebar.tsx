@@ -7,14 +7,16 @@ import { getProfessionalProfile } from "@/features/professional-profile/queries/
 const navigation = [
   { code: "01", href: "/", id: "overview", label: "Visão geral" },
   { code: "02", href: "/assistente", id: "assistant", label: "Assistente IA" },
-  { code: "03", href: "/clientes", id: "clients", label: "Clientes" },
-  { code: "04", href: "/financeiro", id: "finance", label: "Financeiro" },
-  { code: "05", href: "/documentos", id: "quotes", label: "Documentos" },
-  { code: "06", href: "/vendas", id: "sales", label: "Vendas" },
-  { code: "07", href: "/servicos", id: "services", label: "Serviços" },
-  { code: "08", href: "/monitoramento", id: "monitoring", label: "Monitoramento" },
-  { code: "09", href: "/integracoes", id: "integrations", label: "Integrações" },
-  { code: "10", href: "/configuracoes", id: "settings", label: "Configurações" },
+  { code: "03", href: "/atendimentos", id: "attendances", label: "Atendimentos" },
+  { code: "04", href: "/agenda", id: "agenda", label: "Agenda" },
+  { code: "05", href: "/clientes", id: "clients", label: "Clientes" },
+  { code: "06", href: "/financeiro", id: "finance", label: "Financeiro" },
+  { code: "07", href: "/documentos", id: "quotes", label: "Documentos" },
+  { code: "08", href: "/vendas", id: "sales", label: "Vendas" },
+  { code: "09", href: "/servicos", id: "services", label: "Serviços" },
+  { code: "10", href: "/monitoramento", id: "monitoring", label: "Monitoramento" },
+  { code: "11", href: "/integracoes", id: "integrations", label: "Integrações" },
+  { code: "12", href: "/configuracoes", id: "settings", label: "Configurações" },
 ] as const;
 
 type AppSidebarProps = { current: (typeof navigation)[number]["id"] | "identity" };

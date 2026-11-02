@@ -65,9 +65,9 @@ function toolStatus(content: string, decisions: Map<string, string>): ToolStepSt
  * A conversa para as telas: mensagens da pessoa, respostas da IA e, entre elas, as etapas (ferramentas usadas, com
  * a situação de cada uma). Também diz se há alteração aguardando confirmação e a situação da última resposta.
  */
-export async function conversationView(conversationId: string) {
+export async function conversationView(conversationId: string, { take = VIEW_ROWS }: { take?: number } = {}) {
   const [rows, run, pending] = await Promise.all([
-    prisma.aiMessage.findMany({ where: { conversationId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: VIEW_ROWS, select: { id: true, role: true, content: true, toolCalls: true, toolCallId: true, createdAt: true } }),
+    prisma.aiMessage.findMany({ where: { conversationId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: Math.min(take, 600), select: { id: true, role: true, content: true, toolCalls: true, toolCallId: true, createdAt: true } }),
     prisma.aiRun.findFirst({ where: { conversationId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { id: true, status: true, error: true } }),
     prisma.aiAction.count({ where: { conversationId, status: "PENDING_CONFIRMATION", createdAt: { gte: new Date(Date.now() - 30 * 60_000) } } }),
   ]);

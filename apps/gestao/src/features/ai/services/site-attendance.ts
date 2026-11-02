@@ -2,6 +2,8 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendOwnerEmail } from "@/features/notifications/services/owner-email";
 import { logEvent } from "@/features/system-logs/services/system-log";
+import { getPortalContact } from "@/features/client-portal/queries/portal-queries";
+import { cleanEmail, normalizeBrazilPhone, suggestEmail, suspiciousEmail, suspiciousName, suspiciousPhone } from "@/features/ai/services/visitor-check";
 
 /**
  * Atendimento com IA no site (widget). Para começar, o visitante informa nome, telefone e e-mail: os dados ficam na
@@ -18,14 +20,33 @@ export type Visitor = { name: string; phone: string; email: string };
 export function parseVisitor(input: { nome?: unknown; telefone?: unknown; email?: unknown }): { ok: true; visitor: Visitor } | { ok: false; error: string; field: "nome" | "telefone" | "email" } {
   const name = typeof input.nome === "string" ? input.nome.replace(/\s+/g, " ").trim().slice(0, 120) : "";
   if (name.replace(/[^\p{L}]/gu, "").length < 2) return { ok: false, error: "Informe seu nome.", field: "nome" };
-  let digits = typeof input.telefone === "string" ? input.telefone.replace(/\D/g, "") : "";
-  if (digits.length === 12 || digits.length === 13) digits = digits.startsWith("55") ? digits : "";
-  else if (digits.length === 10 || digits.length === 11) digits = `55${digits}`;
-  else digits = "";
-  if (!digits || !/^55[1-9]{2}\d{8,9}$/.test(digits)) return { ok: false, error: "Informe um telefone com DDD.", field: "telefone" };
-  const email = typeof input.email === "string" ? input.email.trim().toLowerCase().slice(0, 254) : "";
+  const phone = normalizeBrazilPhone(typeof input.telefone === "string" ? input.telefone : "");
+  if (!phone.ok) return { ok: false, error: phone.error, field: "telefone" };
+  const digits = phone.digits;
+  const email = typeof input.email === "string" ? cleanEmail(input.email).slice(0, 254) : "";
   if (!EMAIL.test(email)) return { ok: false, error: "Informe um e-mail válido.", field: "email" };
   return { ok: true, visitor: { name, phone: digits, email } };
+}
+
+/** Dados que parecem inventados (ver visitor-check): recusados antes de qualquer custo com a IA. */
+export async function checkVisitor(visitor: Visitor): Promise<{ ok: true } | { ok: false; error: string; field: "nome" | "telefone" | "email"; suggestion?: string }> {
+  if (suspiciousName(visitor.name)) return { ok: false, error: "Confira seu nome: informe o seu nome real.", field: "nome" };
+  if (suspiciousPhone(visitor.phone)) return { ok: false, error: "Confira o telefone: informe um número real, com DDD.", field: "telefone" };
+  const suggestion = suggestEmail(visitor.email);
+  if (suggestion) return { ok: false, error: `Confira o e-mail: você quis dizer ${suggestion}?`, field: "email", suggestion };
+  if (await suspiciousEmail(visitor.email)) return { ok: false, error: "Confira o e-mail: informe um endereço que você usa.", field: "email" };
+  return { ok: true };
+}
+
+/** Nome da assistente e do profissional, para a saudação e o cabeçalho do widget. */
+export async function attendanceIdentity() {
+  const [settings, contact] = await Promise.all([prisma.aiSettings.findUnique({ where: { id: "default" }, select: { assistantName: true } }), getPortalContact()]);
+  return { assistant: settings?.assistantName?.trim() || null, professional: contact.name };
+}
+
+function greeting(firstName: string, identity: { assistant: string | null; professional: string }) {
+  const intro = identity.assistant ? `Sou a ${identity.assistant}, assistente de ${identity.professional}.` : `Sou a assistente de ${identity.professional}.`;
+  return `Olá, ${firstName}! ${intro} Como posso ajudar? Pode me contar sobre o seu projeto ou tirar dúvidas sobre os serviços.`;
 }
 
 export function formatPhone(digits: string) {
@@ -39,6 +60,13 @@ export async function startSiteSession(sessionId: string, visitor: Visitor) {
   const conversation = existing
     ? await prisma.aiConversation.update({ where: { id: existing.id }, data: { contactName: visitor.name, contactPhone: visitor.phone, contactEmail: visitor.email, lastMessageAt: new Date() }, select: { id: true } })
     : await prisma.aiConversation.create({ data: { channel: "SITE", externalKey: sessionId, contactName: visitor.name, contactPhone: visitor.phone, contactEmail: visitor.email }, select: { id: true } });
+  // Saudação com a apresentação da assistente, gravada na conversa: a IA sabe que já se apresentou.
+  const firstName = visitor.name.split(" ")[0];
+  let welcome: string | null = null;
+  if (!(await prisma.aiMessage.findFirst({ where: { conversationId: conversation.id }, select: { id: true } }))) {
+    welcome = greeting(firstName, await attendanceIdentity());
+    await prisma.aiMessage.create({ data: { conversationId: conversation.id, role: "assistant", content: welcome } });
+  }
   if (!existing?.contactName) {
     const notify = async () => {
       try {
@@ -48,7 +76,7 @@ export async function startSiteSession(sessionId: string, visitor: Visitor) {
     };
     try { after(notify); } catch { void notify(); }
   }
-  return { conversationId: conversation.id, firstName: visitor.name.split(" ")[0] };
+  return { conversationId: conversation.id, firstName, welcome };
 }
 
 /** Sessão do visitante, se ele já informou os dados: nome e as últimas mensagens, para o widget retomar a conversa. */

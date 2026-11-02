@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { ConversationItem, ConversationView } from "@/features/ai/services/conversations";
 import { AssistantMarkdown } from "@/features/ai/components/assistant-markdown";
+import { TOOL_LABELS } from "@/features/ai/types/tool-labels";
 import { deleteAssistantConversationAction } from "@/features/ai/services/ai-actions";
 
 /**
@@ -17,44 +18,12 @@ type Status = { ready: true; model: string } | { ready: false; reason: string };
 const POLL_MS = 1_000;
 const MAX_POLL_MS = 4 * 60_000;
 
-const TOOL_LABELS: Record<string, string> = {
-  clientes_buscar: "Procurou o cliente",
-  clientes_detalhes: "Consultou a ficha do cliente",
-  clientes_criar: "Cadastro do cliente",
-  clientes_atualizar: "Atualização do cadastro do cliente",
-  servicos_listar: "Consultou o catálogo de serviços",
-  servicos_criar: "Novo serviço no catálogo",
-  orcamentos_criar: "Criação do orçamento",
-  orcamentos_alterar_servicos: "Alteração dos serviços do orçamento",
-  orcamentos_detalhes: "Consultou o orçamento",
-  orcamentos_listar: "Listou os orçamentos",
-  financeiro_resumo: "Consultou o resumo do Financeiro",
-  financeiro_listar_lancamentos: "Consultou os lançamentos",
-  financeiro_adicionar_lancamento: "Lançamento no Financeiro",
-  financeiro_registrar_recebimento: "Registro de recebimento",
-  financeiro_baixar_proxima_parcela: "Baixa da próxima parcela",
-  vendas_listar: "Consultou as vendas",
-  vendas_propostas_em_aberto: "Consultou as propostas em aberto",
-  vendas_confirmar_proposta: "Confirmação da venda",
-  vendas_alterar_situacao: "Mudança na situação da venda",
-  documentos_listar: "Consultou os documentos",
-  documentos_ler: "Leu o documento",
-  documentos_criar: "Redação do documento",
-  documentos_reescrever: "Revisão do documento",
-  sistemas_listar: "Consultou os sistemas",
-  sistemas_detalhes: "Consultou o sistema",
-  sistemas_verificar_agora: "Verificou o sistema agora",
-  sistemas_verificar_atualizacoes: "Conferiu as atualizações da stack",
-  confirmar_acao: "Execução da alteração confirmada",
-  cancelar_acao: "Cancelamento da alteração",
-};
-
 const STATUS_LABEL = { done: "", error: "não concluído", pending: "aguardando sua confirmação", cancelled: "não executado" } as const;
 
 const SUGGESTIONS = [
   { label: "CLIENTE E ORÇAMENTO", text: "Crie um cliente chamado Construtora Virtus, para fazermos um orçamento de um site com integração com gateway de pagamento." },
   { label: "FINANCEIRO", text: "Quanto entrou e quanto saiu este mês? Tem alguma cobrança atrasada?" },
-  { label: "SISTEMAS", text: "Algum sistema está fora do ar ou com atualização importante pendente?" },
+  { label: "AGENDA", text: "O que tenho na agenda esta semana? Tem algum horário livre amanhã à tarde?" },
   { label: "DOCUMENTOS", text: "Liste os documentos em rascunho que ainda preciso concluir." },
 ];
 

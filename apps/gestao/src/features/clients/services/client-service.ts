@@ -49,3 +49,51 @@ export async function updateClientRecord(id: string, fields: ClientFields) {
   await prisma.client.update({ where: { id: current.id }, data: { ...data, cpf: docs.cpf, cnpj: docs.cnpj, document: docs.document } });
   return { ok: true as const, clientId: current.id };
 }
+
+/**
+ * O que vai junto ao excluir um cliente. Pelo banco, propostas, documentos, vendas, assinaturas, projetos,
+ * contratos, cobranças, avisos de pagamento, vias assinadas e acessos ao portal são apagados com ele; sistemas
+ * monitorados, conversas da IA e eventos da agenda só perdem o vínculo. Os lançamentos do Financeiro ficam (guardam
+ * descrição e nome como texto, para o histórico).
+ */
+export async function clientDeletionImpact(id: string) {
+  const client = await prisma.client.findUnique({ where: { id: id.slice(0, 50) }, select: { id: true, name: true, quotes: { select: { id: true }, take: 2_000 } } });
+  if (!client) return null;
+  const quoteKeys = client.quotes.map((quote) => `quote:${quote.id}`);
+  const where = { clientId: client.id };
+  const [documents, sales, subscriptions, projects, contracts, portalUsers, signedDocuments, charges, openOnlineCharges, financialEntries, monitoredApps, conversations, events] = await Promise.all([
+    prisma.clientDocument.count({ where }),
+    prisma.sale.count({ where }),
+    prisma.subscription.count({ where }),
+    prisma.project.count({ where }),
+    prisma.contract.count({ where }),
+    prisma.user.count({ where }),
+    prisma.signedDocument.count({ where }),
+    prisma.charge.count({ where }),
+    prisma.charge.count({ where: { ...where, asaasPaymentId: { not: null }, status: { in: ["PENDING", "OVERDUE"] } } }),
+    quoteKeys.length ? prisma.financialEntry.count({ where: { sourceKey: { in: quoteKeys } } }) : 0,
+    prisma.monitoredApp.count({ where }),
+    prisma.aiConversation.count({ where }),
+    prisma.calendarEvent.count({ where }),
+  ]);
+  return {
+    id: client.id,
+    name: client.name,
+    removed: { quotes: client.quotes.length, documents, sales, subscriptions, projects, contracts, portalUsers, signedDocuments, charges },
+    unlinked: { monitoredApps, conversations, events },
+    kept: { financialEntries },
+    openOnlineCharges,
+  };
+}
+
+const sameName = (left: string, right: string) => left.normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase() === right.normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
+
+/** Exclui o cliente, depois de confirmar o nome e conferir que não há cobrança em aberto no Asaas. */
+export async function deleteClientRecord(id: string, confirmName: string) {
+  const impact = await clientDeletionImpact(id);
+  if (!impact) return { ok: false as const, error: "Cliente não encontrado." };
+  if (!sameName(confirmName, impact.name)) return { ok: false as const, error: "Digite o nome do cliente exatamente como está no cadastro para confirmar." };
+  if (impact.openOnlineCharges) return { ok: false as const, error: `Este cliente tem ${impact.openOnlineCharges} ${impact.openOnlineCharges === 1 ? "cobrança em aberto" : "cobranças em aberto"} no Asaas. Cancele-as no lançamento do Financeiro antes de excluir, para ele não pagar algo que deixou de existir aqui.` };
+  await prisma.client.delete({ where: { id: impact.id } });
+  return { ok: true as const, impact };
+}

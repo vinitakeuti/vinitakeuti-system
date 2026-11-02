@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { clientDocumentLabel, isValidCnpj, isValidCpf, onlyDigits } from "@/lib/br-documents";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
+import { deleteClientRecord } from "@/features/clients/services/client-service";
+import { logEvent } from "@/features/system-logs/services/system-log";
 
 function optionalText(value: FormDataEntryValue | null, maxLength: number) {
   const text = typeof value === "string" ? value.trim() : "";
@@ -77,4 +79,21 @@ export async function updateClient(formData: FormData) {
   revalidatePath("/clientes");
   revalidatePath(`/clientes/${id}`);
   redirect(`/clientes/${id}?updated=1`);
+}
+
+/** Exclui o cliente (com confirmação pelo nome). Volta para a lista de clientes. */
+export async function deleteClientAction(formData: FormData) {
+  const user = await requireManagementUser();
+  const id = optionalText(formData.get("id"), 50);
+  if (!id) redirect("/clientes");
+  const result = await deleteClientRecord(id, optionalText(formData.get("confirmName"), 200) ?? "");
+  if (!result.ok) redirect(`/clientes/${encodeURIComponent(id)}/editar?deleteError=${encodeURIComponent(result.error)}#excluir`);
+  const removed = result.impact.removed;
+  await logEvent({ level: "warning", event: "client.deleted", message: `Cliente excluído: ${result.impact.name}.`, actorEmail: user.email, metadata: { ...removed, unlinked: result.impact.unlinked, financialEntriesKept: result.impact.kept.financialEntries } });
+  revalidatePath("/clientes");
+  revalidatePath("/vendas");
+  revalidatePath("/documentos");
+  revalidatePath("/orcamentos");
+  revalidatePath("/atendimentos");
+  redirect(`/clientes?excluido=${encodeURIComponent(result.impact.name)}`);
 }

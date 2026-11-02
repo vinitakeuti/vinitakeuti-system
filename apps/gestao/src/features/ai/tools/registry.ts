@@ -6,13 +6,14 @@ import { monitoringTools } from "@/features/ai/tools/monitoring-tools";
 import { clientTools } from "@/features/ai/tools/client-tools";
 import { confirmationTools } from "@/features/ai/tools/confirmation-tools";
 import { commercialTools } from "@/features/ai/tools/commercial-tools";
+import { agendaTools } from "@/features/ai/tools/agenda-tools";
 
 /**
  * Todas as ferramentas da IA. Para dar uma capacidade nova à IA, crie a ferramenta (defineTool) no domínio
  * correspondente e acrescente aqui: ela passa a valer na gestão, no portal, no site, no WhatsApp e no MCP,
  * conforme os escopos dela.
  */
-const ALL_TOOLS: AiTool<never>[] = [...financeTools, ...documentTools, ...monitoringTools, ...clientTools, ...commercialTools, ...confirmationTools] as unknown as AiTool<never>[];
+const ALL_TOOLS: AiTool<never>[] = [...financeTools, ...documentTools, ...monitoringTools, ...clientTools, ...commercialTools, ...agendaTools, ...confirmationTools] as unknown as AiTool<never>[];
 
 const byName = new Map(ALL_TOOLS.map((tool) => [tool.name, tool]));
 if (byName.size !== ALL_TOOLS.length) throw new Error("Há ferramentas da IA com o mesmo nome.");

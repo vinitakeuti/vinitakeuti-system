@@ -142,6 +142,7 @@ model Client {
   paymentNotices PaymentNotice[]
   signedDocuments SignedDocument[]
   aiConversations AiConversation[]
+  calendarEvents CalendarEvent[]
 
   @@index([name])
   @@index([email])
@@ -854,6 +855,14 @@ enum AiChannel {
   SISTEMA
 }
 
+/// Novo (ninguém tratou ainda), em andamento, convertido (virou cliente ou proposta) ou arquivado.
+enum AttendanceStatus {
+  NEW
+  IN_PROGRESS
+  CONVERTED
+  ARCHIVED
+}
+
 enum AiRunStatus {
   PENDING
   RUNNING
@@ -884,6 +893,8 @@ model AiSettings {
   serviceInstructions String?
   /// Atende pelo WhatsApp números que não são do dono, em modo atendimento (serviços e contato).
   whatsappAttendance  Boolean   @default(false)
+  /// Nome da assistente (ex.: Velana), usado na apresentação e na saudação do site.
+  assistantName       String?
   /// Limite de execuções por dia (todas as origens), para conter custo. Null = sem limite.
   dailyRunLimit       Int?      @default(300)
   /// Preço do modelo em micro-dólares por milhão de tokens (US$ 3,00 = 3000000), para calcular o custo quando o
@@ -913,15 +924,24 @@ model AiConversation {
   contactName   String?
   contactPhone  String?
   contactEmail  String?
+  /// Resumo do atendimento registrado pela IA (objetivo do cliente, serviços de interesse, próximo passo).
+  summary       String?
+  summaryUpdatedAt DateTime?
+  /// Situação do atendimento na tela Atendimentos (só nas conversas com clientes e visitantes).
+  attendanceStatus AttendanceStatus @default(NEW)
+  /// Anotações suas sobre o atendimento.
+  ownerNotes    String?
   createdAt     DateTime       @default(now())
   lastMessageAt DateTime       @default(now())
   client        Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
   messages      AiMessage[]
   runs          AiRun[]
   actions       AiAction[]
+  events        CalendarEvent[]
 
   @@unique([channel, externalKey])
   @@index([channel, lastMessageAt, id])
+  @@index([attendanceStatus, lastMessageAt, id])
   @@index([clientId, lastMessageAt])
   @@index([userId, lastMessageAt])
   @@index([lastMessageAt])
@@ -989,4 +1009,65 @@ model AiAction {
   @@index([conversationId, createdAt])
   @@index([status, createdAt])
   @@index([createdAt, id])
+}
+
+enum CalendarEventStatus {
+  SCHEDULED
+  CANCELLED
+  DONE
+}
+
+/// Agenda: reuniões, compromissos e lembretes. Pode vir da gestão (você), da IA da gestão ou da IA do atendimento
+/// (reunião marcada com um cliente ou interessado, com o contato e o resumo da conversa).
+model CalendarEvent {
+  id             String              @id @default(cuid())
+  title          String
+  description    String?
+  /// MEETING (reunião), APPOINTMENT (compromisso) ou REMINDER (lembrete).
+  kind           String              @default("MEETING")
+  startsAt       DateTime
+  endsAt         DateTime
+  location       String?
+  status         CalendarEventStatus @default(SCHEDULED)
+  clientId       String?
+  /// Contato de quem não é cliente cadastrado (visitante do site, número do WhatsApp).
+  contactName    String?
+  contactPhone   String?
+  contactEmail   String?
+  /// Conversa com a IA que gerou o evento (atendimento), para abrir o resumo e o histórico.
+  conversationId String?
+  /// gestao, ia-gestao ou ia-atendimento.
+  source         String              @default("gestao")
+  createdBy      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  client         Client?             @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  conversation   AiConversation?     @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([status, startsAt])
+  @@index([startsAt, id])
+  @@index([clientId, startsAt])
+  @@index([conversationId])
+}
+
+/// Disponibilidade para reuniões (uma linha, "default"): dias e horários de atendimento, duração e regras de
+/// antecedência. A IA do atendimento só oferece horários livres dentro destas regras.
+model AgendaSettings {
+  id             String   @id @default("default")
+  /// Dias da semana com atendimento (0 = domingo … 6 = sábado).
+  workDays       Int[]    @default([1, 2, 3, 4, 5])
+  /// Minutos desde a meia-noite (horário de Brasília): 540 = 09:00.
+  dayStart       Int      @default(540)
+  dayEnd         Int      @default(1080)
+  breakStart     Int?     @default(720)
+  breakEnd       Int?     @default(780)
+  meetingMinutes Int      @default(30)
+  bufferMinutes  Int      @default(15)
+  minNoticeHours Int      @default(12)
+  maxDaysAhead   Int      @default(21)
+  /// Como a reunião acontece (ex.: "Google Meet, com o link enviado pelo WhatsApp").
+  meetingFormat  String?
+  /// A IA do atendimento pode marcar reuniões.
+  aiBooking      Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
 }

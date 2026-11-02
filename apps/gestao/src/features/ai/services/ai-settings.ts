@@ -19,7 +19,7 @@ const SETTINGS_ID = "default";
 export async function getAiSettingsView() {
   return prisma.aiSettings.findUnique({
     where: { id: SETTINGS_ID },
-    select: { isActive: true, provider: true, baseUrl: true, model: true, keyHint: true, channels: true, ownerPhones: true, requireConfirmation: true, instructions: true, serviceInstructions: true, whatsappAttendance: true, dailyRunLimit: true, inputPriceMicros: true, outputPriceMicros: true, usdBrlCents: true, externalTokenHint: true, lastCheckedAt: true, lastError: true, updatedAt: true },
+    select: { isActive: true, provider: true, baseUrl: true, model: true, keyHint: true, channels: true, ownerPhones: true, requireConfirmation: true, instructions: true, serviceInstructions: true, whatsappAttendance: true, assistantName: true, dailyRunLimit: true, inputPriceMicros: true, outputPriceMicros: true, usdBrlCents: true, externalTokenHint: true, lastCheckedAt: true, lastError: true, updatedAt: true },
   });
 }
 
@@ -33,6 +33,7 @@ export type AiRuntime = {
   generalInstructions: string | null;
   serviceInstructions: string | null;
   whatsappAttendance: boolean;
+  assistantName: string | null;
   inputPriceMicros: number | null;
   outputPriceMicros: number | null;
   dailyRunLimit: number | null;
@@ -59,6 +60,7 @@ export async function loadAiRuntime(): Promise<{ ok: true; runtime: AiRuntime } 
       generalInstructions: settings.instructions,
       serviceInstructions: settings.serviceInstructions,
       whatsappAttendance: settings.whatsappAttendance,
+      assistantName: settings.assistantName,
       inputPriceMicros: settings.inputPriceMicros,
       outputPriceMicros: settings.outputPriceMicros,
       dailyRunLimit: settings.dailyRunLimit,
@@ -69,7 +71,7 @@ export async function loadAiRuntime(): Promise<{ ok: true; runtime: AiRuntime } 
 /** Preços em dólar por milhão de tokens e cotação em reais por dólar, como digitados ("3,00"); vazio = sem valor. */
 export type AiConnectionInput = { provider: string; baseUrl: string; model: string; apiKey: string; inputPrice: string; outputPrice: string; usdBrl: string };
 export type AiRulesInput = { channels: string[]; ownerPhones: string; whatsappAttendance: boolean; requireConfirmation: boolean; dailyRunLimit: string };
-export type AiContextInput = { generalInstructions: string; serviceInstructions: string };
+export type AiContextInput = { assistantName: string; generalInstructions: string; serviceInstructions: string };
 
 /** Limite de cada bloco de instruções: entram em toda resposta, então contam no custo de cada mensagem. */
 export const AI_INSTRUCTIONS_MAX = 6_000;
@@ -166,7 +168,9 @@ export async function saveAiContext(input: AiContextInput) {
   const general = input.generalInstructions.trim();
   const service = input.serviceInstructions.trim();
   if (general.length > AI_INSTRUCTIONS_MAX || service.length > AI_INSTRUCTIONS_MAX) return { ok: false as const, error: `Cada bloco de instruções aceita até ${AI_INSTRUCTIONS_MAX.toLocaleString("pt-BR")} caracteres.` };
-  const data = { instructions: general || null, serviceInstructions: service || null };
+  const name = input.assistantName.replace(/\s+/g, " ").trim().slice(0, 40);
+  if (name && !/^[\p{L}][\p{L} .'-]*$/u.test(name)) return { ok: false as const, error: "O nome da assistente aceita só letras, espaço, ponto, hífen e apóstrofo." };
+  const data = { assistantName: name || null, instructions: general || null, serviceInstructions: service || null };
   await prisma.aiSettings.upsert({ where: { id: SETTINGS_ID }, create: { id: SETTINGS_ID, ...data }, update: data });
   return { ok: true as const };
 }
