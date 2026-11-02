@@ -9,6 +9,15 @@ export const dynamic = "force-dynamic";
 
 type AssistantPageProps = { searchParams: Promise<{ c?: string }> };
 
+/** Saudação pela hora de Maceió, calculada no servidor (evita diferença entre servidor e navegador). */
+function greeting(name: string | null) {
+  const hour = Number(new Intl.DateTimeFormat("pt-BR", { hour: "numeric", hourCycle: "h23", timeZone: "America/Maceio" }).format(new Date()));
+  const period = hour >= 5 && hour < 12 ? "Bom dia" : hour >= 12 && hour < 18 ? "Boa tarde" : "Boa noite";
+  const first = name?.trim().split(/\s+/)[0];
+  return first ? `${period}, ${first}.` : `${period}.`;
+}
+
+/** Assistente em tela cheia: histórico à esquerda e a conversa ocupando o resto da área de trabalho. */
 export default async function AssistantPage({ searchParams }: AssistantPageProps) {
   const user = await requireManagementUser();
   const params = await searchParams;
@@ -19,8 +28,7 @@ export default async function AssistantPage({ searchParams }: AssistantPageProps
   ]);
   const initial = active ? await conversationView(active.id) : null;
 
-  return <main className="app-shell"><AppSidebar current="assistant" /><div className="workspace assistant-workspace"><section className="assistant-page">
-    <header className="assistant-header"><div><p className="eyebrow">GESTÃO / ASSISTENTE IA</p><h1>Assistente.</h1></div><div className="header-actions"><SidebarToggle location="header" /></div></header>
-    <AssistantChat key={initial?.conversationId ?? "nova"} status={status} conversations={conversations} initial={initial} />
-  </section></div></main>;
+  return <main className="app-shell"><AppSidebar current="assistant" /><div className="workspace assistant-workspace">
+    <AssistantChat key={initial?.conversationId ?? "nova"} status={status} conversations={conversations} initial={initial} greeting={greeting(user.name)} menu={<SidebarToggle location="header" />} />
+  </div></main>;
 }

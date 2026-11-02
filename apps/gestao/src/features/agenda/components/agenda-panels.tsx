@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ConfirmSubmitButton } from "@/features/finance/components/confirm-submit-button";
 import { createEventAction, deleteEventAction, saveAgendaSettingsAction, setEventStatusAction, updateEventAction } from "@/features/agenda/services/agenda-actions";
 import { eventKindLabel, type AgendaSettingsView, type FreeDay } from "@/features/agenda/services/agenda-service";
-import { addDays, dayKey, EVENT_KINDS, minutesToTime, timeOf, todayKey, WEEKDAYS, WEEKDAYS_SHORT, weekdayOf } from "@/features/agenda/types/agenda";
+import { addDays, dayKey, EVENT_KINDS, minutesToTime, monthGrid, monthOf, timeOf, todayKey, WEEKDAYS, WEEKDAYS_SHORT, weekdayOf, weekStart } from "@/features/agenda/types/agenda";
 import type { getCalendarEvent, listWeekEvents } from "@/features/agenda/queries/agenda-queries";
 
 /** Peças da tela da Agenda: semana em colunas, detalhe do evento, formulário de evento e disponibilidade. */
@@ -49,7 +49,10 @@ export function AgendaWeek({ monday, events, workDays }: { monday: string; event
   </div>;
 }
 
-export function EventDetailPanel({ event, monday }: { event: EventDetail; monday: string }) {
+export function EventDetailPanel({ event, monday, view }: { event: EventDetail; monday: string; view?: string }) {
+  const back = view ?? `semana=${monday}`;
+  const month = view?.match(/mes=(\d{4}-\d{2})/)?.[1];
+  const place = month ? <><input type="hidden" name="visao" value="mes" /><input type="hidden" name="mes" value={month} /></> : null;
   const day = dayKey(event.startsAt);
   const statusLabel = event.status === "CANCELLED" ? "CANCELADO" : event.status === "DONE" ? "CONCLUÍDO" : "MARCADO";
   return <section className="settings-panel agenda-detail" aria-labelledby="agenda-event-title">
@@ -69,19 +72,19 @@ export function EventDetailPanel({ event, monday }: { event: EventDetail; monday
       {event.conversation?.summary ? <div className="ai-session-summary"><span>RESUMO DO ATENDIMENTO{event.conversation.summaryUpdatedAt ? ` · ${stamp.format(event.conversation.summaryUpdatedAt)}` : ""}</span><p>{event.conversation.summary}</p></div> : null}
       {event.description && !event.conversation?.summary ? <p className="agenda-description">{event.description}</p> : null}
       <div className="agenda-detail-actions">
-        <Link className="secondary-action" href={`/agenda?semana=${monday}&evento=${event.id}&editar=1`}>EDITAR</Link>
-        {event.status === "SCHEDULED" ? <form action={setEventStatusAction}><input type="hidden" name="id" value={event.id} /><input type="hidden" name="semana" value={monday} /><input type="hidden" name="status" value="DONE" /><button className="secondary-action" type="submit">CONCLUÍDO</button></form> : <form action={setEventStatusAction}><input type="hidden" name="id" value={event.id} /><input type="hidden" name="semana" value={monday} /><input type="hidden" name="status" value="SCHEDULED" /><button className="secondary-action" type="submit">REABRIR</button></form>}
+        <Link className="secondary-action" href={`/agenda?${back}&evento=${event.id}&editar=1`}>EDITAR</Link>
+        {event.status === "SCHEDULED" ? <form action={setEventStatusAction}><input type="hidden" name="id" value={event.id} /><input type="hidden" name="semana" value={monday} />{place}<input type="hidden" name="status" value="DONE" /><button className="secondary-action" type="submit">CONCLUÍDO</button></form> : <form action={setEventStatusAction}><input type="hidden" name="id" value={event.id} /><input type="hidden" name="semana" value={monday} />{place}<input type="hidden" name="status" value="SCHEDULED" /><button className="secondary-action" type="submit">REABRIR</button></form>}
         {event.conversation ? <Link className="text-link" href={`/integracoes/ia?aba=atividade${event.conversation.channel === "GESTAO" || event.conversation.channel === "SISTEMA" ? "" : "&escopo=atendimento"}`}>VER NA ATIVIDADE DA IA</Link> : null}
         <span className="agenda-detail-spacer" />
-        {event.status === "SCHEDULED" ? <form><input type="hidden" name="id" value={event.id} /><input type="hidden" name="semana" value={monday} /><input type="hidden" name="status" value="CANCELLED" /><ConfirmSubmitButton formAction={setEventStatusAction} className="text-link integration-disconnect" message="Cancelar este evento? Ele sai da agenda, mas continua no histórico.">CANCELAR EVENTO</ConfirmSubmitButton></form> : null}
-        <form><input type="hidden" name="id" value={event.id} /><input type="hidden" name="semana" value={monday} /><ConfirmSubmitButton formAction={deleteEventAction} className="text-link integration-disconnect" message="Excluir este evento de vez? Não dá para desfazer.">EXCLUIR</ConfirmSubmitButton></form>
-        <Link className="text-link" href={`/agenda?semana=${monday}`}>FECHAR</Link>
+        {event.status === "SCHEDULED" ? <form><input type="hidden" name="id" value={event.id} /><input type="hidden" name="semana" value={monday} />{place}<input type="hidden" name="status" value="CANCELLED" /><ConfirmSubmitButton formAction={setEventStatusAction} className="text-link integration-disconnect" message="Cancelar este evento? Ele sai da agenda, mas continua no histórico.">CANCELAR EVENTO</ConfirmSubmitButton></form> : null}
+        <form><input type="hidden" name="id" value={event.id} /><input type="hidden" name="semana" value={monday} />{place}<ConfirmSubmitButton formAction={deleteEventAction} className="text-link integration-disconnect" message="Excluir este evento de vez? Não dá para desfazer.">EXCLUIR</ConfirmSubmitButton></form>
+        <Link className="text-link" href={`/agenda?${back}`}>FECHAR</Link>
       </div>
     </div>
   </section>;
 }
 
-export function EventForm({ clients, monday, event, defaultDay, settings }: { clients: ClientOption[]; monday: string; event?: EventDetail; defaultDay: string; settings: AgendaSettingsView }) {
+export function EventForm({ clients, monday, event, defaultDay, settings, view }: { clients: ClientOption[]; monday: string; event?: EventDetail; defaultDay: string; settings: AgendaSettingsView; view?: string }) {
   const day = event ? dayKey(event.startsAt) : defaultDay;
   const start = event ? timeOf(event.startsAt) : minutesToTime(settings.dayStart);
   const end = event ? timeOf(event.endsAt) : minutesToTime(settings.dayStart + settings.meetingMinutes);
@@ -90,6 +93,7 @@ export function EventForm({ clients, monday, event, defaultDay, settings }: { cl
     <div className="settings-panel-body">
       <form className="settings-form" action={event ? updateEventAction : createEventAction}>
         {event ? <input type="hidden" name="id" value={event.id} /> : null}
+        {view?.startsWith("visao=mes") ? <input type="hidden" name="visao" value="mes" /> : null}
         <label className="settings-form-wide">TÍTULO<input name="title" required maxLength={160} defaultValue={event?.title ?? ""} placeholder="Ex.: Reunião de briefing · Construtora Virtus" /></label>
         <label>TIPO<select name="kind" className="ai-select" defaultValue={event?.kind ?? "MEETING"}>{Object.entries(EVENT_KINDS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label>CLIENTE<select name="clientId" className="ai-select" defaultValue={event?.clientId ?? ""}><option value="">Nenhum</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.company ? ` · ${client.company}` : ""}</option>)}</select></label>
@@ -100,7 +104,7 @@ export function EventForm({ clients, monday, event, defaultDay, settings }: { cl
         </div>
         <label className="settings-form-wide">LOCAL OU LINK<input name="location" maxLength={300} defaultValue={event?.location ?? settings.meetingFormat ?? ""} placeholder="Endereço, link do Meet ou 'por telefone'" /></label>
         <label className="settings-form-wide">DESCRIÇÃO<textarea name="description" rows={4} maxLength={4000} defaultValue={event?.description ?? ""} placeholder="Pauta, o que levar, observações…" /></label>
-        <div className="settings-form-actions"><button className="primary-action" type="submit">{event ? "SALVAR" : "CRIAR EVENTO"}</button><Link className="text-link" href={`/agenda?semana=${monday}${event ? `&evento=${event.id}` : ""}`}>CANCELAR</Link></div>
+        <div className="settings-form-actions"><button className="primary-action" type="submit">{event ? "SALVAR" : "CRIAR EVENTO"}</button><Link className="text-link" href={`/agenda?${view ?? `semana=${monday}`}${event ? `&evento=${event.id}` : ""}`}>CANCELAR</Link></div>
       </form>
     </div>
   </section>;
@@ -135,4 +139,36 @@ export function AvailabilityPanel({ settings, preview }: { settings: AgendaSetti
       </div>
     </div>
   </section>;
+}
+
+/**
+ * Mês em grade (segunda a domingo). Cada dia mostra até 3 eventos e "+N" para o resto (abre a semana); o número do
+ * dia abre a semana e o "+" cria um evento naquela data. No celular, os eventos viram marcadores.
+ */
+export function AgendaMonth({ month, events, workDays }: { month: string; events: WeekEvent[]; workDays: number[] }) {
+  const today = todayKey();
+  const days = monthGrid(month);
+  const view = `visao=mes&mes=${month}`;
+  return <div className="agenda-month" role="grid" aria-label="Mês">
+    <div className="agenda-month-head" role="row">{[1, 2, 3, 4, 5, 6, 0].map((weekday) => <span key={weekday} role="columnheader">{WEEKDAYS_SHORT[weekday]}</span>)}</div>
+    <div className="agenda-month-grid">
+      {days.map((day) => {
+        const dayEvents = events.filter((event) => dayKey(event.startsAt) === day);
+        const outside = monthOf(day) !== month;
+        const weekday = weekdayOf(day);
+        const classes = ["agenda-cell", outside ? "is-outside" : "", day === today ? "is-today" : "", workDays.includes(weekday) ? "" : "is-off"].filter(Boolean).join(" ");
+        return <div key={day} className={classes} role="gridcell">
+          <div className="agenda-cell-head">
+            <Link className="agenda-cell-day" href={`/agenda?semana=${weekStart(day)}`} aria-label={`Abrir a semana de ${day.slice(8, 10)}/${day.slice(5, 7)}`}>{Number(day.slice(8, 10))}</Link>
+            <Link className="agenda-cell-add" href={`/agenda?${view}&novo=1&dia=${day}`} aria-label={`Novo evento em ${day.slice(8, 10)}/${day.slice(5, 7)}`}>+</Link>
+          </div>
+          <div className="agenda-cell-events">
+            {dayEvents.slice(0, 3).map((event) => <Link key={event.id} href={`/agenda?${view}&evento=${event.id}`} className={`agenda-chip is-${event.kind.toLowerCase()}${event.status === "DONE" ? " is-done" : ""}`} title={`${timeOf(event.startsAt)} · ${event.title}`}><time>{timeOf(event.startsAt)}</time><span>{event.title}</span></Link>)}
+            {dayEvents.length > 3 ? <Link className="agenda-more" href={`/agenda?semana=${weekStart(day)}`}>+{dayEvents.length - 3} {dayEvents.length - 3 === 1 ? "evento" : "eventos"}</Link> : null}
+          </div>
+          {dayEvents.length ? <span className="agenda-dots" aria-hidden="true">{dayEvents.slice(0, 4).map((event) => <i key={event.id} className={`is-${event.kind.toLowerCase()}`} />)}</span> : null}
+        </div>;
+      })}
+    </div>
+  </div>;
 }
