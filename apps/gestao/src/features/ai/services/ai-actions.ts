@@ -26,7 +26,12 @@ const text = (formData: FormData, name: string, max: number) => {
 
 export async function saveAiConnectionAction(formData: FormData) {
   const user = await requireManagementUser();
-  const result = await saveAiConnection({ provider: text(formData, "provider", 30), baseUrl: text(formData, "baseUrl", 300), model: text(formData, "model", 120), apiKey: text(formData, "apiKey", 400), inputPrice: text(formData, "inputPrice", 20), outputPrice: text(formData, "outputPrice", 20), usdBrl: text(formData, "usdBrl", 10) });
+  const tasks = ["gestao", "attendance", "document", "quote"] as const;
+  const result = await saveAiConnection({
+    provider: text(formData, "provider", 30), baseUrl: text(formData, "baseUrl", 300), apiKey: text(formData, "apiKey", 400), usdBrl: text(formData, "usdBrl", 10),
+    models: Object.fromEntries(tasks.map((task) => [task, text(formData, `model_${task}`, 120)])) as Record<(typeof tasks)[number], string>,
+    prices: Object.fromEntries(tasks.map((task) => [task, { input: text(formData, `price_${task}_input`, 20), output: text(formData, `price_${task}_output`, 20) }])) as Record<(typeof tasks)[number], { input: string; output: string }>,
+  });
   if (!result.ok) done("conexao", { erro: result.error });
   await logEvent({ event: "ai.settings", message: "Conexão da IA atualizada (provedor, chave ou modelo).", actorEmail: user.email });
   done("conexao", { aviso: "salva" });
@@ -58,7 +63,7 @@ export async function testAiConnectionAction() {
   await requireManagementUser();
   const result = await testAiConnection();
   if (!result.ok) done("conexao", { erro: result.error });
-  done("conexao", { aviso: "teste", resposta: result.reply, modelo: result.model, ms: String(result.ms) });
+  done("conexao", { aviso: "teste", resultado: result.results.map((item) => `${item.model} respondeu “${item.reply}” em ${item.ms} ms`).join(" · ").slice(0, 700) });
 }
 
 export async function disableAiAction() {

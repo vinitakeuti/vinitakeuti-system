@@ -903,6 +903,13 @@ model AiSettings {
   outputPriceMicros   Int?
   /// Cotação para mostrar o custo em reais, em centavos por dólar (R$ 5,50 = 550). Null mostra só em dólar.
   usdBrlCents         Int?
+  /// Modelo de cada tarefa (vazio = o modelo da gestão, em `model`): atendimento (site, WhatsApp de clientes, área
+  /// do cliente), documentos e contratos (criar e revisar) e orçamentos (montar e alterar).
+  attendanceModel     String?
+  documentModel       String?
+  quoteModel          String?
+  /// Preço de cada modelo usado, em micro-dólares por milhão de tokens: { "modelo": { "input": 3000000, "output": 15000000 } }.
+  modelPrices         Json?
   externalTokenHash   String?
   externalTokenHint   String?
   lastCheckedAt       DateTime?

@@ -93,9 +93,13 @@ export const agendaTools = [
     description: "Registra (ou atualiza) o resumo CURTO do atendimento para Vinicius, em até 4 linhas: objetivo do cliente, situação atual, serviços de interesse e próximo passo. Chame assim que entender o que a pessoa precisa e atualize quando surgir algo importante. É o que aparece na lista de Atendimentos.",
     scopes: ["public", "client"],
     mutates: false,
-    input: object({ resumo: s.longText({ max: 1_200, description: "Até 4 linhas curtas. Ex.: Objetivo: … · Situação atual: … · Interesse: … · Próximo passo: …" }) }),
+    input: object({
+      resumo: s.longText({ max: 1_200, description: "Até 4 linhas curtas. Ex.: Objetivo: … · Situação atual: … · Interesse: … · Próximo passo: …" }),
+      nome: s.optional(s.string({ max: 120, description: "Nome da pessoa, se ela disse na conversa (no WhatsApp o sistema só tem o número)" })),
+      email: s.optional(s.string({ max: 254, description: "E-mail da pessoa, se ela informou" })),
+    }),
     async run(input, context) {
-      const saved = await saveConversationSummary(context.conversationId, input.resumo);
+      const saved = await saveConversationSummary(context.conversationId, input.resumo, { name: input.nome, email: input.email });
       return saved ? { feito: true } : { erro: "Resumo vazio." };
     },
   }),
@@ -110,9 +114,11 @@ export const agendaTools = [
       horario: s.string({ min: 5, max: 5, pattern: /^([01]\d|2[0-3]):[0-5]\d$/, description: "HH:MM escolhido, de agenda_horarios_livres" }),
       resumo: s.longText({ max: 2_000, description: "Resumo do atendimento: objetivo, situação atual, serviços de interesse, prazos e próximo passo" }),
       assunto: s.optional(s.string({ max: 160, description: "Assunto curto da reunião" })),
+      nome: s.optional(s.string({ max: 120, description: "Nome da pessoa (obrigatório no WhatsApp, onde o sistema só tem o número)" })),
+      email: s.optional(s.string({ max: 254, description: "E-mail da pessoa, se ela informou" })),
     }),
     async run(input, context) {
-      const result = await bookAttendanceMeeting({ conversationId: context.conversationId, day: input.data, time: input.horario, summary: input.resumo, subject: input.assunto });
+      const result = await bookAttendanceMeeting({ conversationId: context.conversationId, day: input.data, time: input.horario, summary: input.resumo, subject: input.assunto, contact: { name: input.nome, email: input.email } });
       if (!result.ok) return { erro: result.error };
       refreshAgenda();
       return { feito: true, quando: result.when, duracao_minutos: result.minutes, formato: result.format ?? "Vinicius confirma o formato (online ou presencial) pelo contato informado." };

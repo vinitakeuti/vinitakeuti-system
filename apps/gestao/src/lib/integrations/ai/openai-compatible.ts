@@ -5,15 +5,17 @@ import { AI_LIST_TIMEOUT_MS, AI_REQUEST_TIMEOUT_MS, networkError, parseToolArgum
  * compatível), Groq, DeepSeek, Ollama e qualquer outro serviço que siga o mesmo formato.
  */
 
+type ContentPart = { type: "text"; text: string; cache_control?: { type: "ephemeral" } };
 type OpenAiMessage =
-  | { role: "system" | "user"; content: string }
+  | { role: "system"; content: string | ContentPart[] }
+  | { role: "user"; content: string }
   | { role: "assistant"; content: string | null; tool_calls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> }
   | { role: "tool"; tool_call_id: string; content: string };
 
 type OpenAiResponse = {
   model?: string;
   choices?: Array<{ finish_reason?: string; message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: unknown } }> } }>;
-  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
+  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number; prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number } };
 };
 
 function toOpenAi(message: AiChatMessage): OpenAiMessage {
@@ -24,6 +26,19 @@ function toOpenAi(message: AiChatMessage): OpenAiMessage {
     content: message.content || null,
     ...(message.toolCalls?.length ? { tool_calls: message.toolCalls.map((call) => ({ id: call.id, type: "function" as const, function: { name: call.name, arguments: JSON.stringify(call.input) } })) } : {}),
   };
+}
+
+/**
+ * Instrução de sistema. Pelo OpenRouter, nos modelos Claude, a parte fixa leva cache_control (cache do prompt da
+ * Anthropic). Nos demais (OpenAI, Gemini…), o cache é automático quando o começo do prompt se repete, por isso a
+ * parte fixa vai sempre primeiro e a que muda vai no fim.
+ */
+function systemMessage(config: AiProviderConfig, request: AiCompletionRequest): OpenAiMessage {
+  const dynamic = request.systemDynamic?.trim();
+  if (config.provider === "openrouter" && config.model.startsWith("anthropic/")) {
+    return { role: "system", content: [{ type: "text", text: request.system, cache_control: { type: "ephemeral" } }, ...(dynamic ? [{ type: "text" as const, text: dynamic }] : [])] };
+  }
+  return { role: "system", content: dynamic ? `${request.system}\n\n${dynamic}` : request.system };
 }
 
 export function createOpenAiCompatibleProvider(config: AiProviderConfig, label: string): AiProvider {
@@ -45,7 +60,7 @@ export function createOpenAiCompatibleProvider(config: AiProviderConfig, label: 
           },
           body: JSON.stringify({
             model: config.model,
-            messages: [{ role: "system", content: request.system }, ...request.messages.map(toOpenAi)],
+            messages: [systemMessage(config, request), ...request.messages.map(toOpenAi)],
             ...(request.tools?.length ? { tools: request.tools.map((tool) => ({ type: "function", function: { name: tool.name, description: tool.description, parameters: tool.parameters } })) } : {}),
             max_tokens: request.maxTokens ?? 1_500,
             ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
@@ -64,7 +79,7 @@ export function createOpenAiCompatibleProvider(config: AiProviderConfig, label: 
       return {
         text: choice?.message?.content?.trim() ?? "",
         toolCalls,
-        usage: { inputTokens: body.usage?.prompt_tokens ?? 0, outputTokens: body.usage?.completion_tokens ?? 0, costUsd: typeof body.usage?.cost === "number" && Number.isFinite(body.usage.cost) ? body.usage.cost : null },
+        usage: { inputTokens: body.usage?.prompt_tokens ?? 0, outputTokens: body.usage?.completion_tokens ?? 0, cacheReadTokens: body.usage?.prompt_tokens_details?.cached_tokens ?? 0, cacheWriteTokens: body.usage?.prompt_tokens_details?.cache_write_tokens ?? 0, costUsd: typeof body.usage?.cost === "number" && Number.isFinite(body.usage.cost) ? body.usage.cost : null },
         stopReason: toolCalls.length || finish === "tool_calls" ? "tool_use" : finish === "length" ? "length" : finish === "stop" ? "end" : "other",
         model: body.model ?? config.model,
       };

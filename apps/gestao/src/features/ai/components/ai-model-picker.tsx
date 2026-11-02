@@ -5,12 +5,22 @@ import type { AiModelInfo } from "@/lib/integrations/ai/types";
 import { listAiModelsAction } from "@/features/ai/services/ai-actions";
 
 /**
- * Provedor, chave e modelo da IA. Com a chave, BUSCAR MODELOS lista os modelos que ela libera (só os de conversa;
- * no OpenRouter, só os que usam ferramentas) para escolher na lista, com busca. Se o serviço não listar, o modelo
- * pode ser digitado. A chave digitada só é usada na consulta; é gravada ao salvar o formulário.
+ * Provedor, chave e o modelo de cada tarefa. Com a chave, BUSCAR MODELOS lista os modelos que ela libera (só os de
+ * conversa; no OpenRouter, só os que usam ferramentas). Escolha a tarefa e clique no modelo da lista: Gestão é
+ * obrigatória; Atendimento, Documentos e Orçamentos usam o da Gestão quando ficam vazios. Se o serviço não listar,
+ * os modelos podem ser digitados. A chave digitada só é usada na consulta; é gravada ao salvar o formulário.
  */
 
 type ProviderOption = { id: string; label: string; keyHint: string; modelHint: string };
+type Task = "gestao" | "attendance" | "document" | "quote";
+type Price = { input: string; output: string };
+
+export const TASKS: Array<{ id: Task; label: string; detail: string }> = [
+  { id: "gestao", label: "Gestão", detail: "Sua conversa no Assistente e no seu WhatsApp. Obrigatório." },
+  { id: "attendance", label: "Atendimento", detail: "Site, WhatsApp de clientes e área do cliente." },
+  { id: "document", label: "Documentos e contratos", detail: "Criar e revisar contratos, cessões, memoriais e documentos." },
+  { id: "quote", label: "Orçamentos", detail: "Montar e alterar orçamentos com os serviços do catálogo." },
+];
 
 const usd = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const thousands = new Intl.NumberFormat("pt-BR");
@@ -25,29 +35,30 @@ function modelMeta(model: AiModelInfo) {
 
 const priceText = (dollars: number) => String(Math.round(dollars * 10_000) / 10_000).replace(".", ",");
 
-export function AiModelPicker({ providers, initial }: { providers: ProviderOption[]; initial: { provider: string; model: string; baseUrl: string; keyHint: string | null; connected: boolean; inputPrice: string; outputPrice: string; usdBrl: string } }) {
+export function AiModelPicker({ providers, initial }: { providers: ProviderOption[]; initial: { provider: string; baseUrl: string; keyHint: string | null; connected: boolean; usdBrl: string; models: Record<Task, string>; prices: Record<Task, Price> } }) {
   const [provider, setProvider] = useState(initial.provider);
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl);
-  const [model, setModel] = useState(initial.model);
+  const [chosen, setChosen] = useState<Record<Task, string>>(initial.models);
+  const [prices, setPrices] = useState<Record<Task, Price>>(initial.prices);
+  const [task, setTask] = useState<Task>("gestao");
   const [models, setModels] = useState<AiModelInfo[] | null>(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
-  const [inputPrice, setInputPrice] = useState(initial.inputPrice);
-  const [outputPrice, setOutputPrice] = useState(initial.outputPrice);
   const [usdBrl, setUsdBrl] = useState(initial.usdBrl);
-
-  /** Escolher um modelo com preço na lista (OpenRouter) preenche o preço usado no cálculo do custo. */
-  const choose = (item: AiModelInfo) => {
-    setModel(item.id);
-    if (item.price) { setInputPrice(priceText(item.price.input)); setOutputPrice(priceText(item.price.output)); }
-  };
   const loadedFor = useRef<string | null>(null);
 
   const option = providers.find((item) => item.id === provider) ?? providers[0];
   const savedKeyUsable = Boolean(initial.keyHint) && provider === initial.provider;
+  const effective = (id: Task) => chosen[id] || chosen.gestao;
+
+  /** Escolher um modelo para a tarefa ativa; com preço na lista (OpenRouter), o preço da tarefa é preenchido. */
+  const choose = (item: AiModelInfo) => {
+    setChosen((current) => ({ ...current, [task]: item.id }));
+    if (item.price) setPrices((current) => ({ ...current, [task]: { input: priceText(item.price!.input), output: priceText(item.price!.output) } }));
+  };
 
   const load = useCallback(async () => {
     const signature = `${provider}|${baseUrl}|${apiKey}`;
@@ -70,10 +81,13 @@ export function AiModelPicker({ providers, initial }: { providers: ProviderOptio
   }, []);
 
   const changeProvider = (value: string) => {
+    // Descarta uma busca de modelos ainda em andamento (era do provedor anterior).
+    loadedFor.current = null;
+    setLoading(false);
     setProvider(value);
     setModels(null);
     setError(null);
-    setModel(value === initial.provider ? initial.model : "");
+    setChosen(value === initial.provider ? initial.models : { gestao: "", attendance: "", document: "", quote: "" });
     setManual(false);
   };
 
@@ -84,8 +98,11 @@ export function AiModelPicker({ providers, initial }: { providers: ProviderOptio
   }, [models, query]);
 
   const canLoad = !loading && (apiKey.trim().length >= 8 || savedKeyUsable) && (provider !== "custom" || baseUrl.trim().length > 0);
-  const selected = models?.find((item) => item.id === model) ?? null;
+  const labelOf = (id: string) => models?.find((item) => item.id === id)?.label ?? id;
   const showList = Boolean(models) && !manual;
+  const activeModel = chosen[task];
+  // Uma linha de preço por modelo diferente em uso (a primeira tarefa que o usa guarda o preço).
+  const priceRows = TASKS.filter((item, index) => TASKS.findIndex((other) => effective(other.id) === effective(item.id)) === index && effective(item.id));
 
   return <div className="settings-form-wide ai-model-picker">
     <div className="ai-model-row">
@@ -96,37 +113,46 @@ export function AiModelPicker({ providers, initial }: { providers: ProviderOptio
 
     <div className="ai-model-field">
       <div className="ai-model-head">
-        <span>MODELO</span>
+        <span>MODELO DE CADA TAREFA</span>
         <button type="button" className="secondary-action" onClick={() => void load()} disabled={!canLoad}>{loading ? "BUSCANDO…" : models ? "ATUALIZAR LISTA" : "BUSCAR MODELOS"}</button>
       </div>
-      <input type="hidden" name="model" value={model} />
+      {TASKS.map((item) => <input key={item.id} type="hidden" name={`model_${item.id}`} value={chosen[item.id]} />)}
+      <div className="ai-tasks" role="tablist" aria-label="Tarefa">
+        {TASKS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={task === item.id} className={task === item.id ? "is-active" : undefined} onClick={() => setTask(item.id)}>
+          <small>{item.label.toUpperCase()}</small>
+          <b>{chosen[item.id] ? labelOf(chosen[item.id]) : item.id === "gestao" ? "Escolha um modelo" : "O mesmo da Gestão"}</b>
+        </button>)}
+      </div>
+      <p className="ai-task-detail">{TASKS.find((item) => item.id === task)!.detail}{task !== "gestao" && activeModel ? <> <button type="button" className="text-link" onClick={() => setChosen((current) => ({ ...current, [task]: "" }))}>USAR O DA GESTÃO</button></> : null}</p>
       {showList ? <>
         <div className="ai-model-search">
           <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} placeholder={`Buscar entre ${models!.length} modelos`} aria-label="Buscar modelo" />
-          <button type="button" className="text-link" onClick={() => setManual(true)}>DIGITAR O NOME</button>
+          <button type="button" className="text-link" onClick={() => setManual(true)}>DIGITAR OS NOMES</button>
         </div>
-        <div className="ai-model-list" role="radiogroup" aria-label="Modelos disponíveis">
-          {filtered.length ? filtered.map((item) => <label key={item.id} className={item.id === model ? "is-selected" : ""}>
-            <input type="radio" name="modelChoice" value={item.id} checked={item.id === model} onChange={() => choose(item)} />
+        <div className="ai-model-list" role="radiogroup" aria-label={`Modelo para ${TASKS.find((item) => item.id === task)!.label}`}>
+          {filtered.length ? filtered.map((item) => <label key={item.id} className={item.id === activeModel ? "is-selected" : ""}>
+            <input type="radio" name={`choice_${task}`} value={item.id} checked={item.id === activeModel} onChange={() => choose(item)} />
             <span><b>{item.label}</b><code>{item.id}</code>{modelMeta(item) ? <small>{modelMeta(item)}</small> : null}</span>
           </label>) : <p>Nenhum modelo encontrado para “{query}”.</p>}
         </div>
-        <p className="ai-model-selected">{model ? selected ? <>Selecionado: <b>{selected.label}</b></> : <>Selecionado: <code>{model}</code> (não aparece na lista desta chave)</> : "Escolha um modelo na lista."}</p>
-      </> : <>
-        <input className="ai-model-manual" value={model} onChange={(event) => setModel(event.target.value)} maxLength={120} placeholder={models ? "Nome exato do modelo" : `Busque os modelos com a chave ou digite: ${option.modelHint}`} spellCheck={false} autoComplete="off" aria-label="Nome do modelo" />
+      </> : <div className="ai-model-manual-grid">
+        {TASKS.map((item) => <label key={item.id}>{item.label.toUpperCase()}<input value={chosen[item.id]} onChange={(event) => setChosen((current) => ({ ...current, [item.id]: event.target.value }))} maxLength={120} placeholder={item.id === "gestao" ? (models ? "Nome exato do modelo" : `Busque os modelos com a chave ou digite: ${option.modelHint}`) : "Vazio = o mesmo da Gestão"} spellCheck={false} autoComplete="off" /></label>)}
         {models ? <button type="button" className="text-link" onClick={() => setManual(false)}>VOLTAR PARA A LISTA</button> : null}
-      </>}
+      </div>}
       {error ? <p className="ai-model-error" role="alert">{error}</p> : null}
     </div>
 
     <div className="ai-price">
-      <span className="ai-price-title">CUSTO</span>
-      <div className="ai-price-row">
-        <label>ENTRADA · US$ POR 1M TOKENS<input name="inputPrice" inputMode="decimal" value={inputPrice} onChange={(event) => setInputPrice(event.target.value)} placeholder="ex.: 3,00" maxLength={12} /></label>
-        <label>SAÍDA · US$ POR 1M TOKENS<input name="outputPrice" inputMode="decimal" value={outputPrice} onChange={(event) => setOutputPrice(event.target.value)} placeholder="ex.: 15,00" maxLength={12} /></label>
-        <label>COTAÇÃO DO DÓLAR · R$<input name="usdBrl" inputMode="decimal" value={usdBrl} onChange={(event) => setUsdBrl(event.target.value)} placeholder="ex.: 5,50" maxLength={8} /></label>
+      <span className="ai-price-title">CUSTO POR MODELO · US$ POR 1M TOKENS</span>
+      <div className="ai-price-table">
+        {priceRows.map((item) => <div key={item.id} className="ai-price-line">
+          <span><b>{labelOf(effective(item.id))}</b><small>{TASKS.filter((other) => effective(other.id) === effective(item.id)).map((other) => other.label).join(" · ")}</small></span>
+          <label>ENTRADA<input name={`price_${item.id}_input`} inputMode="decimal" value={prices[item.id]?.input ?? ""} onChange={(event) => setPrices((current) => ({ ...current, [item.id]: { ...current[item.id], input: event.target.value } }))} placeholder="ex.: 3,00" maxLength={12} /></label>
+          <label>SAÍDA<input name={`price_${item.id}_output`} inputMode="decimal" value={prices[item.id]?.output ?? ""} onChange={(event) => setPrices((current) => ({ ...current, [item.id]: { ...current[item.id], output: event.target.value } }))} placeholder="ex.: 15,00" maxLength={12} /></label>
+        </div>)}
       </div>
-      <small>{provider === "openrouter" ? "O OpenRouter informa o custo real de cada resposta; o preço acima serve de referência." : "Use a tabela de preços do provedor para o modelo escolhido. Sem preço, a atividade mostra só os tokens."} Com a cotação, o custo também aparece em reais.</small>
+      <label className="ai-price-rate">COTAÇÃO DO DÓLAR · R$<input name="usdBrl" inputMode="decimal" value={usdBrl} onChange={(event) => setUsdBrl(event.target.value)} placeholder="ex.: 5,50" maxLength={8} /></label>
+      <small>{provider === "openrouter" ? "O OpenRouter informa o custo real de cada resposta; os preços acima servem de referência." : "Use a tabela de preços do provedor para cada modelo. Sem preço, a atividade mostra só os tokens."} Com a cotação, o custo também aparece em reais.</small>
     </div>
   </div>;
 }

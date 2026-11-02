@@ -13,7 +13,7 @@ type AnthropicResponse = {
   model?: string;
   stop_reason?: string;
   content?: Array<{ type?: string; text?: string; id?: string; name?: string; input?: unknown }>;
-  usage?: { input_tokens?: number; output_tokens?: number };
+  usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
 };
 
 /** Resultados de ferramentas vão numa mensagem do usuário; os consecutivos são agrupados numa só. */
@@ -50,7 +50,8 @@ export function createAnthropicProvider(config: AiProviderConfig): AiProvider {
           headers: { "content-type": "application/json", "x-api-key": config.apiKey, "anthropic-version": "2023-06-01" },
           body: JSON.stringify({
             model: config.model,
-            system: request.system,
+            // Parte fixa com cache_control: as ferramentas e esta parte entram no cache do prompt da Anthropic.
+            system: [{ type: "text", text: request.system, cache_control: { type: "ephemeral" } }, ...(request.systemDynamic?.trim() ? [{ type: "text", text: request.systemDynamic.trim() }] : [])],
             max_tokens: request.maxTokens ?? 1_500,
             messages: toAnthropic(request.messages),
             ...(request.tools?.length ? { tools: request.tools.map((tool) => ({ name: tool.name, description: tool.description, input_schema: tool.parameters })) } : {}),
@@ -67,7 +68,7 @@ export function createAnthropicProvider(config: AiProviderConfig): AiProvider {
       return {
         text: blocks.filter((block) => block.type === "text").map((block) => block.text ?? "").join("\n").trim(),
         toolCalls,
-        usage: { inputTokens: body.usage?.input_tokens ?? 0, outputTokens: body.usage?.output_tokens ?? 0, costUsd: null },
+        usage: { inputTokens: (body.usage?.input_tokens ?? 0) + (body.usage?.cache_read_input_tokens ?? 0) + (body.usage?.cache_creation_input_tokens ?? 0), outputTokens: body.usage?.output_tokens ?? 0, cacheReadTokens: body.usage?.cache_read_input_tokens ?? 0, cacheWriteTokens: body.usage?.cache_creation_input_tokens ?? 0, costUsd: null },
         stopReason: body.stop_reason === "tool_use" ? "tool_use" : body.stop_reason === "max_tokens" ? "length" : body.stop_reason === "end_turn" ? "end" : "other",
         model: body.model ?? config.model,
       };

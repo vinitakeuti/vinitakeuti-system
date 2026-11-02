@@ -19,14 +19,25 @@ const SETTINGS_ID = "default";
 export async function getAiSettingsView() {
   return prisma.aiSettings.findUnique({
     where: { id: SETTINGS_ID },
-    select: { isActive: true, provider: true, baseUrl: true, model: true, keyHint: true, channels: true, ownerPhones: true, requireConfirmation: true, instructions: true, serviceInstructions: true, whatsappAttendance: true, assistantName: true, dailyRunLimit: true, inputPriceMicros: true, outputPriceMicros: true, usdBrlCents: true, externalTokenHint: true, lastCheckedAt: true, lastError: true, updatedAt: true },
+    select: { isActive: true, provider: true, baseUrl: true, model: true, attendanceModel: true, documentModel: true, quoteModel: true, modelPrices: true, keyHint: true, channels: true, ownerPhones: true, requireConfirmation: true, instructions: true, serviceInstructions: true, whatsappAttendance: true, assistantName: true, dailyRunLimit: true, inputPriceMicros: true, outputPriceMicros: true, usdBrlCents: true, externalTokenHint: true, lastCheckedAt: true, lastError: true, updatedAt: true },
   });
 }
 
+export type ModelPrice = { input: number; output: number };
+
+/** Tarefas com modelo próprio. A gestão usa o modelo principal; as demais, o escolhido para elas (ou o principal). */
+export const AI_TASKS = ["gestao", "attendance", "document", "quote"] as const;
+export type AiTask = (typeof AI_TASKS)[number];
+export type AiModels = Record<AiTask, string>;
+
 export type AiRuntime = {
   providerId: AiProviderId;
-  model: string;
-  provider: ReturnType<typeof createAiProvider>;
+  /** Modelo de cada tarefa, como você definiu em Integrações (a tarefa sem modelo usa o da gestão). */
+  models: AiModels;
+  /** Cliente do provedor para um modelo (todos com o mesmo provedor e a mesma chave). */
+  providerFor: (model: string) => ReturnType<typeof createAiProvider>;
+  /** Preço de um modelo (micro-dólares por milhão de tokens), quando conhecido. */
+  priceFor: (model: string) => ModelPrice | null;
   channels: Set<string>;
   ownerPhones: string[];
   requireConfirmation: boolean;
@@ -52,8 +63,9 @@ export async function loadAiRuntime(): Promise<{ ok: true; runtime: AiRuntime } 
     ok: true,
     runtime: {
       providerId,
-      model: settings.model,
-      provider: createAiProvider({ provider: providerId, baseUrl, apiKey, model: settings.model }),
+      models: { gestao: settings.model, attendance: settings.attendanceModel || settings.model, document: settings.documentModel || settings.model, quote: settings.quoteModel || settings.model },
+      providerFor: (model: string) => createAiProvider({ provider: providerId, baseUrl, apiKey, model }),
+      priceFor: (model: string) => readPrices(settings.modelPrices)[model] ?? (model === settings.model && settings.inputPriceMicros !== null && settings.outputPriceMicros !== null ? { input: settings.inputPriceMicros, output: settings.outputPriceMicros } : null),
       channels: new Set(settings.channels),
       ownerPhones: settings.ownerPhones,
       requireConfirmation: settings.requireConfirmation,
@@ -68,8 +80,26 @@ export async function loadAiRuntime(): Promise<{ ok: true; runtime: AiRuntime } 
   };
 }
 
-/** Preços em dólar por milhão de tokens e cotação em reais por dólar, como digitados ("3,00"); vazio = sem valor. */
-export type AiConnectionInput = { provider: string; baseUrl: string; model: string; apiKey: string; inputPrice: string; outputPrice: string; usdBrl: string };
+/** Mapa { modelo: { input, output } } guardado em modelPrices (micro-dólares por milhão de tokens). */
+export function readPrices(value: unknown): Record<string, ModelPrice> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const output: Record<string, ModelPrice> = {};
+  for (const [model, price] of Object.entries(value as Record<string, unknown>)) {
+    const item = price as Partial<ModelPrice> | null;
+    if (item && typeof item.input === "number" && typeof item.output === "number") output[model] = { input: item.input, output: item.output };
+  }
+  return output;
+}
+
+/**
+ * Conexão como digitada: o modelo de cada tarefa (vazio = o da gestão) e os preços em dólar por milhão de tokens
+ * ("3,00"), um par por tarefa; vazio = sem preço. Cotação em reais por dólar.
+ */
+export type AiConnectionInput = {
+  provider: string; baseUrl: string; apiKey: string; usdBrl: string;
+  models: Record<AiTask, string>;
+  prices: Record<AiTask, { input: string; output: string }>;
+};
 export type AiRulesInput = { channels: string[]; ownerPhones: string; whatsappAttendance: boolean; requireConfirmation: boolean; dailyRunLimit: string };
 export type AiContextInput = { assistantName: string; generalInstructions: string; serviceInstructions: string };
 
@@ -129,21 +159,29 @@ export async function saveAiConnection(input: AiConnectionInput) {
   if (!provider) return { ok: false as const, error: "Escolha um provedor." };
   const checked = checkBaseUrl(provider, input.baseUrl);
   if ("error" in checked) return { ok: false as const, error: checked.error };
-  const model = input.model.trim().slice(0, 120);
-  if (!model) return { ok: false as const, error: "Escolha o modelo na lista (ou digite o nome)." };
+  const model = input.models.gestao.trim().slice(0, 120);
+  if (!model) return { ok: false as const, error: "Escolha o modelo da gestão na lista (ou digite o nome)." };
+  const taskModel = (task: AiTask) => { const value = input.models[task]?.trim().slice(0, 120) ?? ""; return value && value !== model ? value : null; };
   const apiKey = input.apiKey.trim();
   if (apiKey && (apiKey.length < 8 || apiKey.length > 400)) return { ok: false as const, error: "Chave de API inválida." };
   const current = await prisma.aiSettings.findUnique({ where: { id: SETTINGS_ID }, select: { apiKeyEncrypted: true, provider: true } });
   // Trocar de provedor exige a chave do novo provedor.
   if (!apiKey && (!current?.apiKeyEncrypted || current.provider !== provider)) return { ok: false as const, error: "Informe a chave de API do provedor." };
-  const inputPriceMicros = parseUsd(input.inputPrice);
-  const outputPriceMicros = parseUsd(input.outputPrice);
-  if (Number.isNaN(inputPriceMicros) || Number.isNaN(outputPriceMicros)) return { ok: false as const, error: "Preço por milhão de tokens inválido. Use dólares, como 3,00." };
-  if ((inputPriceMicros === null) !== (outputPriceMicros === null)) return { ok: false as const, error: "Informe os dois preços (entrada e saída) ou deixe os dois em branco." };
+  const modelPrices: Record<string, ModelPrice> = {};
+  for (const task of AI_TASKS) {
+    const name = taskModel(task) ?? model;
+    const inputMicros = parseUsd(input.prices[task]?.input ?? "");
+    const outputMicros = parseUsd(input.prices[task]?.output ?? "");
+    if (Number.isNaN(inputMicros) || Number.isNaN(outputMicros)) return { ok: false as const, error: "Preço por milhão de tokens inválido. Use dólares, como 3,00." };
+    if ((inputMicros === null) !== (outputMicros === null)) return { ok: false as const, error: "Informe os dois preços (entrada e saída) de cada modelo, ou deixe os dois em branco." };
+    if (inputMicros !== null && outputMicros !== null && !modelPrices[name]) modelPrices[name] = { input: inputMicros, output: outputMicros };
+  }
+  const inputPriceMicros = modelPrices[model]?.input ?? null;
+  const outputPriceMicros = modelPrices[model]?.output ?? null;
   const rateText = input.usdBrl.trim().replace(/^R\$\s*/i, "");
   const rate = rateText ? Number(rateText.replace(",", ".")) : null;
   if (rate !== null && (!Number.isFinite(rate) || rate < 1 || rate > 50)) return { ok: false as const, error: "Cotação do dólar inválida (ex.: 5,50)." };
-  const data = { provider, baseUrl: checked.baseUrl || null, model, isActive: true, inputPriceMicros, outputPriceMicros, usdBrlCents: rate === null ? null : Math.round(rate * 100), ...(apiKey ? { apiKeyEncrypted: encryptSecret(apiKey), keyHint: apiKey.slice(-4) } : {}) };
+  const data = { provider, baseUrl: checked.baseUrl || null, model, attendanceModel: taskModel("attendance"), documentModel: taskModel("document"), quoteModel: taskModel("quote"), modelPrices, isActive: true, inputPriceMicros, outputPriceMicros, usdBrlCents: rate === null ? null : Math.round(rate * 100), ...(apiKey ? { apiKeyEncrypted: encryptSecret(apiKey), keyHint: apiKey.slice(-4) } : {}) };
   await prisma.aiSettings.upsert({ where: { id: SETTINGS_ID }, create: { id: SETTINGS_ID, ...data, channels: ["GESTAO"] }, update: data });
   return { ok: true as const };
 }
@@ -179,20 +217,25 @@ export async function disableAi() {
   await prisma.aiSettings.updateMany({ where: { id: SETTINGS_ID }, data: { isActive: false, apiKeyEncrypted: null, keyHint: null } });
 }
 
-/** Testa a conexão com uma pergunta mínima e guarda o resultado. */
+/** Testa cada modelo escolhido (um teste por modelo diferente) com uma pergunta mínima e guarda o resultado. */
 export async function testAiConnection() {
   const loaded = await loadAiRuntime();
   if (!loaded.ok) return { ok: false as const, error: loaded.error };
-  const startedAt = Date.now();
-  try {
-    const completion = await loaded.runtime.provider.complete({ system: "Você está sendo testado. Responda apenas com a palavra OK.", messages: [{ role: "user", content: "Teste de conexão." }], maxTokens: 20 });
-    await prisma.aiSettings.update({ where: { id: SETTINGS_ID }, data: { lastCheckedAt: new Date(), lastError: null } });
-    return { ok: true as const, reply: completion.text.slice(0, 120) || "(resposta vazia)", model: completion.model, ms: Date.now() - startedAt, tokens: completion.usage.inputTokens + completion.usage.outputTokens };
-  } catch (error) {
-    const message = error instanceof AiProviderError ? error.message : `Falha inesperada: ${error instanceof Error ? error.message : String(error)}`;
-    await prisma.aiSettings.update({ where: { id: SETTINGS_ID }, data: { lastCheckedAt: new Date(), lastError: message.slice(0, 500) } });
-    return { ok: false as const, error: message };
+  const distinct = [...new Set(Object.values(loaded.runtime.models))];
+  const results: Array<{ model: string; reply: string; ms: number }> = [];
+  for (const model of distinct) {
+    const startedAt = Date.now();
+    try {
+      const completion = await loaded.runtime.providerFor(model).complete({ system: "Você está sendo testado. Responda apenas com a palavra OK.", messages: [{ role: "user", content: "Teste de conexão." }], maxTokens: 20 });
+      results.push({ model, reply: completion.text.slice(0, 60) || "(resposta vazia)", ms: Date.now() - startedAt });
+    } catch (error) {
+      const message = `${model}: ${error instanceof AiProviderError ? error.message : `falha inesperada (${error instanceof Error ? error.message : String(error)})`}`;
+      await prisma.aiSettings.update({ where: { id: SETTINGS_ID }, data: { lastCheckedAt: new Date(), lastError: message.slice(0, 500) } });
+      return { ok: false as const, error: message };
+    }
   }
+  await prisma.aiSettings.update({ where: { id: SETTINGS_ID }, data: { lastCheckedAt: new Date(), lastError: null } });
+  return { ok: true as const, results };
 }
 
 /** Gera um token novo de acesso externo (substitui o anterior) e o devolve uma única vez. */

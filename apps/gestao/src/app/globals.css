@@ -2123,3 +2123,25 @@ a.attendance-row:hover { background:var(--accent-surface); }
 .client-delete-form .danger-action:disabled { opacity:.4; cursor:default; }
 .client-delete-form .danger-action:not(:disabled):hover { background:#8c4427; color:var(--white); }
 @media (max-width:640px) { .client-delete { margin-left:-16px; margin-right:-16px; } .client-delete-head,.client-delete-body { padding-left:16px; padding-right:16px; } .client-delete-impact div { grid-template-columns:minmax(0,1fr); gap:3px; } .client-delete-form .danger-action { width:100%; } }
+/* Integrações › IA › Conexão: modelo de cada tarefa e preço por modelo. */
+.ai-tasks { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border:1px solid var(--line); }
+.ai-tasks button { display:grid; gap:4px; min-width:0; padding:10px 12px; border:0; border-right:1px solid var(--line); background:var(--white); color:var(--ink); text-align:left; cursor:pointer; }
+.ai-tasks button:last-child { border-right:0; }
+.ai-tasks button:hover { background:#f6f7f5; }
+.ai-tasks button.is-active { background:var(--accent-surface); box-shadow:inset 0 -2px 0 var(--accent); }
+.ai-tasks small { color:var(--muted); font-family:var(--mono); font-size:.56rem; letter-spacing:.05em; }
+.ai-tasks button.is-active small { color:var(--accent); }
+.ai-tasks b { overflow:hidden; font-size:.8rem; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.ai-task-detail { margin:0; color:var(--muted); font-size:.78rem; }
+.ai-task-detail .text-link { border:0; padding:0; background:none; cursor:pointer; margin-left:8px; }
+.ai-model-manual-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 14px; }
+.ai-model-manual-grid .text-link { justify-self:start; border:0; padding:0; background:none; cursor:pointer; }
+.ai-price-table { display:grid; border:1px solid var(--line); }
+.ai-price-line { display:grid; grid-template-columns:minmax(0,1fr) 150px 150px; align-items:end; gap:10px 14px; padding:10px 12px; }
+.ai-price-line + .ai-price-line { border-top:1px solid var(--line); }
+.ai-price-line > span { display:grid; gap:2px; min-width:0; align-self:center; }
+.ai-price-line b { overflow:hidden; font-size:.82rem; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.ai-price-line small { color:var(--muted); font-size:.72rem; }
+.settings-form .ai-price-rate { max-width:220px; }
+@media (max-width:760px) { .ai-tasks { grid-template-columns:repeat(2,minmax(0,1fr)); } .ai-tasks button:nth-child(2) { border-right:0; } .ai-tasks button:nth-child(-n+2) { border-bottom:1px solid var(--line); } .ai-model-manual-grid { grid-template-columns:minmax(0,1fr); } .ai-price-line { grid-template-columns:repeat(2,minmax(0,1fr)); } .ai-price-line > span { grid-column:1 / -1; } }
+.ai-fact-line { display:block; margin-top:3px; }

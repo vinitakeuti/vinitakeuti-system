@@ -2,8 +2,8 @@ import Link from "next/link";
 import { ConfirmSubmitButton } from "@/features/finance/components/confirm-submit-button";
 import { managementUrl } from "@/features/auth/services/auth-host";
 import { AI_PROVIDERS, isAiProviderId } from "@/lib/integrations/ai/providers";
-import { AI_INSTRUCTIONS_MAX, providerOptions, type getAiSettingsView } from "@/features/ai/services/ai-settings";
-import { systemPrompt } from "@/features/ai/services/prompts";
+import { AI_INSTRUCTIONS_MAX, providerOptions, readPrices, type getAiSettingsView } from "@/features/ai/services/ai-settings";
+import { promptPreview } from "@/features/ai/services/prompts";
 import { CountedTextarea } from "@/features/ai/components/counted-textarea";
 import { costFromPrice, formatCost, priceToInput } from "@/features/ai/services/ai-costs";
 import { formatPhone } from "@/features/ai/services/site-attendance";
@@ -48,15 +48,34 @@ export function aiProviderLabel(settings: AiSettingsView | null) {
   return AI_PROVIDERS[settings && isAiProviderId(settings.provider) ? settings.provider : "openrouter"].label;
 }
 
+/** Modelo escolhido para cada tarefa (vazio = o da gestão). */
+function taskModels(settings: AiSettingsView | null) {
+  return { gestao: settings?.model ?? "", attendance: settings?.attendanceModel ?? "", document: settings?.documentModel ?? "", quote: settings?.quoteModel ?? "" };
+}
+
+/** Preço do modelo de cada tarefa, para os campos (em dólar por milhão de tokens). */
+function taskPrices(settings: AiSettingsView | null) {
+  const prices = readPrices(settings?.modelPrices);
+  const models = taskModels(settings);
+  const priceOf = (model: string) => {
+    const price = prices[model] ?? (model === settings?.model && settings?.inputPriceMicros !== null && settings?.outputPriceMicros !== null && settings ? { input: settings.inputPriceMicros!, output: settings.outputPriceMicros! } : null);
+    return { input: priceToInput(price?.input), output: priceToInput(price?.output) };
+  };
+  return { gestao: priceOf(models.gestao), attendance: priceOf(models.attendance || models.gestao), document: priceOf(models.document || models.gestao), quote: priceOf(models.quote || models.gestao) };
+}
+
 export function AiConnectionPanel({ settings }: { settings: AiSettingsView | null }) {
   const connected = aiIsConnected(settings);
   const providerId = settings && isAiProviderId(settings.provider) ? settings.provider : "openrouter";
   return <section className="settings-panel" aria-labelledby="ai-connection-title">
-    <div className="settings-panel-heading"><div><h2 id="ai-connection-title">Provedor e modelo.</h2><p>Escolha o provedor, cole a chave e selecione o modelo na lista. Dá para trocar a qualquer momento: o restante do sistema não depende do provedor.</p></div></div>
+    <div className="settings-panel-heading"><div><h2 id="ai-connection-title">Provedor e modelo.</h2><p>Escolha o provedor, cole a chave e defina o modelo de cada tarefa: um modelo barato para o atendimento e um mais forte para contratos e orçamentos, por exemplo. Dá para trocar a qualquer momento.</p></div></div>
     <div className="settings-panel-body">
       {connected && settings ? <dl className="settings-facts integration-facts">
         <div><dt>PROVEDOR</dt><dd>{aiProviderLabel(settings)}</dd></div>
-        <div><dt>MODELO</dt><dd><code>{settings.model}</code></dd></div>
+        <div><dt>GESTÃO</dt><dd><code>{settings.model}</code></dd></div>
+        <div><dt>ATENDIMENTO</dt><dd><code>{settings.attendanceModel ?? settings.model}</code></dd></div>
+        <div><dt>DOCUMENTOS</dt><dd><code>{settings.documentModel ?? settings.model}</code></dd></div>
+        <div><dt>ORÇAMENTOS</dt><dd><code>{settings.quoteModel ?? settings.model}</code></dd></div>
         <div><dt>CHAVE</dt><dd><code>…{settings.keyHint}</code></dd></div>
         <div><dt>ÚLTIMO TESTE</dt><dd>{settings.lastCheckedAt ? `${dateTime.format(settings.lastCheckedAt)} · ${settings.lastError ? "falhou" : "ok"}` : "—"}</dd></div>
       </dl> : <ol className="integration-steps">
@@ -66,7 +85,7 @@ export function AiConnectionPanel({ settings }: { settings: AiSettingsView | nul
       </ol>}
       {settings?.lastError ? <p className="settings-result is-error">{settings.lastError}</p> : null}
       <form className="settings-form" action={saveAiConnectionAction}>
-        <AiModelPicker providers={providerOptions} initial={{ provider: providerId, model: settings?.model ?? "", baseUrl: settings?.baseUrl ?? "", keyHint: settings?.keyHint ?? null, connected, inputPrice: priceToInput(settings?.inputPriceMicros), outputPrice: priceToInput(settings?.outputPriceMicros), usdBrl: settings?.usdBrlCents ? (settings.usdBrlCents / 100).toFixed(2).replace(".", ",") : "" }} />
+        <AiModelPicker providers={providerOptions} initial={{ provider: providerId, baseUrl: settings?.baseUrl ?? "", keyHint: settings?.keyHint ?? null, connected, usdBrl: settings?.usdBrlCents ? (settings.usdBrlCents / 100).toFixed(2).replace(".", ",") : "", models: taskModels(settings), prices: taskPrices(settings) }} />
         <div className="settings-form-actions">
           <button className="primary-action" type="submit">{connected ? "SALVAR" : "CONECTAR"}</button>
           {connected ? <button className="secondary-action" type="submit" formAction={testAiConnectionAction} formNoValidate>TESTAR CONEXÃO</button> : null}
@@ -95,10 +114,10 @@ export function AiContextPanel({ settings }: { settings: AiSettingsView | null }
   const general = settings?.instructions ?? "";
   const service = settings?.serviceInstructions ?? "";
   const previews = [
-    { id: "gestao", label: "Gestão e seu WhatsApp", detail: "Você conversando com a IA: só as instruções gerais.", prompt: systemPrompt({ scope: "owner", channel: "GESTAO", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
-    { id: "site", label: "Site", detail: "Visitantes de viniciusriudi.com: gerais e de atendimento.", prompt: systemPrompt({ scope: "public", channel: "SITE", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
-    { id: "whatsapp", label: "WhatsApp (atendimento)", detail: "Clientes e interessados pelo WhatsApp: gerais e de atendimento.", prompt: systemPrompt({ scope: "public", channel: "WHATSAPP", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
-    { id: "portal", label: "Área do cliente", detail: "Clientes logados no portal: gerais e de atendimento.", prompt: systemPrompt({ scope: "client", channel: "PORTAL", clientName: "Nome do cliente", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
+    { id: "gestao", label: "Gestão e seu WhatsApp", detail: "Você conversando com a IA: só as instruções gerais.", prompt: promptPreview({ scope: "owner", channel: "GESTAO", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
+    { id: "site", label: "Site", detail: "Visitantes de viniciusriudi.com: gerais e de atendimento.", prompt: promptPreview({ scope: "public", channel: "SITE", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
+    { id: "whatsapp", label: "WhatsApp (atendimento)", detail: "Clientes e interessados pelo WhatsApp: gerais e de atendimento.", prompt: promptPreview({ scope: "public", channel: "WHATSAPP", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
+    { id: "portal", label: "Área do cliente", detail: "Clientes logados no portal: gerais e de atendimento.", prompt: promptPreview({ scope: "client", channel: "PORTAL", clientName: "Nome do cliente", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
   ];
   return <section className="settings-panel" aria-labelledby="ai-context-title">
     <div className="settings-panel-heading"><div><h2 id="ai-context-title">Contexto.</h2><p>O que a IA precisa saber sobre você e o seu trabalho. As instruções gerais valem em todas as conversas; as de atendimento, só quando ela fala com clientes e visitantes. As regras de segurança (o que cada canal pode ver e alterar) continuam valendo acima destas instruções.</p></div></div>
@@ -199,7 +218,7 @@ export async function AiActivityPanel({ settings, scope, cursor }: { settings: A
         <div><dt>SESSÕES · 30 DIAS</dt><dd>{number.format(summary.sessions)}</dd></div>
         <div><dt>RESPOSTAS · 30 DIAS</dt><dd>{number.format(summary.runs)} <small className="ai-fact-note">{summary.today} hoje</small></dd></div>
         <div><dt>TOKENS · 30 DIAS</dt><dd>{number.format(summary.inputTokens)} entrada · {number.format(summary.outputTokens)} saída</dd></div>
-        <div><dt>CUSTO · 30 DIAS</dt><dd><CostValue micros={summary.costMicros} rate={rate} estimated={summary.estimated} />{summary.unpricedRuns ? <small className="ai-fact-note"> · {summary.unpricedRuns} sem preço</small> : null}</dd></div>
+        <div><dt>CUSTO · 30 DIAS</dt><dd><CostValue micros={summary.costMicros} rate={rate} estimated={summary.estimated} />{summary.unpricedRuns ? <small className="ai-fact-note"> · {summary.unpricedRuns} sem preço</small> : null}{summary.costMicros !== null && summary.sessions ? <small className="ai-fact-note ai-fact-line">≈ {formatCost(Math.round(summary.costMicros / summary.sessions), rate).usd} por {scope === "atendimento" ? "atendimento" : "sessão"}</small> : null}</dd></div>
       </dl>
       <p className="ai-activity-note">Respostas hoje, todas as origens: {usage.today}{settings?.dailyRunLimit ? ` de ${settings.dailyRunLimit}` : ""}.{usage.pendingConfirmations ? ` ${usage.pendingConfirmations} ${usage.pendingConfirmations === 1 ? "alteração aguarda" : "alterações aguardam"} confirmação.` : ""}{summary.estimated ? " ≈ inclui respostas antigas estimadas pelo preço atual do modelo." : ""}{!price.inputPriceMicros && settings?.provider !== "openrouter" ? " Para ver o custo, informe o preço do modelo em Conexão." : ""}</p>
     </div>

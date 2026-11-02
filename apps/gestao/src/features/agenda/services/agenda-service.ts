@@ -129,8 +129,25 @@ export async function updateCalendarEvent(id: string, input: NewEvent) {
   return { ok: true as const };
 }
 
+export type ContactInput = { name?: string | null; email?: string | null };
+
+/**
+ * Nome e e-mail informados na conversa (no WhatsApp a IA só tem o número). Só preenche o que ainda falta: o que o
+ * visitante informou no formulário do site não é trocado.
+ */
+export async function fillConversationContact(conversationId: string, contact: ContactInput) {
+  const name = contact.name?.replace(/\s+/g, " ").trim().slice(0, 120) || null;
+  const email = contact.email?.trim().toLowerCase().slice(0, 254) || null;
+  if (!name && !email) return;
+  const current = await prisma.aiConversation.findUnique({ where: { id: conversationId }, select: { contactName: true, contactEmail: true } });
+  if (!current) return;
+  const data = { ...(name && !current.contactName ? { contactName: name } : {}), ...(email && !current.contactEmail && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? { contactEmail: email } : {}) };
+  if (Object.keys(data).length) await prisma.aiConversation.update({ where: { id: conversationId }, data });
+}
+
 /** Resumo do atendimento na conversa (objetivo do cliente, serviços de interesse, próximo passo). */
-export async function saveConversationSummary(conversationId: string, summary: string) {
+export async function saveConversationSummary(conversationId: string, summary: string, contact: ContactInput = {}) {
+  await fillConversationContact(conversationId, contact);
   const text = summary.trim().slice(0, 2_000);
   if (!text) return false;
   await prisma.aiConversation.update({ where: { id: conversationId }, data: { summary: text, summaryUpdatedAt: new Date() } });
@@ -150,24 +167,26 @@ async function conversationContact(conversationId: string) {
  * Reunião marcada pela IA do atendimento: só em horário livre, uma por conversa, com o contato e o resumo. Você
  * recebe um e-mail com tudo.
  */
-export async function bookAttendanceMeeting({ conversationId, day, time, summary, subject }: { conversationId: string; day: string; time: string; summary: string; subject?: string | null }) {
+export async function bookAttendanceMeeting({ conversationId, day, time, summary, subject, contact = {} }: { conversationId: string; day: string; time: string; summary: string; subject?: string | null; contact?: ContactInput }) {
   const settings = await getAgendaSettings();
   if (!settings.aiBooking) return { ok: false as const, error: "O agendamento pela assistente está desligado. Oriente a pessoa a falar com Vinicius pelo WhatsApp." };
   if (!isDayKey(day) || !isTime(time)) return { ok: false as const, error: "Use a data AAAA-MM-DD e o horário HH:MM de um dos horários livres." };
   const existing = await prisma.calendarEvent.findFirst({ where: { conversationId, status: "SCHEDULED", startsAt: { gt: new Date() } }, select: { startsAt: true } });
   if (existing) return { ok: false as const, error: `Já há uma reunião marcada nesta conversa (${longDayLabel(dayKey(existing.startsAt))}, ${timeOf(existing.startsAt)}). Para mudar, cancele a atual antes.` };
   if (!(await slotIsFree(day, time))) return { ok: false as const, error: "Este horário não está mais livre. Consulte os horários livres de novo e ofereça outras opções." };
-  const contact = await conversationContact(conversationId);
-  if (!contact) return { ok: false as const, error: "Conversa não encontrada." };
-  const who = contact.name ?? "contato do atendimento";
+  await fillConversationContact(conversationId, contact);
+  const person = await conversationContact(conversationId);
+  if (!person) return { ok: false as const, error: "Conversa não encontrada." };
+  if (!person.name) return { ok: false as const, error: "Antes de marcar, pergunte o nome da pessoa (e o e-mail, se ela quiser) e envie em nome e email." };
+  const who = person.name ?? "contato do atendimento";
   await saveConversationSummary(conversationId, summary);
-  const created = await createCalendarEvent({ title: `Reunião · ${who}`.slice(0, 160), kind: "MEETING", day, start: time, durationMinutes: settings.meetingMinutes, description: [subject?.trim() ? `Assunto: ${subject.trim()}` : null, `Resumo do atendimento (${contact.channel}):\n${summary.trim()}`].filter(Boolean).join("\n\n"), location: settings.meetingFormat, clientId: contact.clientId, contactName: contact.name, contactPhone: contact.phone, contactEmail: contact.email, conversationId, source: "ia-atendimento", createdBy: "ia" });
+  const created = await createCalendarEvent({ title: `Reunião · ${who}`.slice(0, 160), kind: "MEETING", day, start: time, durationMinutes: settings.meetingMinutes, description: [subject?.trim() ? `Assunto: ${subject.trim()}` : null, `Resumo do atendimento (${person.channel}):\n${summary.trim()}`].filter(Boolean).join("\n\n"), location: settings.meetingFormat, clientId: person.clientId, contactName: person.name, contactPhone: person.phone, contactEmail: person.email, conversationId, source: "ia-atendimento", createdBy: "ia" });
   if (!created.ok) return created;
   const when = `${longDayLabel(day)}, às ${time}`;
   const notify = async () => {
     try {
       await logEvent({ source: "sistema", event: "agenda.meeting.booked", message: `Reunião marcada pelo atendimento com ${who}: ${when}.` });
-      await sendOwnerEmail({ kind: "attendance", footer: "Agenda", subject: `Reunião marcada: ${who} · ${day.slice(8, 10)}/${day.slice(5, 7)} às ${time}`, title: "A assistente marcou uma reunião com um cliente.", lines: [`Quando: ${when} (${settings.meetingMinutes} min)`, `Contato: ${who}`, contact.phone ? `Telefone: +${contact.phone.replace(/\D/g, "")}` : "", contact.email ? `E-mail: ${contact.email}` : "", `Origem: ${contact.channel}`, subject ? `Assunto: ${subject}` : "", `Resumo: ${summary.trim()}`].filter(Boolean), path: `/agenda?evento=${created.event.id}` });
+      await sendOwnerEmail({ kind: "attendance", footer: "Agenda", subject: `Reunião marcada: ${who} · ${day.slice(8, 10)}/${day.slice(5, 7)} às ${time}`, title: "A assistente marcou uma reunião com um cliente.", lines: [`Quando: ${when} (${settings.meetingMinutes} min)`, `Contato: ${who}`, person.phone ? `Telefone: +${person.phone.replace(/\D/g, "")}` : "", person.email ? `E-mail: ${person.email}` : "", `Origem: ${person.channel}`, subject ? `Assunto: ${subject}` : "", `Resumo: ${summary.trim()}`].filter(Boolean), path: `/agenda?evento=${created.event.id}` });
     } catch { /* o aviso não pode desfazer a reunião */ }
   };
   try { after(notify); } catch { void notify(); }

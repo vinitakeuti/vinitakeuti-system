@@ -15,7 +15,10 @@ export type AiChatMessage =
 export type AiToolSpec = { name: string; description: string; parameters: JsonSchema };
 
 export type AiCompletionRequest = {
+  /** Instruções fixas (iguais entre mensagens): vão primeiro e entram no cache do prompt quando o modelo suporta. */
   system: string;
+  /** Parte que muda a cada mensagem (hora, dados do visitante): vai depois, fora do cache. */
+  systemDynamic?: string;
   messages: AiChatMessage[];
   tools?: AiToolSpec[];
   maxTokens?: number;
@@ -25,8 +28,11 @@ export type AiCompletionRequest = {
 export type AiCompletion = {
   text: string;
   toolCalls: AiToolCall[];
-  /** costUsd: custo informado pelo provedor (OpenRouter); null quando ele não informa. */
-  usage: { inputTokens: number; outputTokens: number; costUsd: number | null };
+  /**
+   * inputTokens inclui os tokens lidos e gravados no cache. costUsd: custo informado pelo provedor (OpenRouter); null
+   * quando ele não informa.
+   */
+  usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; costUsd: number | null };
   stopReason: "end" | "tool_use" | "length" | "other";
   model: string;
 };
