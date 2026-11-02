@@ -1867,15 +1867,6 @@ body .chat .sidebar-toggle.sidebar-toggle-header b { display:none; }
 .chat-composer.is-centered .chat-input { padding:16px 14px 12px 18px; }
 .chat-composer.is-centered .chat-input textarea { min-height:54px; font-size:1rem; }
 .chat-composer.is-centered .chat-disclaimer { text-align:left; }
-.chat-suggestions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:30px; border-top:1px solid var(--line); border-left:1px solid var(--line); }
-.chat-suggestions button { display:grid; grid-template-columns:auto minmax(0,1fr); align-content:start; align-items:center; gap:10px 10px; min-height:108px; padding:16px 18px; border:0; border-right:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--white); color:var(--ink); font:inherit; text-align:left; cursor:pointer; transition:background .15s ease; }
-.chat-suggestions button:hover { background:var(--accent-surface); }
-.chat-suggestions small { color:var(--accent); font-family:var(--mono); font-size:.54rem; letter-spacing:.1em; }
-.chat-suggestions button > span:last-child { grid-column:1 / -1; color:#2b2e2b; font-size:.86rem; line-height:1.5; }
-.chat-suggestion-mark { width:9px; height:9px; background:var(--accent); }
-.chat-suggestion-mark.is-circle { border-radius:50%; }
-.chat-suggestion-mark.is-diamond { transform:rotate(45deg) scale(.82); }
-.chat-suggestion-mark.is-bar { width:12px; height:4px; }
 .chat-offline { margin:24px 0 0; padding:12px 14px; border:1px solid #c9a191; background:#f8eeea; color:#8c4427; font-size:.84rem; line-height:1.5; }
 .chat-offline a { color:#8c4427; font-weight:620; }
 @media (prefers-reduced-motion:reduce) { .chat-dots i,.chat-steps-mark.is-live,.chat-steps li.is-running .chat-step-dot,.chat-send-wait { animation:none; opacity:.7; } }
@@ -1905,8 +1896,6 @@ body .chat .sidebar-toggle.sidebar-toggle-header b { display:none; }
   .chat-welcome-mark { width:40px; height:40px; margin-bottom:18px; }
   .chat-welcome > p { margin-bottom:22px; font-size:.9rem; }
   .chat-composer.is-centered .chat-input textarea { min-height:48px; font-size:16px; }
-  .chat-suggestions { grid-template-columns:minmax(0,1fr); margin-top:22px; }
-  .chat-suggestions button { min-height:0; padding:14px 16px; }
 }
 /* Integrações › IA: escolha do modelo a partir da chave. */
 .ai-model-picker { display:grid; gap:12px; min-width:0; }

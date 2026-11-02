@@ -24,13 +24,6 @@ const MAX_POLL_MS = 4 * 60_000;
 const MAX_CHARS = 4_000;
 const ZONE = "America/Maceio";
 
-const SUGGESTIONS = [
-  { mark: "square", label: "CLIENTE E ORÇAMENTO", text: "Crie um cliente chamado Construtora Virtus, para fazermos um orçamento de um site com integração com gateway de pagamento." },
-  { mark: "circle", label: "FINANCEIRO", text: "Quanto entrou e quanto saiu este mês? Tem alguma cobrança atrasada?" },
-  { mark: "diamond", label: "AGENDA", text: "O que tenho na agenda esta semana? Tem algum horário livre amanhã à tarde?" },
-  { mark: "bar", label: "DOCUMENTOS", text: "Liste os documentos em rascunho que ainda preciso concluir." },
-];
-
 const timeFormat = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: ZONE });
 const shortDay = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", timeZone: ZONE });
 const longDay = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: ZONE });
@@ -344,11 +337,7 @@ export function AssistantChat({ status, conversations: initialConversations, ini
           <h2>{greeting}</h2>
           <p>{hasName ? `Sou a ${name}. ` : ""}Posso cadastrar clientes, montar orçamentos com seus serviços, cuidar do Financeiro, da agenda e dos documentos. Alterações esperam o seu “sim”.</p>
           {composer}
-          {status.ready ? <div className="chat-suggestions">{SUGGESTIONS.map((suggestion) => <button key={suggestion.label} type="button" onClick={() => void send(suggestion.text)}>
-            <span className={`chat-suggestion-mark is-${suggestion.mark}`} aria-hidden="true" />
-            <small>{suggestion.label}</small>
-            <span>{suggestion.text}</span>
-          </button>)}</div> : <p className="chat-offline">{status.reason} <Link href="/integracoes/ia">Abrir Integrações</Link></p>}
+          {status.ready ? null : <p className="chat-offline">{status.reason} <Link href="/integracoes/ia">Abrir Integrações</Link></p>}
         </div> : <div className="chat-column">
           {turns.map((turn, index) => {
             const previous = turns[index - 1];
