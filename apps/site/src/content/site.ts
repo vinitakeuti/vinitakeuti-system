@@ -24,9 +24,9 @@ export const site = {
   ],
   hero: {
     eyebrow: "ESTRATÉGIA · TECNOLOGIA · OPERAÇÃO",
-    title: "Estruturas digitais que sustentam o crescimento do seu negócio.",
-    text: "Sites, sistemas, apps, funis de venda e integrações sob medida, do planejamento à entrega. Cada etapa é acompanhada de perto para que o resultado apareça no seu negócio.",
-    primary: "Conversar sobre um projeto",
+    title: "Sites, sistemas e tráfego pago para vender mais.",
+    text: "Software sob medida, apps, landing pages e funis de venda para o seu negócio, do planejamento à entrega.",
+    primary: "Conversar",
     secondary: "Entenda os processos",
   },
   /** Faixa em movimento logo abaixo do diagnóstico: áreas de negócio atendidas. */
