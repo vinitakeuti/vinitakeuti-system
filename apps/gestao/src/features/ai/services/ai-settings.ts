@@ -1,7 +1,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret, hashToken } from "@/lib/crypto";
-import { AI_PROVIDERS, aiProviderBaseUrl, createAiProvider, isAiProviderId, type AiProviderId } from "@/lib/integrations/ai/providers";
+import { AI_PROVIDERS, aiProviderBaseUrl, createAiProvider, isAiProviderId, listAiModels, type AiProviderId } from "@/lib/integrations/ai/providers";
 import { AiProviderError } from "@/lib/integrations/ai/types";
 
 /**
@@ -57,17 +57,8 @@ export async function loadAiRuntime(): Promise<{ ok: true; runtime: AiRuntime } 
   };
 }
 
-export type AiSettingsInput = {
-  provider: string;
-  baseUrl: string;
-  model: string;
-  apiKey: string;
-  channels: string[];
-  ownerPhones: string;
-  requireConfirmation: boolean;
-  instructions: string;
-  dailyRunLimit: string;
-};
+export type AiConnectionInput = { provider: string; baseUrl: string; model: string; apiKey: string };
+export type AiRulesInput = { channels: string[]; ownerPhones: string; requireConfirmation: boolean; instructions: string; dailyRunLimit: string };
 
 /** Só dígitos, com DDI (5582999990000). */
 export function normalizePhone(value: string) {
@@ -75,43 +66,76 @@ export function normalizePhone(value: string) {
   return digits.length >= 10 && digits.length <= 15 ? digits : null;
 }
 
-export async function saveAiSettings(input: AiSettingsInput) {
-  const provider = isAiProviderId(input.provider) ? input.provider : null;
-  if (!provider) return { ok: false as const, error: "Escolha um provedor." };
-  const baseUrl = input.baseUrl.trim().slice(0, 300);
+/** Endereço da API: HTTPS (ou HTTP só no próprio computador, para Ollama e LM Studio). Null quando inválido. */
+function checkBaseUrl(provider: AiProviderId, value: string): { baseUrl: string } | { error: string } {
+  const baseUrl = value.trim().slice(0, 300);
   if (baseUrl) {
     let url: URL;
-    try { url = new URL(baseUrl); } catch { return { ok: false as const, error: "Endereço da API inválido." }; }
+    try { url = new URL(baseUrl); } catch { return { error: "Endereço da API inválido." }; }
     const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    if (url.protocol !== "https:" && !(local && url.protocol === "http:")) return { ok: false as const, error: "O endereço da API precisa usar HTTPS." };
+    if (url.protocol !== "https:" && !(local && url.protocol === "http:")) return { error: "O endereço da API precisa usar HTTPS." };
   }
-  if (provider === "custom" && !baseUrl) return { ok: false as const, error: "Informe o endereço da API do serviço compatível com a OpenAI." };
+  if (provider === "custom" && !baseUrl) return { error: "Informe o endereço da API do serviço compatível com a OpenAI." };
+  return { baseUrl };
+}
+
+/**
+ * Modelos disponíveis para a chave informada na tela ou, em branco, para a chave já salva (se for do mesmo
+ * provedor). A chave digitada só é usada nesta consulta: só é gravada ao salvar.
+ */
+export async function listModelsForKey(input: { provider: string; baseUrl: string; apiKey: string }) {
+  const provider = isAiProviderId(input.provider) ? input.provider : null;
+  if (!provider) return { ok: false as const, error: "Escolha um provedor." };
+  const checked = checkBaseUrl(provider, input.baseUrl);
+  if ("error" in checked) return { ok: false as const, error: checked.error };
+  let apiKey = input.apiKey.trim();
+  if (!apiKey) {
+    const saved = await prisma.aiSettings.findUnique({ where: { id: SETTINGS_ID }, select: { provider: true, apiKeyEncrypted: true } });
+    if (!saved?.apiKeyEncrypted || saved.provider !== provider) return { ok: false as const, error: "Cole a chave de API para buscar os modelos." };
+    try { apiKey = decryptSecret(saved.apiKeyEncrypted); } catch { return { ok: false as const, error: "Não foi possível ler a chave salva. Cole a chave de novo." }; }
+  }
+  if (apiKey.length < 8 || apiKey.length > 400) return { ok: false as const, error: "Chave de API inválida." };
+  try {
+    const models = await listAiModels({ provider, baseUrl: aiProviderBaseUrl(provider, checked.baseUrl), apiKey });
+    if (!models.length) return { ok: false as const, error: "O provedor não devolveu nenhum modelo de conversa para esta chave. Digite o nome do modelo." };
+    return { ok: true as const, models };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof AiProviderError ? error.message : "Não foi possível consultar os modelos." };
+  }
+}
+
+/**
+ * Conexão: provedor, endereço, chave e modelo. Na primeira conexão o canal Gestão já vem liberado, para o assistente
+ * funcionar na hora; os demais canais são liberados em "Canais e regras".
+ */
+export async function saveAiConnection(input: AiConnectionInput) {
+  const provider = isAiProviderId(input.provider) ? input.provider : null;
+  if (!provider) return { ok: false as const, error: "Escolha um provedor." };
+  const checked = checkBaseUrl(provider, input.baseUrl);
+  if ("error" in checked) return { ok: false as const, error: checked.error };
   const model = input.model.trim().slice(0, 120);
-  if (!model) return { ok: false as const, error: "Informe o modelo." };
+  if (!model) return { ok: false as const, error: "Escolha o modelo na lista (ou digite o nome)." };
   const apiKey = input.apiKey.trim();
   if (apiKey && (apiKey.length < 8 || apiKey.length > 400)) return { ok: false as const, error: "Chave de API inválida." };
   const current = await prisma.aiSettings.findUnique({ where: { id: SETTINGS_ID }, select: { apiKeyEncrypted: true, provider: true } });
   // Trocar de provedor exige a chave do novo provedor.
   if (!apiKey && (!current?.apiKeyEncrypted || current.provider !== provider)) return { ok: false as const, error: "Informe a chave de API do provedor." };
+  const data = { provider, baseUrl: checked.baseUrl || null, model, isActive: true, ...(apiKey ? { apiKeyEncrypted: encryptSecret(apiKey), keyHint: apiKey.slice(-4) } : {}) };
+  await prisma.aiSettings.upsert({ where: { id: SETTINGS_ID }, create: { id: SETTINGS_ID, ...data, channels: ["GESTAO"] }, update: data });
+  return { ok: true as const };
+}
+
+/** Canais liberados, números do dono no WhatsApp, limite diário, confirmação e instruções extras. */
+export async function saveAiRules(input: AiRulesInput) {
   const channels = AI_CHANNELS.filter((channel) => input.channels.includes(channel));
   const phones = input.ownerPhones.split(/[\n,;]+/).map((value) => value.trim()).filter(Boolean);
   const ownerPhones = [...new Set(phones.map(normalizePhone).filter((value): value is string => Boolean(value)))].slice(0, 5);
   if (phones.length && ownerPhones.length !== Math.min(phones.length, 5)) return { ok: false as const, error: "Informe os números de WhatsApp com DDI e DDD, só dígitos (ex.: 5582999990000)." };
+  if (channels.includes("WHATSAPP") && !ownerPhones.length) return { ok: false as const, error: "Para liberar o WhatsApp, informe ao menos um número seu." };
   const limitText = input.dailyRunLimit.trim();
   const dailyRunLimit = limitText ? Math.floor(Number(limitText)) : null;
   if (dailyRunLimit !== null && (!Number.isFinite(dailyRunLimit) || dailyRunLimit < 1 || dailyRunLimit > 100_000)) return { ok: false as const, error: "Limite diário inválido." };
-  const data = {
-    provider,
-    baseUrl: baseUrl || null,
-    model,
-    channels,
-    ownerPhones,
-    requireConfirmation: input.requireConfirmation,
-    instructions: input.instructions.trim().slice(0, 4_000) || null,
-    dailyRunLimit,
-    isActive: true,
-    ...(apiKey ? { apiKeyEncrypted: encryptSecret(apiKey), keyHint: apiKey.slice(-4) } : {}),
-  };
+  const data = { channels, ownerPhones, requireConfirmation: input.requireConfirmation, instructions: input.instructions.trim().slice(0, 4_000) || null, dailyRunLimit };
   await prisma.aiSettings.upsert({ where: { id: SETTINGS_ID }, create: { id: SETTINGS_ID, ...data }, update: data });
   return { ok: true as const };
 }

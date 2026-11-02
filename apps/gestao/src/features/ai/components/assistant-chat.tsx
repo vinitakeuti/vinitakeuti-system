@@ -195,7 +195,7 @@ export function AssistantChat({ status, conversations: initialConversations, ini
           <h2>Como posso ajudar?</h2>
           <p>Cadastre clientes, monte orçamentos com seus serviços, lance gastos e recebimentos, escreva documentos ou confira os sistemas. Alterações no Financeiro e nas vendas esperam o seu “sim”.</p>
           {status.ready ? <div className="assistant-suggestions">{SUGGESTIONS.map((suggestion) => <button key={suggestion.label} type="button" onClick={() => void send(suggestion.text)}><small>{suggestion.label}</small><span>{suggestion.text}</span></button>)}</div>
-            : <p className="assistant-offline">{status.reason} <Link href="/integracoes#ia">Abrir Integrações</Link></p>}
+            : <p className="assistant-offline">{status.reason} <Link href="/integracoes/ia">Abrir Integrações</Link></p>}
         </div> : <div className="assistant-messages">
           {items.map((item) => {
             if (item.kind === "user") return <div key={item.id} className="assistant-message is-user"><div className="assistant-bubble">{item.text}</div><time>{time.format(new Date(item.at))}</time></div>;

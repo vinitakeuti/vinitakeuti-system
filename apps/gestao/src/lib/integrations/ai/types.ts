@@ -76,3 +76,15 @@ export function parseToolArguments(value: unknown): Record<string, unknown> {
     return {};
   }
 }
+
+/** Modelo disponível para a chave. `tools` diz se o modelo usa ferramentas (null quando o provedor não informa). */
+export type AiModelInfo = {
+  id: string;
+  label: string;
+  tools: boolean | null;
+  contextLength: number | null;
+  /** Preço em dólares por milhão de tokens (entrada e saída), quando o provedor informa (OpenRouter). */
+  price: { input: number; output: number } | null;
+};
+
+export const AI_LIST_TIMEOUT_MS = 15_000;

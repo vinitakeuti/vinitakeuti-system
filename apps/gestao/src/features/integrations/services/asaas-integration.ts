@@ -116,7 +116,7 @@ export async function refreshAsaasStatus() {
     await prisma.paymentIntegration.update({ where: { provider: PROVIDER }, data: { accountName: account.name, accountEmail: account.email, accountStatus: account.status, webhookStatus: status, webhookPenalized: webhook?.penalized ?? null, webhookUrl: webhook?.url ?? undefined, lastCheckedAt: new Date(), lastError: null } });
     if (status !== "ACTIVE" && previous.webhookStatus === "ACTIVE") {
       const reason = status === "INTERRUPTED" ? "a fila de envios foi interrompida (falhas seguidas ao entregar eventos)" : status === "DISABLED" ? "o webhook foi desativado" : "o webhook foi removido no painel do Asaas";
-      await sendOwnerEmail({ kind: "payments", footer: "Pagamentos", critical: true, subject: "Asaas: webhook parado", title: "Os pagamentos online pararam de chegar ao VR Gestão.", lines: [`No Asaas, ${reason}.`, "Os pagamentos continuam sendo conferidos a cada 30 minutos pela sincronização, mas com atraso.", "Em Integrações, use REATIVAR ou RECRIAR WEBHOOK."], path: "/integracoes" });
+      await sendOwnerEmail({ kind: "payments", footer: "Pagamentos", critical: true, subject: "Asaas: webhook parado", title: "Os pagamentos online pararam de chegar ao VR Gestão.", lines: [`No Asaas, ${reason}.`, "Os pagamentos continuam sendo conferidos a cada 30 minutos pela sincronização, mas com atraso.", "Em Integrações, use REATIVAR ou RECRIAR WEBHOOK."], path: "/integracoes/asaas" });
     }
     return status;
   } catch (error) {

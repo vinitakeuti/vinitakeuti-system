@@ -14,7 +14,8 @@ import { ensureInstallmentCharge, nextChargeableInstallment, runInstallmentCharg
 
 function done(params: Record<string, string>) {
   revalidatePath("/integracoes");
-  redirect(`/integracoes?${new URLSearchParams(params)}`);
+  revalidatePath("/integracoes/asaas");
+  redirect(`/integracoes/asaas?${new URLSearchParams(params)}`);
 }
 
 /** Salva a chave de API: testa, cria o webhook e só então grava. */

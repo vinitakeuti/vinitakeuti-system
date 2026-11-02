@@ -1,4 +1,4 @@
-import { AI_REQUEST_TIMEOUT_MS, networkError, parseToolArguments, providerError, type AiChatMessage, type AiCompletion, type AiCompletionRequest, type AiProvider, type AiProviderConfig } from "@/lib/integrations/ai/types";
+import { AI_LIST_TIMEOUT_MS, AI_REQUEST_TIMEOUT_MS, networkError, parseToolArguments, providerError, type AiChatMessage, type AiCompletion, type AiCompletionRequest, type AiModelInfo, type AiProvider, type AiProviderConfig } from "@/lib/integrations/ai/types";
 
 /** API Messages da Anthropic (Claude), com ferramentas. */
 
@@ -73,4 +73,24 @@ export function createAnthropicProvider(config: AiProviderConfig): AiProvider {
       };
     },
   };
+}
+
+/** Modelos da conta na Anthropic (GET /v1/models, paginado). Todos os modelos Claude aceitam ferramentas. */
+export async function listAnthropicModels(config: Omit<AiProviderConfig, "model">): Promise<AiModelInfo[]> {
+  const models: AiModelInfo[] = [];
+  let after: string | null = null;
+  for (let page = 0; page < 5; page++) {
+    let response: Response;
+    try {
+      response = await fetch(`${config.baseUrl.replace(/\/+$/, "")}/models?limit=100${after ? `&after_id=${encodeURIComponent(after)}` : ""}`, { signal: AbortSignal.timeout(AI_LIST_TIMEOUT_MS), headers: { "x-api-key": config.apiKey, "anthropic-version": "2023-06-01", accept: "application/json" }, cache: "no-store" });
+    } catch (error) {
+      throw networkError(error, "Anthropic");
+    }
+    if (!response.ok) throw await providerError(response, "Anthropic");
+    const body = await response.json() as { data?: Array<{ id?: string; display_name?: string }>; has_more?: boolean; last_id?: string };
+    for (const model of body.data ?? []) if (model.id) models.push({ id: model.id, label: model.display_name?.trim() || model.id, tools: true, contextLength: null, price: null });
+    if (!body.has_more || !body.last_id) break;
+    after = body.last_id;
+  }
+  return models;
 }

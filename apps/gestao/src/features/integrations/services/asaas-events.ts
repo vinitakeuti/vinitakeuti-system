@@ -53,7 +53,7 @@ export async function applyAsaasPaymentEvent(eventName: string, payment: AsaasPa
     const status = eventName === "PAYMENT_DELETED" ? ChargeStatus.CANCELLED : eventName === "PAYMENT_RECEIVED_IN_CASH_UNDONE" ? ChargeStatus.PENDING : ChargeStatus.REFUNDED;
     await prisma.charge.update({ where: { id: charge.id }, data: { status, paidAt: null } });
     const reversed = await reversePortalCharge(payment.id);
-    if (eventName === "PAYMENT_CHARGEBACK_REQUESTED") await sendOwnerEmail({ kind: "payments", footer: "Pagamentos", critical: true, subject: `Chargeback solicitado: ${charge.client.name}`, title: "O cliente contestou um pagamento no cartão.", lines: [`Cliente: ${charge.client.name}`, charge.description, valueCents !== null ? `Valor: ${money.format(valueCents / 100)}` : "", reversed ? "O recebimento saiu do Financeiro até a disputa ser resolvida." : "", "Envie a contestação pelo painel do Asaas."].filter(Boolean), path: "/integracoes" });
+    if (eventName === "PAYMENT_CHARGEBACK_REQUESTED") await sendOwnerEmail({ kind: "payments", footer: "Pagamentos", critical: true, subject: `Chargeback solicitado: ${charge.client.name}`, title: "O cliente contestou um pagamento no cartão.", lines: [`Cliente: ${charge.client.name}`, charge.description, valueCents !== null ? `Valor: ${money.format(valueCents / 100)}` : "", reversed ? "O recebimento saiu do Financeiro até a disputa ser resolvida." : "", "Envie a contestação pelo painel do Asaas."].filter(Boolean), path: "/integracoes/asaas" });
     return reversed ? "recebimento desfeito" : "status atualizado";
   }
   if (eventName === "PAYMENT_OVERDUE" && charge.status !== ChargeStatus.PAID) {
@@ -70,7 +70,7 @@ export async function applyAsaasPaymentEvent(eventName: string, payment: AsaasPa
     return "valor ou vencimento atualizado";
   }
   if (eventName === "PAYMENT_PARTIALLY_REFUNDED") {
-    await sendOwnerEmail({ kind: "payments", footer: "Pagamentos", subject: `Estorno parcial: ${charge.client.name}`, title: "Uma cobrança foi estornada em parte.", lines: [`Cliente: ${charge.client.name}`, charge.description, "Ajuste o valor recebido no lançamento do Financeiro."], path: "/integracoes" });
+    await sendOwnerEmail({ kind: "payments", footer: "Pagamentos", subject: `Estorno parcial: ${charge.client.name}`, title: "Uma cobrança foi estornada em parte.", lines: [`Cliente: ${charge.client.name}`, charge.description, "Ajuste o valor recebido no lançamento do Financeiro."], path: "/integracoes/asaas" });
     return "estorno parcial avisado";
   }
   return "sem alteração";
