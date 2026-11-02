@@ -5,6 +5,7 @@ import { ConfirmSubmitButton } from "@/features/finance/components/confirm-submi
 import { countOpenAsaasCharges, getAsaasBalanceSafe, getAsaasIntegration, listAsaasEvents } from "@/features/integrations/queries/integration-queries";
 import { asaasEventLabel } from "@/features/integrations/services/asaas-events";
 import { asaasWebhookUrl } from "@/features/integrations/services/asaas-integration";
+import { AiSettingsPanel } from "@/features/ai/components/ai-settings-panel";
 import { checkAsaasAction, disconnectAsaasAction, reactivateAsaasWebhookAction, recreateAsaasWebhookAction, saveAsaasKeyAction, saveAutoChargeAction } from "@/features/integrations/services/asaas-actions";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,9 @@ const notices: Record<string, string> = {
   reativado: "Fila do webhook reativada. O Asaas reenvia os eventos que ficaram pendentes.",
   desconectado: "Asaas desconectado. O portal volta a mostrar só o Pix.",
   automatico: "Cobrança automática atualizada.",
+  "ia-salva": "Configuração da IA salva. Use TESTAR CONEXÃO para conferir a chave e o modelo.",
+  "ia-desligada": "IA desligada. A chave foi apagada.",
+  "ia-token-revogado": "Token de acesso externo revogado.",
 };
 const accountStatus: Record<string, string> = { APPROVED: "Aprovada", PENDING: "Em análise", AWAITING_ACTION_AUTHORIZATION: "Aguardando autorização", DENIED: "Recusada" };
 const webhookLabel: Record<string, { label: string; tone: string; detail: string }> = {
@@ -28,7 +32,7 @@ const webhookLabel: Record<string, { label: string; tone: string; detail: string
   MISSING: { label: "NÃO CONFIGURADO", tone: "is-warning", detail: "Sem webhook, os pagamentos só são conferidos a cada 30 minutos." },
 };
 
-type IntegrationsPageProps = { searchParams: Promise<{ aviso?: string; erro?: string; cursor?: string }> };
+type IntegrationsPageProps = { searchParams: Promise<{ aviso?: string; erro?: string; cursor?: string; ia_cursor?: string; ia_resposta?: string; ia_modelo?: string; ia_ms?: string }> };
 
 export default async function IntegrationsPage({ searchParams }: IntegrationsPageProps) {
   const params = await searchParams;
@@ -39,8 +43,9 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
   const production = integration?.environment === "production";
 
   return <main className="app-shell"><AppSidebar current="integrations" /><div className="workspace"><section className="directory-page settings-page">
-    <header className="directory-header"><div><p className="eyebrow">GESTÃO / INTEGRAÇÕES</p><h1>Integrações.</h1><p>Serviços externos conectados à gestão e ao portal do cliente. As chaves ficam criptografadas e nunca voltam para a tela.</p></div><div className="header-actions"><SidebarToggle location="header" /></div></header>
+    <header className="directory-header"><div><p className="eyebrow">GESTÃO / INTEGRAÇÕES</p><h1>Integrações.</h1><p>Serviços externos conectados à gestão e ao portal do cliente: pagamentos e inteligência artificial. As chaves ficam criptografadas e nunca voltam para a tela.</p></div><div className="header-actions"><SidebarToggle location="header" /></div></header>
     {params.aviso && notices[params.aviso] ? <p className="form-success" role="status">{notices[params.aviso]}</p> : null}
+    {params.aviso === "ia-teste" ? <p className="form-success" role="status">Conexão com a IA funcionando: o modelo {params.ia_modelo?.slice(0, 120)} respondeu “{params.ia_resposta?.slice(0, 120)}” em {Number(params.ia_ms) || 0} ms.</p> : null}
     {params.erro ? <p className="form-error" role="alert">{params.erro.slice(0, 300)}</p> : null}
 
     <section className="settings-panel" aria-labelledby="asaas-title">
@@ -97,5 +102,7 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
       </details></li>)}</ul> : <p className="settings-empty">Nenhum evento recebido ainda.</p>}
       {events.nextCursor ? <div className="table-footer"><Link className="text-link" href={`/integracoes?cursor=${events.nextCursor}`}>CARREGAR MAIS</Link></div> : null}
     </section>
+
+    <AiSettingsPanel cursor={params.ia_cursor} />
   </section></div></main>;
 }

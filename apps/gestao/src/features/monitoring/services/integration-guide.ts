@@ -38,12 +38,17 @@ O Monitoramento da VR Gestão consulta este endpoint periodicamente para saber s
     "database": { "status": "ok", "latencyMs": 12, "critical": true },
     "cache": { "status": "ok", "latencyMs": 3, "critical": false },
     "email": { "status": "degraded", "latencyMs": 2140, "critical": false, "message": "SMTP lento" }
-  }
+  },
+  "stack": [
+    { "name": "next", "version": "16.2.1", "ecosystem": "npm" },
+    { "name": "prisma", "version": "6.19.3", "ecosystem": "npm" }
+  ]
 }
 
 - status: "ok", "degraded" ou "down" (geral).
 - version: versão publicada (package.json, tag git ou SHA curto do deploy).
 - checks: uma entrada por dependência, com status, latencyMs (número inteiro) e critical. "message" é opcional, curta e genérica.
+- stack (opcional): as dependências principais com a versão instalada de fato (a do lockfile, não a faixa do package.json), para o aviso de atualizações disponíveis. "ecosystem" é "npm" ou "pypi". Liste só o que importa (framework, ORM, runtime de UI, SDKs de pagamento), no máximo 60 itens. Pode ser lido do package.json/lockfile na inicialização e mantido em memória.
 
 ## Lógica
 1. Rode todas as verificações em paralelo (Promise.all / asyncio.gather), cada uma com timeout próprio de 2 segundos. Timeout conta como "down" daquela dependência.

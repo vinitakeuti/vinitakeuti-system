@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { monitoringRules } from "@/lib/monitoring";
 import { formatDuration, sendMonitoringEmail } from "@/features/monitoring/services/monitoring-alerts";
 import { notifySafely, notifySystemStatus } from "@/features/notifications/services/client-emails";
+import { parseStack } from "@/features/monitoring/services/stack-updates";
 
 type CheckResult = {
   status: MonitoringStatus;
@@ -14,7 +15,7 @@ type CheckResult = {
 
 /** Relatório no formato do guia de integração (Monitoramento > Guia para o endpoint de saúde). */
 type HealthCheck = { status?: unknown; latencyMs?: unknown; message?: unknown };
-type HealthReport = { status?: unknown; version?: unknown; service?: unknown; checks?: Record<string, HealthCheck> };
+type HealthReport = { status?: unknown; version?: unknown; service?: unknown; checks?: Record<string, HealthCheck>; stack?: unknown };
 
 function endpointFor(app: { url: string | null; healthEndpoint: string | null }) {
   const endpoint = app.healthEndpoint ?? app.url;
@@ -142,6 +143,8 @@ export async function checkMonitoredApp(id: string, { confirmFailures = false } 
   }
   const now = new Date();
   const changed = app.status !== result.status;
+  // Stack informada pelo endpoint de saúde (opcional): guardada para a conferência diária de atualizações.
+  const stack = parseStack(result.report?.stack);
   const metadata = { statusCode: result.statusCode ?? null, responseMs: result.responseMs, checks: (result.report?.checks ?? null) as object | null, version: typeof result.report?.version === "string" ? result.report.version : null };
 
   const transition = await prisma.$transaction(async (transaction) => {
@@ -153,6 +156,7 @@ export async function checkMonitoredApp(id: string, { confirmFailures = false } 
         lastCheckedAt: now,
         lastResponseMs: result.responseMs,
         lastCheckSummary: result.details ?? null,
+        ...(stack ? { stack } : {}),
         ...(result.status === MonitoringStatus.DOWN && app.status !== MonitoringStatus.DOWN ? { lastIncidentAt: now } : {}),
       },
     });

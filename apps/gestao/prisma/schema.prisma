@@ -141,6 +141,7 @@ model Client {
   portalUsers    User[]
   paymentNotices PaymentNotice[]
   signedDocuments SignedDocument[]
+  aiConversations AiConversation[]
 
   @@index([name])
   @@index([email])
@@ -618,6 +619,11 @@ model MonitoredApp {
   domainCheckedAt   DateTime?
   domainError       String?
   domainAlertedDays Int?
+  /// Stack informada pelo endpoint de saúde: [{ name, version, ecosystem }] (npm, pypi).
+  stack             Json?
+  /// Atualizações disponíveis na última conferência: [{ name, ecosystem, current, latest, level }].
+  stackUpdates      Json?
+  stackCheckedAt    DateTime?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   client            Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
@@ -628,6 +634,7 @@ model MonitoredApp {
   @@index([status, lastCheckedAt])
   @@index([nextCheckAt])
   @@index([clientId, createdAt, id])
+  @@index([stackCheckedAt])
 }
 
 model MonitoringEvent {
@@ -835,4 +842,134 @@ model SignedDocument {
   @@index([quoteId, createdAt])
   @@index([documentId, createdAt])
   @@index([clientId, createdAt])
+}
+
+/// Canal por onde a conversa com a IA chegou. Define o escopo das ferramentas: gestão e WhatsApp (dono) podem
+/// alterar o sistema; o portal só lê os dados do próprio cliente; o site só responde sobre serviços e contato.
+enum AiChannel {
+  GESTAO
+  PORTAL
+  SITE
+  WHATSAPP
+  SISTEMA
+}
+
+enum AiRunStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// Configuração da IA (uma linha, "default"), feita em Integrações. A chave fica criptografada
+/// (INTEGRATION_ENCRYPTION_KEY) e do token de acesso externo (MCP e mensagens) só se guarda o hash.
+model AiSettings {
+  id                  String    @id @default("default")
+  isActive            Boolean   @default(false)
+  /// openrouter, anthropic, openai, gemini ou custom (qualquer API compatível com a da OpenAI).
+  provider            String    @default("openrouter")
+  baseUrl             String?
+  model               String?
+  apiKeyEncrypted     String?
+  keyHint             String?
+  /// Canais liberados: GESTAO, PORTAL, SITE, WHATSAPP.
+  channels            String[]  @default([])
+  /// Números de WhatsApp do dono (só dígitos, com DDI): mensagens deles têm acesso de gestão; as demais são recusadas.
+  ownerPhones         String[]  @default([])
+  /// Alterações pedidas à IA (lançar gasto, confirmar venda) esperam um "sim" da pessoa antes de executar.
+  requireConfirmation Boolean   @default(true)
+  /// Instruções extras acrescentadas a todas as conversas (tom, regras do negócio).
+  instructions        String?
+  /// Limite de execuções por dia (todas as origens), para conter custo. Null = sem limite.
+  dailyRunLimit       Int?      @default(300)
+  externalTokenHash   String?
+  externalTokenHint   String?
+  lastCheckedAt       DateTime?
+  lastError           String?
+  updatedAt           DateTime  @updatedAt
+}
+
+model AiConversation {
+  id            String         @id @default(cuid())
+  channel       AiChannel
+  /// Cliente da conversa (portal) ou citado nela.
+  clientId      String?
+  /// Usuário autenticado (gestão ou portal) que iniciou.
+  userId        String?
+  /// Identificador externo: sessão do visitante no site ou número do WhatsApp.
+  externalKey   String?
+  title         String?
+  createdAt     DateTime       @default(now())
+  lastMessageAt DateTime       @default(now())
+  client        Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  messages      AiMessage[]
+  runs          AiRun[]
+  actions       AiAction[]
+
+  @@unique([channel, externalKey])
+  @@index([channel, lastMessageAt, id])
+  @@index([clientId, lastMessageAt])
+  @@index([userId, lastMessageAt])
+  @@index([lastMessageAt])
+}
+
+/// Mensagens da conversa: as da pessoa, as respostas da IA e os resultados das ferramentas (conteúdo limitado).
+model AiMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  /// user, assistant ou tool.
+  role           String
+  content        String
+  /// Ferramentas pedidas pela IA nesta resposta: [{ id, name, input }].
+  toolCalls      Json?
+  toolCallId     String?
+  toolName       String?
+  createdAt      DateTime       @default(now())
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt, id])
+}
+
+/// Cada vez que a IA responde a uma mensagem: fila, tentativas, modelo usado e consumo de tokens.
+model AiRun {
+  id             String         @id @default(cuid())
+  conversationId String
+  status         AiRunStatus    @default(PENDING)
+  attempts       Int            @default(0)
+  provider       String?
+  model          String?
+  steps          Int            @default(0)
+  inputTokens    Int            @default(0)
+  outputTokens   Int            @default(0)
+  error          String?
+  createdAt      DateTime       @default(now())
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([createdAt, id])
+}
+
+/// Auditoria das ferramentas chamadas pela IA (append-only). Alterações que pedem confirmação ficam
+/// PENDING_CONFIRMATION até a pessoa responder "sim" na mesma conversa.
+model AiAction {
+  id             String         @id @default(cuid())
+  conversationId String
+  runId          String?
+  tool           String
+  input          Json
+  result         Json?
+  /// DONE, ERROR, DENIED, PENDING_CONFIRMATION, CONFIRMED, EXPIRED.
+  status         String
+  mutates        Boolean        @default(false)
+  actor          String?
+  createdAt      DateTime       @default(now())
+  decidedAt      DateTime?
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([status, createdAt])
+  @@index([createdAt, id])
 }

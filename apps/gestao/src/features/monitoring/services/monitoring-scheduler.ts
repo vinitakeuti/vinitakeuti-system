@@ -1,4 +1,4 @@
-import { MonitoringEventType, MonitoringStatus } from "@prisma/client";
+import { MonitoringEventType, MonitoringStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { monitoringRules } from "@/lib/monitoring";
 import { logEvent } from "@/features/system-logs/services/system-log";
@@ -10,6 +10,9 @@ import { formatDuration, sendMonitoringEmail } from "@/features/monitoring/servi
 import { runAsaasCycle } from "@/features/integrations/services/asaas-scheduler";
 import { deliverEmailOutbox } from "@/features/notifications/services/email-outbox";
 import { enqueuePaymentReminders } from "@/features/notifications/services/client-emails";
+import { checkStackUpdates, type StackUpdate } from "@/features/monitoring/services/stack-updates";
+import { sendOwnerEmail } from "@/features/notifications/services/owner-email";
+import { processAiRuns, pruneAiHistory } from "@/features/ai/services/ai-runs";
 
 const TICK_MS = 60_000;
 const CONCURRENCY = 4;
@@ -41,6 +44,9 @@ export function startMonitoringScheduler() {
     // E-mails para clientes que ainda estão na fila (novas tentativas e os que entraram fora de uma requisição).
     try { await deliverEmailOutbox(); }
     catch (error) { await logEvent({ source: "sistema", level: "error", event: "email.outbox.failed", message: `Falha no envio da fila de e-mails: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
+    // Respostas da IA que ainda estão na fila (novas tentativas e as que entraram fora de uma requisição).
+    try { await processAiRuns(); }
+    catch (error) { await logEvent({ source: "sistema", level: "error", event: "ai.queue.failed", message: `Falha na fila da IA: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
     // O mesmo ciclo cuida dos pagamentos do Asaas (eventos que falharam e sincronização a cada 30 minutos).
     try { await runAsaasCycle(); }
     catch (error) { await logEvent({ source: "sistema", level: "error", event: "asaas.scheduler.failed", message: `Falha no ciclo do Asaas: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
@@ -160,10 +166,36 @@ async function runDailyTasks(now: Date) {
     if (removed.count) await logEvent({ source: "sistema", event: "monitoring.retention", message: `${removed.count} verificações com mais de ${RETENTION_DAYS} dias removidas.` });
   }
   if (hourOf(now) >= SUMMARY_HOUR && await claimDaily("monitoring-daily-summary", today)) await sendDailySummary(now);
+  if (hourOf(now) >= SUMMARY_HOUR && await claimDaily("stack-updates", today)) await checkAllStackUpdates();
+  if (await claimDaily("ai-retention", today)) {
+    const removed = await pruneAiHistory(now);
+    if (removed) await logEvent({ source: "sistema", event: "ai.retention", message: `${removed} ${removed === 1 ? "conversa antiga da IA removida" : "conversas antigas da IA removidas"}.` });
+  }
   if (hourOf(now) >= PAYMENT_REMINDER_HOUR && await claimDaily("client-payment-reminders", today)) {
     const queued = await enqueuePaymentReminders(now);
     if (queued) await logEvent({ source: "sistema", event: "email.client.payment_reminders", message: `${queued} ${queued === 1 ? "lembrete de pagamento" : "lembretes de pagamento"} na fila para clientes.` });
   }
+}
+
+/**
+ * Atualizações das stacks (uma vez por dia): confere os sistemas que informam a stack no endpoint de saúde e avisa
+ * por e-mail só das versões que apareceram desde a última conferência.
+ */
+async function checkAllStackUpdates() {
+  const apps = await prisma.monitoredApp.findMany({ where: { stack: { not: Prisma.AnyNull } }, orderBy: [{ stackCheckedAt: { sort: "asc", nulls: "first" } }, { id: "asc" }], take: 50, select: { id: true, name: true } });
+  const fresh: Array<{ name: string; updates: StackUpdate[] }> = [];
+  for (const app of apps) {
+    try {
+      const result = await checkStackUpdates(app.id);
+      if (result.fresh.length) fresh.push({ name: app.name, updates: result.fresh });
+    } catch (error) {
+      await logEvent({ source: "sistema", level: "warning", event: "monitoring.stack.failed", message: `Não foi possível conferir a stack de ${app.name}: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) });
+    }
+  }
+  if (!fresh.length) return;
+  const levelLabel = { major: "versão principal", minor: "nova versão", patch: "correção" } as const;
+  const total = fresh.reduce((sum, app) => sum + app.updates.length, 0);
+  await sendOwnerEmail({ kind: "monitoring", footer: "Monitoramento", subject: `Atualizações disponíveis: ${total} ${total === 1 ? "pacote" : "pacotes"} em ${fresh.length} ${fresh.length === 1 ? "sistema" : "sistemas"}`, title: "Há versões novas na stack dos sistemas.", lines: fresh.flatMap((app) => app.updates.slice(0, 12).map((item) => `${app.name}: ${item.name} ${item.current} → ${item.latest} (${levelLabel[item.level]})`)), path: "/monitoramento" });
 }
 
 /** Resumo diário: o que pede atenção primeiro, depois quantos sistemas estão bem. */

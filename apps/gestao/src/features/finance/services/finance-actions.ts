@@ -1,16 +1,16 @@
 "use server";
 
-import { FinancialEntryOrigin, FinancialEntryStatus, FinancialEntryType } from "@prisma/client";
+import { FinancialEntryStatus, FinancialEntryType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { MAX_FINANCIAL_PAYMENTS, recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
-import { ensureRecurringEntries, monthKeyOf, monthStart, syncExpensePayment } from "@/features/finance/services/recurring-entries";
-import { MAX_INSTALLMENTS, buildInstallmentPlan, nextOpenInstallment } from "@/features/finance/services/installments";
+import { recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
+import { syncExpensePayment } from "@/features/finance/services/recurring-entries";
+import { MAX_INSTALLMENTS } from "@/features/finance/services/installments";
 import { rebuildInstallments, syncQuotePayments } from "@/features/finance/services/payment-plan";
 import { isMonthKey } from "@/features/finance/services/recurring-entries";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
-import { notifyPaymentReceipt, notifySafely } from "@/features/notifications/services/client-emails";
+import { createFinancialEntry, financeDueDate, financePaymentDate, financialPaymentProblem, payNextInstallment, registerFinancialPayment } from "@/features/finance/services/finance-service";
 
 function text(formData: FormData, name: string, max: number) {
   const value = formData.get(name);
@@ -24,16 +24,12 @@ function amountToCents(value: string) {
 }
 
 function dateValue(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00.000-03:00`) : null;
+  return financeDueDate(value);
 }
 
 /** Dia civil do recebimento, gravado ao meio-dia UTC para não mudar de dia em nenhum fuso do Brasil. */
 function paymentDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T12:00:00.000Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null;
-  const year = date.getUTCFullYear();
-  return year >= 2000 && year <= 2100 ? date : null;
+  return financePaymentDate(value);
 }
 
 function back(params?: { error?: string; notice?: string }): never {
@@ -70,38 +66,22 @@ function returnsToEntry(formData: FormData) {
 
 export async function createFinancialEntryAction(formData: FormData) {
   await requireManagementUser();
-  const type = text(formData, "type", 20) === FinancialEntryType.EXPENSE ? FinancialEntryType.EXPENSE : FinancialEntryType.INCOME;
-  const description = text(formData, "description", 180);
-  const category = text(formData, "category", 80) || "Outros";
-  const amountCents = amountToCents(text(formData, "amount", 24));
-  const dueDate = dateValue(text(formData, "dueDate", 10));
-  if (!description || amountCents < 1 || !dueDate) back({ error: "Preencha descrição, valor e data de vencimento." });
-  const counterparty = text(formData, "counterparty", 160) || null;
-  const notes = text(formData, "notes", 500) || null;
-  const paymentCondition = type === FinancialEntryType.INCOME ? text(formData, "paymentCondition", 80) || null : null;
-
-  // Recorrente: vira uma recorrência mensal a partir deste vencimento; os meses são gerados conforme consultados.
-  if (formData.get("isFixed") === "on") {
-    const month = monthKeyOf(dueDate);
-    await prisma.recurringEntry.create({ data: { type, description, category, counterparty, amountCents, dayOfMonth: Number(text(formData, "dueDate", 10).slice(8, 10)), startsOn: monthStart(month), notes } });
-    await ensureRecurringEntries(month);
-    revalidateFinance();
-    back({ notice: "recurring" });
-  }
-
-  // Saídas não precisam de confirmação: contam como pagas na data do vencimento.
-  // Entradas ficam a receber, ou recebidas quando marcadas assim (na data informada, ou hoje se ela ainda não chegou).
-  const expense = type === FinancialEntryType.EXPENSE;
-  const received = !expense && text(formData, "status", 20) === FinancialEntryStatus.SETTLED;
-  const now = new Date();
-  const paidAt = expense ? dueDate : dueDate.getTime() <= now.getTime() ? dueDate : now;
-  const settled = expense || received;
-  // Entrada a receber em parcelas: a primeira vence na data informada, as demais nos meses seguintes.
-  const count = Math.min(MAX_INSTALLMENTS, Math.max(1, Math.floor(Number(text(formData, "installments", 3)) || 1)));
-  const installments = !settled && !expense && count > 1 ? buildInstallmentPlan({ amountCents, paidCents: 0, firstPaidAt: null, count, firstDue: text(formData, "dueDate", 10) }) : [];
-  await prisma.financialEntry.create({ data: { type, status: settled ? FinancialEntryStatus.SETTLED : FinancialEntryStatus.PENDING, origin: FinancialEntryOrigin.MANUAL, description, category, counterparty, amountCents, paidCents: settled ? amountCents : 0, isFixed: false, dueDate, settledAt: settled ? paidAt : null, notes, paymentCondition, ...(settled ? { payments: { create: { amountCents, paidAt } } } : {}), ...(installments.length ? { installments: { create: installments } } : {}) } });
+  const result = await createFinancialEntry({
+    type: text(formData, "type", 20) === FinancialEntryType.EXPENSE ? FinancialEntryType.EXPENSE : FinancialEntryType.INCOME,
+    description: text(formData, "description", 180),
+    category: text(formData, "category", 80),
+    amountCents: amountToCents(text(formData, "amount", 24)),
+    dueDate: text(formData, "dueDate", 10),
+    counterparty: text(formData, "counterparty", 160),
+    notes: text(formData, "notes", 500),
+    paymentCondition: text(formData, "paymentCondition", 80),
+    recurring: formData.get("isFixed") === "on",
+    received: text(formData, "status", 20) === FinancialEntryStatus.SETTLED,
+    installments: Number(text(formData, "installments", 3)) || 1,
+  });
+  if (!result.ok) back({ error: result.error });
   revalidateFinance();
-  back({ notice: "created" });
+  back({ notice: result.kind === "recurring" ? "recurring" : "created" });
 }
 
 /** Registra o que falta receber (ou pagar) e deixa o lançamento realizado. */
@@ -182,33 +162,14 @@ function paymentFromForm(formData: FormData): PaymentInput | null {
 }
 
 /** Garante que a soma recebida não passe do valor esperado (sem contar o recebimento que está sendo editado). */
-async function paymentFits(entryId: string, amountCents: number, replacingId?: string) {
-  const [entry, others, count] = await Promise.all([
-    prisma.financialEntry.findUnique({ where: { id: entryId }, select: { type: true, amountCents: true } }),
-    prisma.financialPayment.aggregate({ where: { entryId, ...(replacingId ? { id: { not: replacingId } } : {}) }, _sum: { amountCents: true } }),
-    prisma.financialPayment.count({ where: { entryId } }),
-  ]);
-  if (!entry) return "Lançamento não encontrado.";
-  if (entry.type !== FinancialEntryType.INCOME) return "Saídas contam como pagas na data do vencimento; altere o valor ou a data no lançamento.";
-  if (!replacingId && count >= MAX_FINANCIAL_PAYMENTS) return `Limite de ${MAX_FINANCIAL_PAYMENTS} recebimentos por lançamento.`;
-  if ((others._sum.amountCents ?? 0) + amountCents > entry.amountCents) return "A soma recebida passaria do valor esperado. Aumente o valor esperado ou ajuste o recebimento.";
-  return null;
-}
+const paymentFits = financialPaymentProblem;
 
 export async function addFinancialPaymentAction(formData: FormData) {
   await requireManagementUser();
   const entryId = text(formData, "entryId", 50);
   if (!entryId) back({ error: "Lançamento inválido." });
-  const payment = paymentFromForm(formData);
-  if (!payment) backToEntry(entryId, { error: "Informe o valor e a data do recebimento." });
-  const problem = await paymentFits(entryId, payment.amountCents);
-  if (problem) backToEntry(entryId, { error: problem });
-  const created = await prisma.$transaction(async (tx) => {
-    const row = await tx.financialPayment.create({ data: { entryId, ...payment }, select: { id: true } });
-    await recalculateFinancialEntry(tx, entryId, { syncSale: true });
-    return row;
-  });
-  await notifySafely(() => notifyPaymentReceipt(created.id));
+  const result = await registerFinancialPayment({ entryId, amountCents: amountToCents(text(formData, "amount", 24)), paidAt: text(formData, "paidAt", 10), notes: text(formData, "notes", 300) });
+  if (!result.ok) backToEntry(entryId, { error: result.error });
   revalidateFinance(entryId);
   backToEntry(entryId, { notice: "payment-added" });
 }
@@ -277,21 +238,11 @@ export async function markNextInstallmentPaidAction(formData: FormData) {
   const entryId = text(formData, "entryId", 50);
   if (!entryId) back({ error: "Lançamento inválido." });
   const returnTo = text(formData, "returnTo", 20);
-  const fail: (error: string) => never = (error) => returnTo === "conditions" ? redirect(`/financeiro/condicoes?error=${encodeURIComponent(error)}`) : backToEntry(entryId, { error });
-  const paidAt = paymentDate(text(formData, "paidAt", 10));
-  if (!paidAt) fail("Informe a data do pagamento.");
-  const entry = await prisma.financialEntry.findUnique({ where: { id: entryId }, select: { type: true, status: true, amountCents: true, paidCents: true, installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { number: true, dueDate: true, amountCents: true } } } });
-  if (!entry || entry.type !== FinancialEntryType.INCOME || entry.status !== FinancialEntryStatus.PENDING) fail("Este lançamento não tem cobrança em aberto.");
-  const next = entry.installments.length ? nextOpenInstallment(entry.installments, entry.paidCents) : null;
-  const allocated = next;
-  const amountCents = allocated ? allocated.remaining : entry.amountCents - entry.paidCents;
-  if (amountCents < 1) fail("Não há valor em aberto.");
-  const created = await prisma.$transaction(async (tx) => {
-    const row = await tx.financialPayment.create({ data: { entryId, amountCents, paidAt, notes: allocated ? `Parcela ${allocated.number}/${entry.installments.length}` : null }, select: { id: true } });
-    await recalculateFinancialEntry(tx, entryId, { syncSale: true });
-    return row;
-  });
-  await notifySafely(() => notifyPaymentReceipt(created.id));
+  const result = await payNextInstallment({ entryId, paidAt: text(formData, "paidAt", 10) });
+  if (!result.ok) {
+    if (returnTo === "conditions") redirect(`/financeiro/condicoes?error=${encodeURIComponent(result.error)}`);
+    backToEntry(entryId, { error: result.error });
+  }
   revalidateFinance(entryId);
   revalidatePath("/financeiro/condicoes");
   if (returnTo === "conditions") redirect("/financeiro/condicoes?notice=paid");
