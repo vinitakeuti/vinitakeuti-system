@@ -16,22 +16,22 @@ function refreshAgenda() {
   try { revalidatePath("/agenda"); } catch { /* fora de uma requisição */ }
 }
 
-const KINDS = { reuniao: "MEETING", compromisso: "APPOINTMENT", lembrete: "REMINDER" } as const;
+const KINDS = { reuniao: "MEETING", compromisso: "APPOINTMENT", demanda: "TASK", lembrete: "REMINDER" } as const;
 
 export const agendaTools = [
   defineTool({
     name: "agenda_listar",
-    description: "Eventos da agenda (reuniões, compromissos e lembretes) entre duas datas, com horário, cliente ou contato e situação. Sem datas: de hoje até daqui a 7 dias.",
+    description: "Eventos da agenda (reuniões, compromissos, demandas e lembretes) entre duas datas, com horário, cliente ou contato e situação. Sem datas: de hoje até daqui a 7 dias. Concluídos arquivados só com incluir_arquivados.",
     scopes: ["owner"],
     mutates: false,
-    input: object({ de: s.optional(s.date()), ate: s.optional(s.date()), incluir_cancelados: s.optional(s.boolean()) }),
+    input: object({ de: s.optional(s.date()), ate: s.optional(s.date()), incluir_cancelados: s.optional(s.boolean()), incluir_arquivados: s.optional(s.boolean()) }),
     async run(input) {
       const from = input.de ?? todayKey();
       const to = input.ate ?? addDays(from, 7);
-      const events = await listEventsBetween(from, to, { includeCancelled: input.incluir_cancelados, take: 100 });
+      const events = await listEventsBetween(from, to, { includeCancelled: input.incluir_cancelados, includeArchived: input.incluir_arquivados, take: 100 });
       return {
         periodo: { de: from, ate: to },
-        eventos: events.map((event) => ({ id: event.id, titulo: event.title, tipo: eventKindLabel(event.kind), data: dayKey(event.startsAt), dia: WEEKDAYS[weekdayOf(dayKey(event.startsAt))], inicio: timeOf(event.startsAt), fim: timeOf(event.endsAt), situacao: event.status === "CANCELLED" ? "cancelado" : event.status === "DONE" ? "concluído" : "marcado", cliente: event.client?.name ?? event.contactName ?? null, local: event.location, origem: event.source === "ia-atendimento" ? "marcado pela assistente no atendimento" : undefined, link: `/agenda?evento=${event.id}` })),
+        eventos: events.map((event) => ({ id: event.id, titulo: event.title, tipo: eventKindLabel(event.kind), data: dayKey(event.startsAt), dia: WEEKDAYS[weekdayOf(dayKey(event.startsAt))], inicio: timeOf(event.startsAt), fim: timeOf(event.endsAt), situacao: event.status === "CANCELLED" ? "cancelado" : event.archivedAt ? "concluído e arquivado" : event.status === "DONE" ? "concluído" : "marcado", remarcado: event.rescheduledCount ? `${event.rescheduledCount}×, originalmente ${dayKey(event.rescheduledFrom!)} ${timeOf(event.rescheduledFrom!)}` : undefined, cliente: event.client?.name ?? event.contactName ?? null, local: event.location, origem: event.source === "ia-atendimento" ? "marcado pela assistente no atendimento" : undefined, link: `/agenda?evento=${event.id}` })),
       };
     },
   }),
@@ -50,13 +50,13 @@ export const agendaTools = [
 
   defineTool({
     name: "agenda_criar",
-    description: "Cria um evento na agenda de Vinicius (reunião, compromisso ou lembrete). Conflitos de horário não impedem, mas voltam como aviso para você mencionar.",
+    description: "Cria um evento na agenda de Vinicius: reunião, compromisso, demanda (tarefa do dia a dia) ou lembrete. Conflitos de horário não impedem, mas voltam como aviso para você mencionar.",
     scopes: ["owner"],
     mutates: true,
     confirm: false,
     input: object({
       titulo: s.string({ min: 2, max: 160 }),
-      tipo: s.optional(s.enum(["reuniao", "compromisso", "lembrete"] as const)),
+      tipo: s.optional(s.enum(["reuniao", "compromisso", "demanda", "lembrete"] as const)),
       data: s.date(),
       inicio: s.string({ min: 5, max: 5, pattern: /^([01]\d|2[0-3]):[0-5]\d$/, description: "HH:MM" }),
       fim: s.optional(s.string({ min: 5, max: 5, pattern: /^([01]\d|2[0-3]):[0-5]\d$/, description: "HH:MM; sem fim, dura 30 minutos" })),

@@ -1030,7 +1030,7 @@ model CalendarEvent {
   id             String              @id @default(cuid())
   title          String
   description    String?
-  /// MEETING (reunião), APPOINTMENT (compromisso) ou REMINDER (lembrete).
+  /// MEETING (reunião), APPOINTMENT (compromisso), REMINDER (lembrete) ou TASK (demanda do dia a dia).
   kind           String              @default("MEETING")
   startsAt       DateTime
   endsAt         DateTime
@@ -1046,12 +1046,18 @@ model CalendarEvent {
   /// gestao, ia-gestao ou ia-atendimento.
   source         String              @default("gestao")
   createdBy      String?
+  /// Concluído e arquivado: sai da semana e do mês e fica no Arquivo (organizado pelo mês do evento).
+  archivedAt       DateTime?
+  /// Início original antes da primeira remarcação, e quantas vezes o evento foi remarcado.
+  rescheduledFrom  DateTime?
+  rescheduledCount Int                 @default(0)
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
   client         Client?             @relation(fields: [clientId], references: [id], onDelete: SetNull)
   conversation   AiConversation?     @relation(fields: [conversationId], references: [id], onDelete: SetNull)
 
   @@index([status, startsAt])
+  @@index([archivedAt, startsAt])
   @@index([startsAt, id])
   @@index([clientId, startsAt])
   @@index([conversationId])

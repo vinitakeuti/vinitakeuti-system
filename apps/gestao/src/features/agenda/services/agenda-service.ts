@@ -107,8 +107,41 @@ export async function createCalendarEvent(input: NewEvent) {
 }
 
 export async function setEventStatus(id: string, status: CalendarEventStatus) {
-  const result = await prisma.calendarEvent.updateMany({ where: { id: id.slice(0, 50) }, data: { status } });
+  const result = await prisma.calendarEvent.updateMany({ where: { id: id.slice(0, 50) }, data: { status, ...(status === "DONE" ? {} : { archivedAt: null }) } });
   return result.count > 0;
+}
+
+const DAY = 24 * HOUR;
+
+/**
+ * Remarca o evento para outro dia, no mesmo horário (as setas da semana). Guarda o início original na primeira
+ * remarcação e conta quantas vezes foi remarcado. Só eventos marcados; conflitos voltam como aviso.
+ */
+export async function shiftCalendarEvent(id: string, days: number) {
+  if (!Number.isInteger(days) || days === 0 || Math.abs(days) > 60) return { ok: false as const, error: "Remarcação inválida." };
+  const event = await prisma.calendarEvent.findUnique({ where: { id: id.slice(0, 50) }, select: { id: true, status: true, startsAt: true, endsAt: true, rescheduledFrom: true, contactName: true, contactPhone: true, contactEmail: true, source: true } });
+  if (!event) return { ok: false as const, error: "Evento não encontrado." };
+  if (event.status !== "SCHEDULED") return { ok: false as const, error: "Só eventos marcados podem ser remarcados. Reabra o evento antes." };
+  const startsAt = new Date(event.startsAt.getTime() + days * DAY);
+  const endsAt = new Date(event.endsAt.getTime() + days * DAY);
+  // De volta ao dia original: deixa de contar como remarcado.
+  const original = event.rescheduledFrom && event.rescheduledFrom.getTime() === startsAt.getTime();
+  await prisma.calendarEvent.update({ where: { id: event.id }, data: original ? { startsAt, endsAt, rescheduledFrom: null, rescheduledCount: 0 } : { startsAt, endsAt, rescheduledFrom: event.rescheduledFrom ?? event.startsAt, rescheduledCount: { increment: 1 } } });
+  const conflicts = await busyBetween(startsAt, endsAt, event.id);
+  return { ok: true as const, day: dayKey(startsAt), conflicts: conflicts.length, hasContact: Boolean(event.contactPhone || event.contactEmail) };
+}
+
+/** Arquiva (ou tira do arquivo) um evento concluído. */
+export async function setEventArchived(id: string, archived: boolean) {
+  const result = await prisma.calendarEvent.updateMany({ where: { id: id.slice(0, 50), ...(archived ? { status: "DONE" as const, archivedAt: null } : { archivedAt: { not: null } }) }, data: { archivedAt: archived ? new Date() : null } });
+  return result.count > 0;
+}
+
+/** Arquiva todos os concluídos entre dois dias (inclusive): o botão da semana e do mês. */
+export async function archiveDoneBetween(fromDay: string, toDay: string) {
+  if (!isDayKey(fromDay) || !isDayKey(toDay)) return 0;
+  const result = await prisma.calendarEvent.updateMany({ where: { status: "DONE", archivedAt: null, startsAt: { gte: atMinutes(fromDay, 0), lt: atMinutes(addDays(toDay, 1), 0) } }, data: { archivedAt: new Date() } });
+  return result.count;
 }
 
 export async function deleteCalendarEvent(id: string) {

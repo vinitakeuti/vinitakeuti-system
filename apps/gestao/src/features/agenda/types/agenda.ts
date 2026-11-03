@@ -3,7 +3,7 @@
  * como HH:MM; no banco, tudo em UTC.
  */
 
-export const EVENT_KINDS = { MEETING: "Reunião", APPOINTMENT: "Compromisso", REMINDER: "Lembrete" } as const;
+export const EVENT_KINDS = { MEETING: "Reunião", APPOINTMENT: "Compromisso", TASK: "Demanda", REMINDER: "Lembrete" } as const;
 export type EventKind = keyof typeof EVENT_KINDS;
 export const isEventKind = (value: string): value is EventKind => Object.hasOwn(EVENT_KINDS, value);
 

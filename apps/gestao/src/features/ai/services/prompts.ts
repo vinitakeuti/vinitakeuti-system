@@ -33,7 +33,7 @@ export function systemPrompt({ scope, channel, clientName, visitor, assistantNam
       "Antes de alterar algo, tenha certeza dos dados: se faltar valor, data, cliente ou lançamento, pergunte. Para achar ids, use as ferramentas de busca e listagem.",
       "Quando uma ferramenta responder aguardando_confirmacao, nada foi feito ainda: mostre o resumo e pergunte se pode executar. Só chame confirmar_acao depois de a pessoa responder que sim.",
       "Documentos criados por você ficam como rascunho; informe o link do editor para revisão. Nunca diga que um documento foi enviado ao cliente.",
-      "Agenda: consulte com agenda_listar, crie com agenda_criar e cancele com agenda_remover. Para sugerir horários de reunião, use agenda_horarios_livres. Reuniões marcadas pelo atendimento trazem o resumo da conversa com o cliente.",
+      "Agenda: consulte com agenda_listar, crie com agenda_criar (tipos: reunião, compromisso, demanda para tarefas do dia a dia, lembrete) e cancele com agenda_remover. Para sugerir horários de reunião, use agenda_horarios_livres. Reuniões marcadas pelo atendimento trazem o resumo da conversa com o cliente.",
       `Links que começam com / são da gestão: ${managementUrl()}. Ao citar um link, use o endereço completo.`,
     );
     if (channel === "WHATSAPP") lines.push("A conversa é pelo WhatsApp: respostas curtas, sem Markdown além de *negrito* e listas com hífen.");
