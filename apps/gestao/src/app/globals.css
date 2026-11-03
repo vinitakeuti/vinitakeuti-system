@@ -1703,7 +1703,7 @@ button.quote-docs-back-link:hover { text-decoration:underline; }
   .ai-token button { width:100%; }
   .ai-endpoints > div { grid-template-columns:minmax(0,1fr); gap:4px; }
 }
-/* Assistente IA: tela cheia. Histórico à esquerda (gaveta em telas menores), conversa em coluna central e a caixa de
+/* Eliza (assistente de IA): tela cheia. Histórico à esquerda (gaveta em telas menores), conversa em coluna central e a caixa de
    mensagem ancorada embaixo, alinhada à coluna. Sem conversa, a caixa fica no centro com a saudação. */
 body .workspace.assistant-workspace { flex:1; width:100%; max-width:none; min-width:0; height:100dvh; margin:0; padding:0; }
 .chat { position:relative; display:grid; grid-template-columns:276px minmax(0,1fr); height:100%; min-width:0; overflow:hidden; background:var(--white); }
@@ -1732,6 +1732,19 @@ body .workspace.assistant-workspace { flex:1; width:100%; max-width:none; min-wi
 .chat-history-list time { flex:none; color:#8a8f8a; font-family:var(--mono); font-size:.52rem; }
 .chat-history-list a:hover { background:#eaedea; }
 .chat-history-list li.is-active a { border-left-color:var(--accent); background:var(--white); color:var(--ink); font-weight:600; }
+.chat-history-list li { position:relative; }
+.chat-rename { position:absolute; top:50%; right:4px; display:grid; place-items:center; width:28px; height:28px; border:1px solid transparent; background:transparent; color:var(--muted); cursor:pointer; opacity:0; transform:translateY(-50%); transition:opacity .15s ease, border-color .15s ease, color .15s ease, background .15s ease; }
+.chat-rename .chat-icon { width:14px; height:14px; }
+.chat-history-list li:hover .chat-rename,.chat-history-list li.is-active .chat-rename,.chat-rename:focus-visible { opacity:1; }
+.chat-history-list li:hover time,.chat-history-list li.is-active time { visibility:hidden; }
+.chat-rename:hover { border-color:var(--line); background:var(--white); color:var(--ink); }
+.chat-rename-input { width:100%; min-width:0; height:36px; border:1px solid var(--ink); padding:0 10px; background:var(--white); color:var(--ink); font:inherit; font-size:.82rem; outline:0; box-shadow:0 0 0 3px rgba(75,97,86,.14); }
+.chat-rename-input.is-title { height:34px; font-size:.92rem; font-weight:600; }
+.chat-title-button { display:inline-flex; align-items:center; gap:8px; max-width:100%; border:0; padding:0; background:transparent; color:inherit; font:inherit; text-align:left; cursor:text; }
+.chat-title-button span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.chat-title-button .chat-icon { width:14px; height:14px; flex:none; color:var(--muted); opacity:0; transition:opacity .15s ease; }
+.chat-title-button:hover .chat-icon,.chat-title-button:focus-visible .chat-icon { opacity:1; }
+@media (hover:none) { .chat-rename,.chat-title-button .chat-icon { opacity:1; } .chat-history-list li time { visibility:hidden; } }
 .chat-history-empty { margin:0; padding:12px 8px; color:var(--muted); font-size:.8rem; line-height:1.5; }
 .chat-history-status { display:flex; align-items:center; gap:10px; padding:13px 16px; border-top:1px solid var(--line); }
 .chat-history-status > span { display:grid; gap:1px; min-width:0; }

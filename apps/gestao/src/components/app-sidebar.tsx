@@ -6,7 +6,7 @@ import { getProfessionalProfile } from "@/features/professional-profile/queries/
 
 const navigation = [
   { code: "01", href: "/", id: "overview", label: "Visão geral" },
-  { code: "02", href: "/assistente", id: "assistant", label: "Assistente IA" },
+  { code: "02", href: "/assistente", id: "assistant", label: "Eliza" },
   { code: "03", href: "/atendimentos", id: "attendances", label: "Atendimentos" },
   { code: "04", href: "/agenda", id: "agenda", label: "Agenda" },
   { code: "05", href: "/clientes", id: "clients", label: "Clientes" },

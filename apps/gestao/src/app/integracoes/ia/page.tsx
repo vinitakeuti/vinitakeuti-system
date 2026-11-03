@@ -27,7 +27,7 @@ export default async function AiIntegrationPage({ searchParams }: AiPageProps) {
   const connected = aiIsConnected(settings);
 
   return <main className="app-shell"><AppSidebar current="integrations" /><div className="workspace"><section className="directory-page settings-page">
-    <IntegrationHeader crumb="INTELIGÊNCIA ARTIFICIAL" title="Inteligência artificial." description="A IA que atende no Assistente, na área do cliente, no site e no WhatsApp, usando as mesmas regras do sistema." badge={{ label: connected ? `CONECTADA · ${aiProviderLabel(settings).toUpperCase()}` : "NÃO CONECTADA", tone: connected ? "is-ok" : "is-warning" }} tabs={TABS} current={tab} basePath="/integracoes/ia" />
+    <IntegrationHeader crumb="INTELIGÊNCIA ARTIFICIAL" title="Inteligência artificial." description="A IA que atende na Eliza, na área do cliente, no site e no WhatsApp, usando as mesmas regras do sistema." badge={{ label: connected ? `CONECTADA · ${aiProviderLabel(settings).toUpperCase()}` : "NÃO CONECTADA", tone: connected ? "is-ok" : "is-warning" }} tabs={TABS} current={tab} basePath="/integracoes/ia" />
     {params.aviso && notices[params.aviso] ? <p className="form-success" role="status">{notices[params.aviso]}</p> : null}
     {params.aviso === "teste" ? <p className="form-success" role="status">Conexão funcionando: {params.resultado?.slice(0, 700)}. <Link className="text-link" href="/assistente">ABRIR O ASSISTENTE</Link></p> : null}
     {params.erro ? <p className="form-error" role="alert">{params.erro.slice(0, 300)}</p> : null}

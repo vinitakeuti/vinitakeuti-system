@@ -28,7 +28,7 @@ export default async function AttendancePage({ params, searchParams }: Attendanc
   const attendance = await getAttendance(id);
   if (!attendance) notFound();
   const [view, settings] = await Promise.all([conversationView(attendance.id, { take: 600 }), prisma.aiSettings.findUnique({ where: { id: "default" }, select: { assistantName: true, usdBrlCents: true } })]);
-  const assistant = settings?.assistantName ?? "Assistente";
+  const assistant = settings?.assistantName ?? "Eliza";
   const phone = attendance.phone ? (attendance.phone.startsWith("55") ? attendance.phone : `55${attendance.phone}`) : null;
   const cost = formatCost(attendance.costMicros, settings?.usdBrlCents ?? null);
   const nextMeeting = attendance.events.find((event) => event.status === "SCHEDULED" && event.startsAt > new Date());

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import type { ConversationItem, ConversationView, ToolStepStatus } from "@/features/ai/services/conversations";
 import { AssistantMarkdown } from "@/features/ai/components/assistant-markdown";
 import { toolLabel } from "@/features/ai/types/tool-labels";
-import { deleteAssistantConversationAction } from "@/features/ai/services/ai-actions";
+import { deleteAssistantConversationAction, renameAssistantConversationAction } from "@/features/ai/services/ai-actions";
 
 /**
  * Tela do assistente, em tela cheia: histórico agrupado por data, a conversa em coluna central e a caixa de mensagem.
@@ -77,6 +77,7 @@ const ICONS = {
   down: "M8 3v10M3.5 8.5 8 13l4.5-4.5",
   history: "M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12ZM8 5v3.2l2.2 1.6",
   close: "M4 4l8 8M12 4l-8 8",
+  pencil: "M3 13h3l7-7-3-3-7 7v3ZM8.5 4.5l3 3",
 } as const;
 
 function Icon({ name }: { name: keyof typeof ICONS }) {
@@ -86,6 +87,17 @@ function Icon({ name }: { name: keyof typeof ICONS }) {
 /** Marca VR (a mesma da navegação), em branco sobre preto. */
 function Mark() {
   return <svg viewBox="296 192 880 657" aria-hidden="true" focusable="false"><g fill="currentColor"><path d="M316 233H451L817 678L659 829L316 415Z" /><path d="M595 212L1021 213L1151 357V617L928 361H716Z" /><path d="M804 428H899L1156 738V825H994L735 499Z" /></g></svg>;
+}
+
+/** Campo para renomear a conversa: Enter salva, Esc cancela, sair do campo salva. */
+function RenameInput({ initial, label, className, onDone }: { initial: string; label: string; className?: string; onDone: (value: string | null) => void }) {
+  const [value, setValue] = useState(initial);
+  const ref = useRef<HTMLInputElement>(null);
+  const doneRef = useRef(false);
+  const finish = (next: string | null) => { if (doneRef.current) return; doneRef.current = true; onDone(next); };
+  useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
+  return <input ref={ref} className={`chat-rename-input${className ? ` ${className}` : ""}`} value={value} maxLength={80} aria-label={label} onChange={(event) => setValue(event.target.value)} onBlur={() => finish(value)}
+    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); finish(value); } else if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); finish(null); } }} />;
 }
 
 /** Etapas executadas numa resposta: recolhidas num resumo; abertas enquanto a IA trabalha. */
@@ -139,8 +151,25 @@ export function AssistantChat({ status, conversations: initialConversations, ini
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const followRef = useRef(true);
 
+  // Conversa em edição e onde o campo abriu (no histórico ou no título), para abrir um campo só.
+  const [renaming, setRenaming] = useState<{ id: string; place: "history" | "title" } | null>(null);
   const name = status.assistantName;
-  const hasName = name !== "Assistente";
+
+  /** Renomeia na hora; se o servidor recusar, o nome anterior volta. */
+  const rename = useCallback(async (id: string, value: string | null) => {
+    setRenaming(null);
+    const next = value?.replace(/\s+/g, " ").trim().slice(0, 80);
+    const previous = conversations.find((item) => item.id === id)?.title;
+    if (!next || next === previous) return;
+    setConversations((list) => list.map((item) => item.id === id ? { ...item, title: next } : item));
+    try {
+      const result = await renameAssistantConversationAction({ conversationId: id, title: next });
+      if (!result.ok) throw new Error(result.error);
+    } catch (cause) {
+      setConversations((list) => list.map((item) => item.id === id && previous ? { ...item, title: previous } : item));
+      window.alert(cause instanceof Error && cause.message ? cause.message : "Não foi possível renomear a conversa.");
+    }
+  }, [conversations]);
 
   /** Desce até o fim; sem `force`, só se a pessoa já estava no fim (não puxa a tela de quem está lendo acima). */
   const scrollToEnd = useCallback((force = false) => {
@@ -275,20 +304,20 @@ export function AssistantChat({ status, conversations: initialConversations, ini
 
   const assistantHead = (at: string | null) => <div className="chat-turn-head">
     <span className="chat-avatar"><Mark /></span>
-    <b>{hasName ? name : "Assistente"}</b>
+    <b>{name}</b>
     {at ? <time dateTime={at}>{timeFormat.format(new Date(at))}</time> : null}
   </div>;
 
   const composer = <form className={`chat-composer${empty ? " is-centered" : ""}`} onSubmit={submit}>
     <div className={`chat-input${status.ready ? "" : " is-disabled"}`}>
-      <textarea ref={inputRef} rows={empty ? 2 : 1} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} placeholder={status.ready ? (empty ? "Peça qualquer coisa: um orçamento, um lançamento, um documento…" : `Responder ${hasName ? `à ${name}` : "à assistente"}…`) : "A IA está desconectada."} disabled={!status.ready} maxLength={MAX_CHARS} aria-label="Mensagem para a assistente" />
+      <textarea ref={inputRef} rows={empty ? 2 : 1} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} placeholder={status.ready ? (empty ? "Peça qualquer coisa: um orçamento, um lançamento, um documento…" : `Responder à ${name}…`) : "A IA está desconectada."} disabled={!status.ready} maxLength={MAX_CHARS} aria-label="Mensagem para a assistente" />
       <div className="chat-input-foot">
         <span className="chat-input-hint"><kbd>Enter</kbd> envia <span aria-hidden="true">·</span> <kbd>Shift</kbd> + <kbd>Enter</kbd> quebra a linha</span>
         {draft.length > MAX_CHARS - 500 ? <span className="chat-count">{draft.length} / {MAX_CHARS}</span> : null}
         <button type="submit" className="chat-send" disabled={!status.ready || running || !draft.trim()} aria-label={running ? "Aguardando a resposta" : "Enviar mensagem"}>{running ? <span className="chat-send-wait" aria-hidden="true" /> : <Icon name="send" />}</button>
       </div>
     </div>
-    <p className="chat-disclaimer">{hasName ? name : "A assistente"} pode errar. Confira valores, datas e documentos antes de concluir.</p>
+    <p className="chat-disclaimer">{name} pode errar. Confira valores, datas e documentos antes de concluir.</p>
   </form>;
 
   return <div className={`chat${historyOpen ? " is-history-open" : ""}`}>
@@ -303,8 +332,11 @@ export function AssistantChat({ status, conversations: initialConversations, ini
       <nav className="chat-history-list">
         {groups.length ? groups.map((group) => <section key={group.label}>
           <h2>{group.label}</h2>
-          <ul>{group.items.map((conversation) => <li key={conversation.id} className={conversation.id === conversationId ? "is-active" : undefined}>
-            <Link href={`/assistente?c=${conversation.id}`} aria-current={conversation.id === conversationId ? "page" : undefined} onClick={() => setHistoryOpen(false)}><span>{conversation.title}</span><time dateTime={conversation.lastMessageAt}>{historyTime(conversation.lastMessageAt)}</time></Link>
+          <ul>{group.items.map((conversation) => <li key={conversation.id} className={[conversation.id === conversationId ? "is-active" : "", renaming?.place === "history" && renaming.id === conversation.id ? "is-renaming" : ""].filter(Boolean).join(" ") || undefined}>
+            {renaming?.place === "history" && renaming.id === conversation.id ? <RenameInput initial={conversation.title} label="Novo nome da conversa" onDone={(value) => void rename(conversation.id, value)} /> : <>
+              <Link href={`/assistente?c=${conversation.id}`} aria-current={conversation.id === conversationId ? "page" : undefined} onClick={() => setHistoryOpen(false)}><span>{conversation.title}</span><time dateTime={conversation.lastMessageAt}>{historyTime(conversation.lastMessageAt)}</time></Link>
+              <button type="button" className="chat-rename" onClick={() => setRenaming({ id: conversation.id, place: "history" })} aria-label={`Renomear a conversa ${conversation.title}`} title="Renomear"><Icon name="pencil" /></button>
+            </>}
           </li>)}</ul>
         </section>) : <p className="chat-history-empty">{query ? `Nenhuma conversa com “${query}”.` : "Suas conversas aparecem aqui."}</p>}
       </nav>
@@ -322,8 +354,10 @@ export function AssistantChat({ status, conversations: initialConversations, ini
           <button className="chat-icon-button chat-history-toggle" type="button" onClick={() => setHistoryOpen(true)} aria-label="Abrir conversas" aria-expanded={historyOpen}><Icon name="history" /></button>
         </div>
         <div className="chat-bar-title">
-          <h1>{empty ? (hasName ? name : "Assistente") : title}</h1>
-          <small>{empty ? "ASSISTENTE IA" : `${hasName ? name.toUpperCase() : "ASSISTENTE"}`}{status.ready ? ` · ${shortModel(status.model).toUpperCase()}` : " · DESCONECTADA"}</small>
+          {conversationId && renaming?.place === "title" && renaming.id === conversationId ? <RenameInput initial={title} label="Novo nome da conversa" className="is-title" onDone={(value) => void rename(conversationId, value)} />
+            : conversationId ? <h1><button type="button" className="chat-title-button" onClick={() => setRenaming({ id: conversationId, place: "title" })} title="Renomear a conversa"><span>{title}</span><Icon name="pencil" /></button></h1>
+              : <h1>{name}</h1>}
+          <small>{empty ? "ASSISTENTE DE IA" : name.toUpperCase()}{status.ready ? ` · ${shortModel(status.model).toUpperCase()}` : " · DESCONECTADA"}</small>
         </div>
         <div className="chat-bar-actions">
           <Link className="chat-icon-button chat-bar-new" href="/assistente" aria-label="Nova conversa" title="Nova conversa"><Icon name="plus" /></Link>
@@ -335,7 +369,7 @@ export function AssistantChat({ status, conversations: initialConversations, ini
         {empty ? <div className="chat-welcome">
           <span className="chat-welcome-mark"><Mark /></span>
           <h2>{greeting}</h2>
-          <p>{hasName ? `Sou a ${name}. ` : ""}Posso cadastrar clientes, montar orçamentos com seus serviços, cuidar do Financeiro, da agenda e dos documentos. Alterações esperam o seu “sim”.</p>
+          <p>Sou a {name}. Posso cadastrar clientes, montar orçamentos com seus serviços, cuidar do Financeiro, da agenda e dos documentos. Alterações esperam o seu “sim”.</p>
           {composer}
           {status.ready ? null : <p className="chat-offline">{status.reason} <Link href="/integracoes/ia">Abrir Integrações</Link></p>}
         </div> : <div className="chat-column">

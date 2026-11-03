@@ -92,6 +92,18 @@ export async function revokeExternalTokenAction() {
   done("acesso", { aviso: "token-revogado" });
 }
 
+/** Renomeia uma conversa com a Eliza (o título do histórico). O título automático só é gerado quando ainda não há um. */
+export async function renameAssistantConversationAction(input: { conversationId: string; title: string }): Promise<{ ok: true; title: string } | { ok: false; error: string }> {
+  await requireManagementUser();
+  const id = typeof input?.conversationId === "string" ? input.conversationId.slice(0, 50) : "";
+  const title = typeof input?.title === "string" ? input.title.replace(/\s+/g, " ").trim().slice(0, 80) : "";
+  if (!title) return { ok: false, error: "Dê um nome à conversa." };
+  const result = await prisma.aiConversation.updateMany({ where: { id, channel: "GESTAO" }, data: { title } });
+  if (!result.count) return { ok: false, error: "Conversa não encontrada." };
+  revalidatePath("/assistente");
+  return { ok: true, title };
+}
+
 /** Exclui uma conversa do assistente (mensagens e etapas). A auditoria das alterações vai junto com a conversa. */
 export async function deleteAssistantConversationAction(formData: FormData) {
   await requireManagementUser();

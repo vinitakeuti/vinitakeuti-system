@@ -29,14 +29,14 @@ export async function listAssistantConversations() {
 /** A IA está pronta para a gestão? Se não, o motivo, para a tela explicar o que falta. */
 export async function getAssistantStatus() {
   const settings = await prisma.aiSettings.findUnique({ where: { id: "default" }, select: { isActive: true, keyHint: true, model: true, channels: true, assistantName: true } });
-  const assistantName = settings?.assistantName?.trim() || "Assistente";
+  const assistantName = settings?.assistantName?.trim() || "Eliza";
   if (!settings?.isActive || !settings.keyHint || !settings.model) return { ready: false as const, assistantName, reason: "A IA ainda não está conectada. Escolha o provedor e o modelo em Integrações." };
   if (!settings.channels.includes("GESTAO")) return { ready: false as const, assistantName, reason: "O canal Gestão está desligado. Libere em Integrações › Inteligência artificial." };
   return { ready: true as const, assistantName, model: settings.model };
 }
 
 /**
- * Atividade em dois lados: Gestão (Assistente, seu WhatsApp e MCP) e Atendimento (site, área do cliente e os outros
+ * Atividade em dois lados: Gestão (Eliza, seu WhatsApp e MCP) e Atendimento (site, área do cliente e os outros
  * números do WhatsApp). O WhatsApp é separado pela lista atual de números do dono.
  */
 export type ActivityScope = "gestao" | "atendimento";

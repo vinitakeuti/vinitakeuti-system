@@ -16,7 +16,7 @@ type Task = "gestao" | "attendance" | "document" | "quote";
 type Price = { input: string; output: string };
 
 export const TASKS: Array<{ id: Task; label: string; detail: string }> = [
-  { id: "gestao", label: "Gestão", detail: "Sua conversa no Assistente e no seu WhatsApp. Obrigatório." },
+  { id: "gestao", label: "Gestão", detail: "Sua conversa com a Eliza e no seu WhatsApp. Obrigatório." },
   { id: "attendance", label: "Atendimento", detail: "Site, WhatsApp de clientes e área do cliente." },
   { id: "document", label: "Documentos e contratos", detail: "Criar e revisar contratos, cessões, memoriais e documentos." },
   { id: "quote", label: "Orçamentos", detail: "Montar e alterar orçamentos com os serviços do catálogo." },

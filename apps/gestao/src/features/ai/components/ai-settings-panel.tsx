@@ -23,7 +23,7 @@ const number = new Intl.NumberFormat("pt-BR");
 export const channelLabel: Record<string, string> = { GESTAO: "Gestão", PORTAL: "Área do cliente", SITE: "Site", WHATSAPP: "WhatsApp", SISTEMA: "MCP" };
 
 const CHANNELS = [
-  { id: "GESTAO", label: "Gestão", detail: "Você, no Assistente IA. Consulta e altera o sistema." },
+  { id: "GESTAO", label: "Gestão", detail: "Você, na Eliza. Consulta e altera o sistema." },
   { id: "PORTAL", label: "Área do cliente", detail: "O cliente pergunta sobre os próprios pagamentos, documentos e serviços. Só leitura." },
   { id: "SITE", label: "Site", detail: "Atendimento dos visitantes de viniciusriudi.com: serviços e contato." },
   { id: "WHATSAPP", label: "WhatsApp", detail: "Pela ponte do WhatsApp. Seus números (abaixo) têm acesso de gestão; os demais, só com o atendimento ligado." },
@@ -36,7 +36,7 @@ const ENDPOINTS = [
   { label: "Site", method: "POST/GET", path: "/api/ia/site", note: "Usada pelo widget. Público, liberado para viniciusriudi.com (e para os domínios em AI_SITE_ORIGINS). O atendimento começa em /api/ia/site/inicio, com nome, telefone e e-mail." },
   { label: "WhatsApp", method: "POST/GET", path: "/api/ia/mensagens", note: "Com o token. A ponte envia { de, texto } e acompanha a resposta com ?de=…&run=…. Só seus números são atendidos." },
   { label: "MCP", method: "POST", path: "/api/ia/mcp", note: "Com o token. Servidor MCP (HTTP) com as ferramentas da gestão, para agentes externos." },
-  { label: "Gestão", method: "POST/GET", path: "/api/ia/conversas", note: "Usada pelo Assistente IA, com a sessão da gestão." },
+  { label: "Gestão", method: "POST/GET", path: "/api/ia/conversas", note: "Usada pela Eliza, com a sessão da gestão." },
   { label: "Área do cliente", method: "POST/GET", path: "/api/portal/ia", note: "Com a sessão do cliente, no domínio de clientes." },
 ];
 
@@ -187,7 +187,7 @@ function sessionLabel(session: { channel: string; externalKey: string | null; co
   if (session.channel === "PORTAL") return `Área do cliente${session.client ? ` · ${session.client.name}` : ""}`;
   if (session.channel === "SITE") return `Site · ${session.contactName ?? "visitante"}`;
   if (session.channel === "SISTEMA") return "MCP · agente externo";
-  return "Assistente";
+  return "Eliza";
 }
 
 function CostValue({ micros, rate, estimated }: { micros: number | null; rate: number | null; estimated?: boolean }) {
@@ -196,7 +196,7 @@ function CostValue({ micros, rate, estimated }: { micros: number | null; rate: n
 }
 
 const SCOPES = [
-  { id: "gestao", label: "GESTÃO", detail: "Assistente, seu WhatsApp e MCP." },
+  { id: "gestao", label: "GESTÃO", detail: "Eliza, seu WhatsApp e MCP." },
   { id: "atendimento", label: "ATENDIMENTO", detail: "Site, área do cliente e outros números do WhatsApp." },
 ] as const;
 
