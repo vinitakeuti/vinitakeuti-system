@@ -55,7 +55,7 @@ export async function listFinancialEntries(filters: FinanceFilters = {}) {
     take: FINANCE_PAGE_SIZE + 1,
     ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
     orderBy: [{ dueDate: "desc" }, { id: "desc" }],
-    select: { id: true, type: true, status: true, origin: true, isFixed: true, description: true, category: true, counterparty: true, amountCents: true, paidCents: true, dueDate: true, settledAt: true, notes: true, paymentCondition: true, installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { number: true, dueDate: true, amountCents: true } } },
+    select: { id: true, type: true, status: true, origin: true, isFixed: true, description: true, category: true, counterparty: true, clientId: true, amountCents: true, paidCents: true, dueDate: true, settledAt: true, notes: true, paymentCondition: true, installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { number: true, dueDate: true, amountCents: true } } },
   });
   const hasMore = rows.length > FINANCE_PAGE_SIZE;
   const data = hasMore ? rows.slice(0, FINANCE_PAGE_SIZE) : rows;
@@ -210,7 +210,7 @@ export async function getFinancialEntryDetail(id: string) {
   return prisma.financialEntry.findUnique({
     where: { id },
     select: {
-      id: true, type: true, status: true, origin: true, sourceKey: true, isFixed: true, description: true, category: true, counterparty: true, amountCents: true, paidCents: true, dueDate: true, settledAt: true, notes: true, createdAt: true, paymentCondition: true,
+      id: true, type: true, status: true, origin: true, sourceKey: true, isFixed: true, description: true, category: true, counterparty: true, client: { select: { id: true, name: true, company: true } }, amountCents: true, paidCents: true, dueDate: true, settledAt: true, notes: true, createdAt: true, paymentCondition: true,
       recurringEntry: { select: { id: true, description: true } },
       installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { id: true, number: true, dueDate: true, amountCents: true } },
       payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 200, select: { id: true, amountCents: true, paidAt: true, notes: true, fromSale: true, fromQuote: true, chargeId: true } },
@@ -262,7 +262,7 @@ export async function getRecurringEntryDetail(id: string) {
   return prisma.recurringEntry.findUnique({
     where: { id },
     select: {
-      id: true, type: true, description: true, category: true, counterparty: true, amountCents: true, dayOfMonth: true, startsOn: true, endsOn: true, notes: true,
+      id: true, type: true, description: true, category: true, counterparty: true, client: { select: { id: true, name: true, company: true } }, amountCents: true, dayOfMonth: true, startsOn: true, endsOn: true, notes: true,
       entries: { orderBy: [{ dueDate: "desc" }, { id: "desc" }], take: 18, select: { id: true, type: true, status: true, amountCents: true, paidCents: true, dueDate: true } },
     },
   });

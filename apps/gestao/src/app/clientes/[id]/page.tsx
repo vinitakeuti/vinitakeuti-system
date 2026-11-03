@@ -9,6 +9,8 @@ import { SidebarToggle } from "@/components/sidebar-toggle";
 import { getClientProfile } from "@/features/clients/queries/client-queries";
 import { ClientDocumentsSection } from "@/features/documents/components/client-documents-section";
 import { documentKindFromEnum } from "@/features/documents/types/document-kinds";
+import { ClientFinanceSection } from "@/features/finance/components/client-finance-section";
+import { countClientFinancialEntries, getClientFinance } from "@/features/finance/queries/client-finance";
 import { monitoringEnvironmentLabel, monitoringStatusClass, monitoringStatusLabel } from "@/features/monitoring/types/monitoring-labels";
 
 export const dynamic = "force-dynamic";
@@ -16,12 +18,13 @@ export const dynamic = "force-dynamic";
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const date = new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: "America/Maceio" });
 const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Maceio" });
-const sections = ["overview", "documents", "projects", "subscriptions", "systems"] as const;
+const sections = ["overview", "documents", "finance", "projects", "subscriptions", "systems"] as const;
 type ProfileSection = (typeof sections)[number];
 
 const sectionLabels: Record<ProfileSection, string> = {
   overview: "Resumo",
   documents: "Documentos",
+  finance: "Financeiro",
   projects: "Serviços",
   subscriptions: "Assinaturas",
   systems: "Sistemas",
@@ -51,16 +54,21 @@ function whatsappHref(phone: string | null) {
   return null;
 }
 
-export default async function ClientProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ section?: string; updated?: string; conferido?: string }> }) {
+export default async function ClientProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ section?: string; updated?: string; conferido?: string; depois?: string }> }) {
   const { id } = await params;
-  const { section: requestedSection, updated, conferido } = await searchParams;
+  const { section: requestedSection, updated, conferido, depois } = await searchParams;
   // "quotes" era o nome antigo da seção de documentos.
   const activeSection = requestedSection === "quotes" ? "documents" : isProfileSection(requestedSection) ? requestedSection : "overview";
   const client = await getClientProfile(id);
   if (!client) notFound();
+  const [finance, financeCount] = await Promise.all([
+    activeSection === "finance" ? getClientFinance(client.id, depois) : null,
+    activeSection === "finance" ? null : countClientFinancialEntries(client.id),
+  ]);
 
   const sectionCounts: Record<Exclude<ProfileSection, "overview">, number> = {
     documents: client.quotes.length + client.documents.length,
+    finance: finance?.total ?? financeCount ?? 0,
     projects: client.projects.length,
     subscriptions: client.subscriptions.length,
     systems: client.monitoredApps.length,
@@ -108,6 +116,7 @@ export default async function ClientProfilePage({ params, searchParams }: { para
         </div>
         <PortalAccessPanel clientId={client.id} clientName={client.name} clientEmail={client.email} portalUrl={clientPortalUrl()} access={client.portalUsers[0] ? { ...client.portalUsers[0], lastLoginAt: client.portalUsers[0].lastLoginAt?.toISOString() ?? null, createdAt: client.portalUsers[0].createdAt.toISOString() } : null} />
       </section> : null}
+      {activeSection === "finance" && finance ? <ClientFinanceSection clientId={client.id} clientName={client.name} data={finance} cursor={depois} /> : null}
       {activeSection === "documents" ? <ClientDocumentsSection clientId={client.id} quotes={client.quotes} documents={client.documents} reviewed={conferido} /> : null}
       {activeSection === "projects" ? <ProfileSection title="Serviços ativos" description="Serviços em planejamento, execução ou aguardando retorno."><ProfileTable variant="projects" columns={["SERVIÇO", "SITUAÇÃO", "ENTREGA", "VALOR"]} empty="Nenhum serviço ativo para este cliente.">{client.projects.map((project) => <tr key={project.id}><td>{project.name}</td><td>{projectStatusLabels[project.status] ?? project.status}</td><td>{project.deliveryAt ? date.format(project.deliveryAt) : "A definir"}</td><td>{project.budgetCents ? money.format(project.budgetCents / 100) : "A definir"}</td></tr>)}</ProfileTable></ProfileSection> : null}
       {activeSection === "subscriptions" ? <ProfileSection title="Assinaturas" description="Cobranças recorrentes e situação de cada assinatura." action={<Link className="text-link" href={`/clientes/${client.id}/assinaturas/nova`}>ATRIBUIR SERVIÇO RECORRENTE</Link>}><ProfileTable variant="subscriptions" columns={["ASSINATURA", "SITUAÇÃO", "PRÓXIMO PAGAMENTO", "VALOR"]} empty="Nenhuma assinatura registrada para este cliente.">{client.subscriptions.map((subscription) => <tr key={subscription.id}><td><span>{subscription.name}</span><small>{subscription.serviceCatalogItem?.category.name ?? "Recorrência avulsa"}</small></td><td>{subscriptionStatusLabels[subscription.status] ?? subscription.status}</td><td>{subscription.nextPaymentAt ? date.format(subscription.nextPaymentAt) : "A definir"}</td><td>{money.format(subscription.amountCents / 100)}</td></tr>)}</ProfileTable></ProfileSection> : null}

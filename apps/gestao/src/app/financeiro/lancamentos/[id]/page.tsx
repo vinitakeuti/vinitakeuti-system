@@ -11,6 +11,7 @@ import { FINANCE_CATEGORIES, financeEntryStatusKey, financeEntryStatusLabel, fin
 import { addFinancialPaymentAction, cancelFinancialEntryAction, deleteFinancialPaymentAction, importQuotePaymentsAction, markNextInstallmentPaidAction, reopenFinancialEntryAction, savePaymentPlanAction, settleFinancialEntryAction, updateFinancialEntryAction, updateFinancialPaymentAction, updateInstallmentAction } from "@/features/finance/services/finance-actions";
 import { getEntryAsaasState } from "@/features/integrations/queries/integration-queries";
 import { chargeNextInstallmentAction } from "@/features/integrations/services/asaas-actions";
+import { CounterpartyField } from "@/features/finance/components/counterparty-field";
 import styles from "../../financeiro.module.css";
 
 export const dynamic = "force-dynamic";
@@ -98,7 +99,7 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
         <label>Vencimento<input name="dueDate" type="date" required defaultValue={isoDay.format(entry.dueDate)} /></label>
       </>}
       <label>Categoria<select name="category" defaultValue={entry.category}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
-      <label>Contraparte<input name="counterparty" maxLength={160} defaultValue={entry.counterparty ?? ""} placeholder="Cliente, fornecedor ou pessoa" /></label>
+      <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField initialClient={entry.client} initialText={entry.counterparty ?? ""} placeholder="Busque um cliente ou digite fornecedor ou pessoa" /></div>
       <label className={styles.notes}>Observação<textarea name="notes" maxLength={500} rows={2} defaultValue={entry.notes ?? ""} placeholder="Opcional" /></label>
       <div className={styles.formActions}>
         {cancellable ? <ConfirmSubmitButton formAction={cancelFinancialEntryAction} className={styles.textAction + " " + styles.cancelAction} message="Cancelar este lançamento? Ele deixa de contar no caixa e no resultado.">CANCELAR LANÇAMENTO</ConfirmSubmitButton> : null}

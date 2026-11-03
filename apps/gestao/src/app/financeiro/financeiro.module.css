@@ -290,3 +290,9 @@
 .chargeWarning a { color:inherit; font-weight:600; }
 .adjust .markPaid { margin-top:8px; }
 @media (max-width:640px) { .chargeWarning { margin:0 15px 12px; } }
+
+/* Campo Contraparte (cliente cadastrado ou nome): mesmo visual dos rótulos do formulário, sem ser um label (tem botões). */
+.fieldGroup { position:relative; display:grid; align-content:start; gap:7px; min-width:0; color:#4a4d49; font-family:var(--mono); font-size:.63rem; }
+.clientLink { color:var(--accent); text-decoration:none; }
+.clientLink::before { content:""; display:inline-block; width:6px; height:6px; margin-right:6px; background:var(--accent); vertical-align:1px; }
+.clientLink:hover { text-decoration:underline; }

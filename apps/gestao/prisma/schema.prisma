@@ -143,6 +143,8 @@ model Client {
   signedDocuments SignedDocument[]
   aiConversations AiConversation[]
   calendarEvents CalendarEvent[]
+  financialEntries FinancialEntry[]
+  recurringEntries RecurringEntry[]
 
   @@index([name])
   @@index([email])
@@ -442,6 +444,8 @@ model FinancialEntry {
   description  String
   category     String
   counterparty String?
+  /// Cliente cadastrado da contraparte (a contraparte guarda o nome, para o histórico).
+  clientId     String?
   amountCents  Int
   isFixed      Boolean              @default(false)
   dueDate      DateTime
@@ -459,8 +463,10 @@ model FinancialEntry {
   payments     FinancialPayment[]
   installments FinancialInstallment[]
   recurringEntry RecurringEntry?    @relation(fields: [recurringEntryId], references: [id], onDelete: SetNull)
+  client       Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([status, dueDate, id])
+  @@index([clientId, dueDate])
   @@index([type, dueDate, id])
   @@index([createdAt, id])
   @@index([recurringEntryId, dueDate])
@@ -490,6 +496,7 @@ model RecurringEntry {
   description      String
   category         String
   counterparty     String?
+  clientId         String?
   amountCents      Int
   /// Dia do vencimento (1 a 31).
   dayOfMonth       Int
@@ -503,8 +510,10 @@ model RecurringEntry {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   entries          FinancialEntry[]
+  client           Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([endsOn, generatedThrough])
+  @@index([clientId])
   @@index([type, createdAt, id])
 }
 

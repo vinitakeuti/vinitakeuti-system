@@ -5,6 +5,7 @@ import { SidebarToggle } from "@/components/sidebar-toggle";
 import { FINANCE_CATEGORIES, financeTypeLabel, getRecurringSummary, listRecurringEntries } from "@/features/finance/queries/finance-queries";
 import { createRecurringEntryAction } from "@/features/finance/services/recurring-actions";
 import { currentMonthKey, ensureRecurringEntries, monthKeyOf, recurringDayLabel } from "@/features/finance/services/recurring-entries";
+import { CounterpartyField } from "@/features/finance/components/counterparty-field";
 import styles from "../financeiro.module.css";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export default async function FixedCostsPage({ searchParams }: FixedCostsPagePro
         <label>Tipo<select name="type" defaultValue={FinancialEntryType.EXPENSE}><option value="EXPENSE">Saída (custo)</option><option value="INCOME">Entrada</option></select></label>
         <label>Descrição<input name="description" maxLength={180} required placeholder="Ex.: Assinatura do servidor" /></label>
         <label>Categoria<select name="category" defaultValue="Ferramentas">{FINANCE_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
-        <label>Contraparte<input name="counterparty" maxLength={160} placeholder="Fornecedor, cliente ou pessoa" /></label>
+        <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField placeholder="Busque um cliente ou digite fornecedor ou pessoa" /></div>
         <label>Valor mensal<input name="amount" inputMode="decimal" required placeholder="0,00" /></label>
         <label>Dia do vencimento<select name="dayOfMonth" defaultValue="5">{DAYS.map((day) => <option key={day} value={day}>{day}</option>)}</select><small className={styles.fieldHint}>Dia 29, 30 ou 31 cai no último dia nos meses mais curtos.</small></label>
         <label>Primeiro mês<input name="startsOn" type="month" required defaultValue={current} /></label>

@@ -68,7 +68,7 @@ export const financeTools = [
 
   defineTool({
     name: "financeiro_adicionar_lancamento",
-    description: `Adiciona um lançamento no Financeiro. Saída (gasto) conta como paga na data. Entrada fica a receber, a menos que "recebido" seja true; pode ser parcelada. "recorrente" cria um lançamento mensal fixo (ex.: assinatura, aluguel). Categorias usadas: ${FINANCE_CATEGORIES.join(", ")}.`,
+    description: `Adiciona um lançamento no Financeiro. Se o lançamento for de um cliente cadastrado, procure-o (clientes_buscar) e envie cliente_id: ele aparece no perfil do cliente. Saída (gasto) conta como paga na data. Entrada fica a receber, a menos que "recebido" seja true; pode ser parcelada. "recorrente" cria um lançamento mensal fixo (ex.: assinatura, aluguel). Categorias usadas: ${FINANCE_CATEGORIES.join(", ")}.`,
     scopes: ["owner"],
     mutates: true,
     input: object({
@@ -77,7 +77,8 @@ export const financeTools = [
       valor: s.money(),
       vencimento: s.date({ description: "Vencimento (ou data do gasto)" }),
       categoria: s.optional(s.string({ max: 80 })),
-      contraparte: s.optional(s.string({ max: 160, description: "Cliente ou fornecedor" })),
+      contraparte: s.optional(s.string({ max: 160, description: "Fornecedor ou pessoa sem cadastro (com cliente cadastrado, use cliente_id)" })),
+      cliente_id: s.optional(s.id({ description: "Cliente cadastrado (use clientes_buscar); vincula o lançamento ao perfil dele" })),
       observacoes: s.optional(s.string({ max: 500 })),
       recebido: s.optional(s.boolean({ description: "Só entradas: já foi recebida" })),
       parcelas: s.optional(s.integer({ min: 1, max: 60, description: "Só entradas a receber: número de parcelas mensais" })),
@@ -85,7 +86,7 @@ export const financeTools = [
     }),
     summarize: (input) => `${input.tipo === "saida" ? "Saída" : "Entrada"} de ${reais(input.valor)} · ${input.descricao} · vencimento ${input.vencimento}${input.recorrente ? " · mensal" : ""}${input.parcelas && input.parcelas > 1 ? ` · ${input.parcelas}x` : ""}`,
     async run(input) {
-      const result = await createFinancialEntry({ type: input.tipo === "saida" ? FinancialEntryType.EXPENSE : FinancialEntryType.INCOME, description: input.descricao, amountCents: input.valor, dueDate: input.vencimento, category: input.categoria, counterparty: input.contraparte, notes: input.observacoes, received: input.recebido, installments: input.parcelas, recurring: input.recorrente });
+      const result = await createFinancialEntry({ type: input.tipo === "saida" ? FinancialEntryType.EXPENSE : FinancialEntryType.INCOME, description: input.descricao, amountCents: input.valor, dueDate: input.vencimento, category: input.categoria, counterparty: input.contraparte, clientId: input.cliente_id, notes: input.observacoes, received: input.recebido, installments: input.parcelas, recurring: input.recorrente });
       if (!result.ok) return { erro: result.error };
       refreshFinance(result.kind === "entry" ? result.id : undefined);
       return { feito: true, tipo: result.kind === "recurring" ? "recorrencia_mensal" : "lancamento", id: result.id, link: result.kind === "entry" ? `/financeiro/lancamentos/${result.id}` : "/financeiro/custos-fixos" };

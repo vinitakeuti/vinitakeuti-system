@@ -6,6 +6,7 @@ import { SidebarToggle } from "@/components/sidebar-toggle";
 import { FINANCE_CATEGORIES, financeEntryStatusKey, financeEntryStatusLabel, financeTypeLabel, getRecurringEntryDetail } from "@/features/finance/queries/finance-queries";
 import { endRecurringEntryAction, reactivateRecurringEntryAction, updateRecurringEntryAction } from "@/features/finance/services/recurring-actions";
 import { currentMonthKey, ensureRecurringEntries, monthKeyOf, recurringDayLabel } from "@/features/finance/services/recurring-entries";
+import { CounterpartyField } from "@/features/finance/components/counterparty-field";
 import styles from "../../financeiro.module.css";
 
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ export default async function RecurringEntryPage({ params, searchParams }: Recur
         <label>Dia do vencimento<select name="dayOfMonth" defaultValue={String(entry.dayOfMonth)}>{DAYS.map((day) => <option key={day} value={day}>{day}</option>)}</select><small className={styles.fieldHint}>Dia 29, 30 ou 31 cai no último dia nos meses mais curtos.</small></label>
         <label>Aplicar a partir de<input name="applyFrom" type="month" required min={startKey} defaultValue={current < startKey ? startKey : current} /></label>
         <label>Categoria<select name="category" defaultValue={entry.category}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
-        <label>Contraparte<input name="counterparty" maxLength={160} defaultValue={entry.counterparty ?? ""} placeholder="Fornecedor, cliente ou pessoa" /></label>
+        <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField initialClient={entry.client} initialText={entry.counterparty ?? ""} placeholder="Busque um cliente ou digite fornecedor ou pessoa" /></div>
         <label className={styles.notes}>Observação<textarea name="notes" maxLength={500} rows={2} defaultValue={entry.notes ?? ""} placeholder="Opcional" /></label>
         <div className={styles.formActions}><button className="primary-action" type="submit">SALVAR RECORRÊNCIA</button></div>
       </form>

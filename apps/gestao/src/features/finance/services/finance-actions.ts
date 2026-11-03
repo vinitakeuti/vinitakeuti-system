@@ -10,7 +10,7 @@ import { MAX_INSTALLMENTS } from "@/features/finance/services/installments";
 import { rebuildInstallments, syncQuotePayments } from "@/features/finance/services/payment-plan";
 import { isMonthKey } from "@/features/finance/services/recurring-entries";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
-import { createFinancialEntry, financeDueDate, financePaymentDate, financialPaymentProblem, payNextInstallment, registerFinancialPayment } from "@/features/finance/services/finance-service";
+import { createFinancialEntry, financeDueDate, financePaymentDate, financialPaymentProblem, payNextInstallment, registerFinancialPayment, resolveCounterparty } from "@/features/finance/services/finance-service";
 
 function text(formData: FormData, name: string, max: number) {
   const value = formData.get(name);
@@ -73,6 +73,7 @@ export async function createFinancialEntryAction(formData: FormData) {
     amountCents: amountToCents(text(formData, "amount", 24)),
     dueDate: text(formData, "dueDate", 10),
     counterparty: text(formData, "counterparty", 160),
+    clientId: text(formData, "clientId", 50) || null,
     notes: text(formData, "notes", 500),
     paymentCondition: text(formData, "paymentCondition", 80),
     recurring: formData.get("isFixed") === "on",
@@ -143,8 +144,10 @@ export async function updateFinancialEntryAction(formData: FormData) {
   const expected = planned ? entry.amountCents : amountCents;
   if (!description || expected < 1 || !dueDate) backToEntry(id, { error: "Preencha descrição, valor esperado e vencimento." });
   if (entry.type === FinancialEntryType.INCOME && expected < entry.paidCents) backToEntry(id, { error: "O valor esperado não pode ser menor que o total já recebido. Ajuste ou remova recebimentos primeiro." });
+  const party = await resolveCounterparty(text(formData, "clientId", 50), text(formData, "counterparty", 160));
+  if (!party.ok) backToEntry(id, { error: party.error });
   await prisma.$transaction(async (tx) => {
-    await tx.financialEntry.update({ where: { id }, data: { description, category: text(formData, "category", 80) || "Outros", counterparty: text(formData, "counterparty", 160) || null, amountCents: expected, dueDate, notes: text(formData, "notes", 500) || null, ...(formData.has("paymentCondition") ? { paymentCondition: entry.type === FinancialEntryType.INCOME ? text(formData, "paymentCondition", 80) || null : null } : {}) } });
+    await tx.financialEntry.update({ where: { id }, data: { description, category: text(formData, "category", 80) || "Outros", counterparty: party.counterparty, clientId: party.clientId, amountCents: expected, dueDate, notes: text(formData, "notes", 500) || null, ...(formData.has("paymentCondition") ? { paymentCondition: entry.type === FinancialEntryType.INCOME ? text(formData, "paymentCondition", 80) || null : null } : {}) } });
     if (entry.type === FinancialEntryType.EXPENSE) await syncExpensePayment(tx, id);
     else await recalculateFinancialEntry(tx, id, { syncSale: true });
   });
@@ -295,4 +298,18 @@ export async function importQuotePaymentsAction(formData: FormData) {
   });
   revalidateFinance(entryId);
   backToEntry(entryId, { notice: "quote-payments" });
+}
+
+export type CounterpartyClient = { id: string; name: string; company: string | null };
+
+/** Clientes para o campo Contraparte: busca por nome ou empresa, no máximo 8 (sem busca, os primeiros por nome). */
+export async function searchCounterpartyClientsAction(query: string): Promise<CounterpartyClient[]> {
+  await requireManagementUser();
+  const term = typeof query === "string" ? query.replace(/\s+/g, " ").trim().slice(0, 80) : "";
+  return prisma.client.findMany({
+    where: term ? { OR: [{ name: { contains: term, mode: "insensitive" } }, { company: { contains: term, mode: "insensitive" } }] } : {},
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: 8,
+    select: { id: true, name: true, company: true },
+  });
 }

@@ -54,7 +54,7 @@ function monthsBetween(from: MonthKey, to: MonthKey) {
   return months;
 }
 
-type Template = { id: string; type: FinancialEntryType; description: string; category: string; counterparty: string | null; amountCents: number; dayOfMonth: number; notes: string | null };
+type Template = { id: string; type: FinancialEntryType; description: string; category: string; counterparty: string | null; clientId: string | null; amountCents: number; dayOfMonth: number; notes: string | null };
 
 function occurrenceId(templateId: string, key: MonthKey) {
   return `rec_${templateId}_${key.replace("-", "")}`;
@@ -70,7 +70,7 @@ async function createOccurrences(tx: Tx, template: Template, months: MonthKey[])
   const expense = template.type === FinancialEntryType.EXPENSE;
   const rows = missing.map((key) => {
     const dueDate = occurrenceDueDate(key, template.dayOfMonth);
-    return { id: occurrenceId(template.id, key), sourceKey: `recurring:${template.id}:${key}`, recurringEntryId: template.id, origin: FinancialEntryOrigin.MANUAL, type: template.type, status: expense ? FinancialEntryStatus.SETTLED : FinancialEntryStatus.PENDING, description: template.description, category: template.category, counterparty: template.counterparty, amountCents: template.amountCents, paidCents: expense ? template.amountCents : 0, isFixed: true, dueDate, settledAt: expense ? dueDate : null, notes: template.notes };
+    return { id: occurrenceId(template.id, key), sourceKey: `recurring:${template.id}:${key}`, recurringEntryId: template.id, origin: FinancialEntryOrigin.MANUAL, type: template.type, status: expense ? FinancialEntryStatus.SETTLED : FinancialEntryStatus.PENDING, description: template.description, category: template.category, counterparty: template.counterparty, clientId: template.clientId, amountCents: template.amountCents, paidCents: expense ? template.amountCents : 0, isFixed: true, dueDate, settledAt: expense ? dueDate : null, notes: template.notes };
   });
   await tx.financialEntry.createMany({ data: rows, skipDuplicates: true });
   if (expense) await tx.financialPayment.createMany({ data: rows.map((row) => ({ id: `${row.id}_p`, entryId: row.id, amountCents: row.amountCents, paidAt: row.dueDate })), skipDuplicates: true });
@@ -89,7 +89,7 @@ export async function ensureRecurringEntries(through?: MonthKey | null) {
     where: { startsOn: { lte: targetStart }, OR: [{ generatedThrough: null }, { generatedThrough: { lt: targetStart } }] },
     take: MAX_TEMPLATES_PER_RUN,
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    select: { id: true, type: true, description: true, category: true, counterparty: true, amountCents: true, dayOfMonth: true, notes: true, startsOn: true, endsOn: true, generatedThrough: true },
+    select: { id: true, type: true, description: true, category: true, counterparty: true, clientId: true, amountCents: true, dayOfMonth: true, notes: true, startsOn: true, endsOn: true, generatedThrough: true },
   });
   for (const template of templates) {
     const from = template.generatedThrough ? addMonths(monthKeyOf(template.generatedThrough), 1) : monthKeyOf(template.startsOn);
@@ -115,12 +115,12 @@ export async function syncExpensePayment(tx: Tx, entryId: string) {
  * Entradas já recebidas em parte não ficam com valor esperado abaixo do recebido.
  */
 export async function applyRecurringChanges(tx: Tx, templateId: string, from: MonthKey) {
-  const template = await tx.recurringEntry.findUnique({ where: { id: templateId }, select: { id: true, type: true, description: true, category: true, counterparty: true, amountCents: true, dayOfMonth: true, notes: true } });
+  const template = await tx.recurringEntry.findUnique({ where: { id: templateId }, select: { id: true, type: true, description: true, category: true, counterparty: true, clientId: true, amountCents: true, dayOfMonth: true, notes: true } });
   if (!template) return;
   const occurrences = await tx.financialEntry.findMany({ where: { recurringEntryId: templateId, dueDate: { gte: occurrenceDueDate(from, 1) } }, take: MAX_MONTHS_AHEAD * 4, select: { id: true, dueDate: true, paidCents: true, status: true } });
   for (const occurrence of occurrences) {
     const key = monthKeyOf(occurrence.dueDate);
-    await tx.financialEntry.update({ where: { id: occurrence.id }, data: { description: template.description, category: template.category, counterparty: template.counterparty, notes: template.notes, dueDate: occurrenceDueDate(key, template.dayOfMonth), amountCents: Math.max(template.amountCents, template.type === FinancialEntryType.INCOME ? occurrence.paidCents : 0) } });
+    await tx.financialEntry.update({ where: { id: occurrence.id }, data: { description: template.description, category: template.category, counterparty: template.counterparty, clientId: template.clientId, notes: template.notes, dueDate: occurrenceDueDate(key, template.dayOfMonth), amountCents: Math.max(template.amountCents, template.type === FinancialEntryType.INCOME ? occurrence.paidCents : 0) } });
     if (template.type === FinancialEntryType.EXPENSE) await syncExpensePayment(tx, occurrence.id);
   }
 }

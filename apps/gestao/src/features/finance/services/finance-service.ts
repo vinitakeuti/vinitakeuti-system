@@ -26,6 +26,20 @@ export function financePaymentDate(value: string) {
   return year >= 2000 && year <= 2100 ? date : null;
 }
 
+/**
+ * Contraparte de um lançamento: um cliente cadastrado (o nome dele vira a contraparte, para o histórico) ou só um
+ * nome digitado, sem vínculo.
+ */
+export async function resolveCounterparty(clientId: string | null | undefined, counterparty: string | null | undefined): Promise<FinanceResult<{ clientId: string | null; counterparty: string | null }>> {
+  const id = clientId?.trim().slice(0, 50);
+  if (id) {
+    const client = await prisma.client.findUnique({ where: { id }, select: { id: true, name: true } });
+    if (!client) return { ok: false, error: "Cliente não encontrado. Escolha outro ou digite só o nome." };
+    return { ok: true, clientId: client.id, counterparty: client.name.slice(0, 160) };
+  }
+  return { ok: true, clientId: null, counterparty: counterparty?.trim().slice(0, 160) || null };
+}
+
 export type NewFinancialEntry = {
   type: FinancialEntryType;
   description: string;
@@ -34,6 +48,8 @@ export type NewFinancialEntry = {
   /** AAAA-MM-DD */
   dueDate: string;
   counterparty?: string | null;
+  /** Cliente cadastrado; quando informado, a contraparte passa a ser o nome dele. */
+  clientId?: string | null;
   notes?: string | null;
   /** Só entradas: condição especial combinada ("Mensal no Pix"). */
   paymentCondition?: string | null;
@@ -52,14 +68,16 @@ export async function createFinancialEntry(input: NewFinancialEntry): Promise<Fi
   const amountCents = Math.round(input.amountCents);
   const dueDate = financeDueDate(input.dueDate);
   if (!description || !Number.isFinite(amountCents) || amountCents < 1 || !dueDate) return { ok: false, error: "Preencha descrição, valor e data de vencimento." };
-  const counterparty = input.counterparty?.trim().slice(0, 160) || null;
+  const party = await resolveCounterparty(input.clientId, input.counterparty);
+  if (!party.ok) return party;
+  const { clientId, counterparty } = party;
   const notes = input.notes?.trim().slice(0, 500) || null;
   const paymentCondition = type === FinancialEntryType.INCOME ? input.paymentCondition?.trim().slice(0, 80) || null : null;
 
   // Recorrente: vira uma recorrência mensal a partir deste vencimento; os meses são gerados conforme consultados.
   if (input.recurring) {
     const month = monthKeyOf(dueDate);
-    const recurring = await prisma.recurringEntry.create({ data: { type, description, category, counterparty, amountCents, dayOfMonth: Number(input.dueDate.slice(8, 10)), startsOn: monthStart(month), notes }, select: { id: true } });
+    const recurring = await prisma.recurringEntry.create({ data: { type, description, category, counterparty, clientId, amountCents, dayOfMonth: Number(input.dueDate.slice(8, 10)), startsOn: monthStart(month), notes }, select: { id: true } });
     await ensureRecurringEntries(month);
     return { ok: true, kind: "recurring", id: recurring.id };
   }
@@ -74,7 +92,7 @@ export async function createFinancialEntry(input: NewFinancialEntry): Promise<Fi
   // Entrada a receber em parcelas: a primeira vence na data informada, as demais nos meses seguintes.
   const count = Math.min(MAX_INSTALLMENTS, Math.max(1, Math.floor(input.installments ?? 1) || 1));
   const installments = !settled && !expense && count > 1 ? buildInstallmentPlan({ amountCents, paidCents: 0, firstPaidAt: null, count, firstDue: input.dueDate }) : [];
-  const entry = await prisma.financialEntry.create({ data: { type, status: settled ? FinancialEntryStatus.SETTLED : FinancialEntryStatus.PENDING, origin: FinancialEntryOrigin.MANUAL, description, category, counterparty, amountCents, paidCents: settled ? amountCents : 0, isFixed: false, dueDate, settledAt: settled ? paidAt : null, notes, paymentCondition, ...(settled ? { payments: { create: { amountCents, paidAt } } } : {}), ...(installments.length ? { installments: { create: installments } } : {}) }, select: { id: true } });
+  const entry = await prisma.financialEntry.create({ data: { type, status: settled ? FinancialEntryStatus.SETTLED : FinancialEntryStatus.PENDING, origin: FinancialEntryOrigin.MANUAL, description, category, counterparty, clientId, amountCents, paidCents: settled ? amountCents : 0, isFixed: false, dueDate, settledAt: settled ? paidAt : null, notes, paymentCondition, ...(settled ? { payments: { create: { amountCents, paidAt } } } : {}), ...(installments.length ? { installments: { create: installments } } : {}) }, select: { id: true } });
   return { ok: true, kind: "entry", id: entry.id };
 }
 
