@@ -330,6 +330,8 @@ model Quote {
   paymentNotes    String?
   /// Null enquanto o orçamento estiver pendente de conclusão no editor.
   completedAt     DateTime?
+  /// Preenchido quando a proposta não virou venda: sai de "Aguardando decisão" e entra no total de não convertidos.
+  lostAt          DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   client          Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -345,6 +347,7 @@ model Quote {
   @@index([status, createdAt, id])
   @@index([clientId, createdAt])
   @@index([completedAt, updatedAt, id])
+  @@index([lostAt, createdAt])
 }
 
 /// Valores já recebidos que abatem o total de um orçamento.

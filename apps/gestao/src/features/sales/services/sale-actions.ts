@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
-import { changeSaleStatus, confirmQuoteSale, saleCode } from "@/features/sales/services/sale-service";
+import { changeSaleStatus, confirmQuoteSale, markQuoteLost, reopenLostQuote, saleCode } from "@/features/sales/services/sale-service";
 
 function text(formData: FormData, name: string, max: number) {
   const value = formData.get(name);
@@ -31,6 +31,24 @@ export async function confirmQuoteSaleAction(formData: FormData) {
   revalidatePath(`/orcamentos/${result.quoteId}`);
   revalidatePath(`/clientes/${result.clientId}`);
   redirect("/vendas?confirmed=1");
+}
+
+export async function markQuoteLostAction(formData: FormData) {
+  await requireManagementUser();
+  const result = await markQuoteLost(text(formData, "quoteId", 50));
+  if (!result.ok) redirect("/vendas");
+  revalidatePath("/vendas");
+  revalidatePath(`/clientes/${result.clientId}`);
+  redirect("/vendas?quoteLost=1");
+}
+
+export async function reopenLostQuoteAction(formData: FormData) {
+  await requireManagementUser();
+  const result = await reopenLostQuote(text(formData, "quoteId", 50));
+  if (!result.ok) redirect("/vendas");
+  revalidatePath("/vendas");
+  revalidatePath(`/clientes/${result.clientId}`);
+  redirect("/vendas?quoteReopened=1");
 }
 
 export async function createDirectSaleAction(formData: FormData) {

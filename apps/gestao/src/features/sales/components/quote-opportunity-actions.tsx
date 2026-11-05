@@ -4,8 +4,10 @@ import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 
 type QuoteAction = (formData: FormData) => void | Promise<void>;
+/** Item do menu: a ação do servidor, a pergunta de confirmação e se é destrutiva. */
+export type QuoteMenuItem = { label: string; action: QuoteAction; confirm: string; danger?: boolean };
 
-export function QuoteOpportunityActions({ quoteId, confirmAction, deleteAction }: { quoteId: string; confirmAction: QuoteAction; deleteAction: QuoteAction }) {
+export function QuoteOpportunityActions({ quoteId, items }: { quoteId: string; items: readonly QuoteMenuItem[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -48,14 +50,10 @@ export function QuoteOpportunityActions({ quoteId, confirmAction, deleteAction }
   return <div className="quote-opportunity-actions" ref={containerRef}>
     <button className="quote-opportunity-trigger" type="button" aria-expanded={isOpen} aria-haspopup="menu" onClick={toggleMenu}>AÇÕES</button>
     {isOpen ? createPortal(<div className="quote-opportunity-menu" ref={menuRef} role="menu" aria-label="Ações do orçamento" style={menuPosition}>
-      <form action={confirmAction} onSubmit={(event) => { if (!window.confirm("Confirmar a venda deste orçamento?")) event.preventDefault(); }}>
+      {items.map((item) => <form key={item.label} action={item.action} onSubmit={(event) => { if (!window.confirm(item.confirm)) event.preventDefault(); }}>
         <input type="hidden" name="quoteId" value={quoteId} />
-        <button type="submit" role="menuitem">CONFIRMAR VENDA</button>
-      </form>
-      <form action={deleteAction} onSubmit={(event) => { if (!window.confirm("Excluir este orçamento permanentemente? Esta ação não pode ser desfeita.")) event.preventDefault(); }}>
-        <input type="hidden" name="quoteId" value={quoteId} />
-        <button className="is-danger" type="submit" role="menuitem">EXCLUIR ORÇAMENTO</button>
-      </form>
+        <button className={item.danger ? "is-danger" : undefined} type="submit" role="menuitem">{item.label}</button>
+      </form>)}
     </div>, document.body) : null}
   </div>;
 }

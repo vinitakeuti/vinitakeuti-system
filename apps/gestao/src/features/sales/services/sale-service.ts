@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
 
 /**
- * Regras de vendas usadas pelas telas e pela IA: confirmar a venda de uma proposta (gera a entrada no Financeiro) e
- * mudar a situação de uma venda. Devolvem um erro legível em vez de redirecionar.
+ * Regras de vendas usadas pelas telas e pela IA: confirmar a venda de uma proposta (gera a entrada no Financeiro),
+ * marcar ou reabrir uma proposta que não virou venda e mudar a situação de uma venda. Devolvem um erro legível em vez de redirecionar.
  */
 
 export function saleCode() {
@@ -16,10 +16,11 @@ export type SaleResult<T> = ({ ok: true } & T) | { ok: false; error: string };
 /** Proposta aceita: vira venda confirmada e entrada a receber (com os pagamentos já registrados na proposta). */
 export async function confirmQuoteSale(quoteIdInput: string): Promise<SaleResult<{ quoteId: string; clientId: string; code: string }>> {
   const quoteId = quoteIdInput.slice(0, 50);
-  const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, code: true, clientId: true, title: true, scope: true, amountCents: true, status: true, completedAt: true, client: { select: { name: true } }, sale: { select: { id: true } }, payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 50, select: { amountCents: true, paidAt: true } } } });
+  const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { id: true, code: true, clientId: true, title: true, scope: true, amountCents: true, status: true, completedAt: true, lostAt: true, client: { select: { name: true } }, sale: { select: { id: true } }, payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 50, select: { amountCents: true, paidAt: true } } } });
   if (!quote) return { ok: false, error: "Proposta não encontrada." };
   if (quote.sale) return { ok: false, error: "Esta proposta já tem uma venda." };
   if (quote.status !== DocumentStatus.DRAFT && quote.status !== DocumentStatus.SENT) return { ok: false, error: "Só propostas em rascunho ou enviadas podem ser confirmadas." };
+  if (quote.lostAt) return { ok: false, error: "Esta proposta está marcada como não convertida. Reabra antes de confirmar." };
 
   const now = new Date();
   await prisma.$transaction(async (tx) => {
@@ -33,6 +34,25 @@ export async function confirmQuoteSale(quoteIdInput: string): Promise<SaleResult
   });
 
   return { ok: true, quoteId: quote.id, clientId: quote.clientId, code: quote.code };
+}
+
+/** Proposta que não virou venda: sai de "Aguardando decisão" sem ser excluída, para entrar no total de não convertidos. */
+export async function markQuoteLost(quoteIdInput: string): Promise<SaleResult<{ quoteId: string; clientId: string }>> {
+  const quote = await prisma.quote.findUnique({ where: { id: quoteIdInput.slice(0, 50) }, select: { id: true, clientId: true, status: true, lostAt: true, sale: { select: { id: true } } } });
+  if (!quote) return { ok: false, error: "Proposta não encontrada." };
+  if (quote.sale) return { ok: false, error: "Esta proposta já tem uma venda." };
+  if (quote.lostAt) return { ok: false, error: "Esta proposta já está marcada como não convertida." };
+  if (quote.status !== DocumentStatus.DRAFT && quote.status !== DocumentStatus.SENT) return { ok: false, error: "Só propostas em aberto podem ser marcadas como não convertidas." };
+  await prisma.quote.update({ where: { id: quote.id }, data: { lostAt: new Date() } });
+  return { ok: true, quoteId: quote.id, clientId: quote.clientId };
+}
+
+/** Desfaz a marcação de não convertida: a proposta volta para "Aguardando decisão". */
+export async function reopenLostQuote(quoteIdInput: string): Promise<SaleResult<{ quoteId: string; clientId: string }>> {
+  const quote = await prisma.quote.findUnique({ where: { id: quoteIdInput.slice(0, 50) }, select: { id: true, clientId: true, lostAt: true } });
+  if (!quote?.lostAt) return { ok: false, error: "Proposta não encontrada entre as não convertidas." };
+  await prisma.quote.update({ where: { id: quote.id }, data: { lostAt: null } });
+  return { ok: true, quoteId: quote.id, clientId: quote.clientId };
 }
 
 /** Muda a situação da venda; nas vendas de proposta, ajusta a proposta e a entrada no Financeiro junto. */

@@ -38,7 +38,7 @@ export async function getOverviewData() {
     }),
     getMonitoringSummary(),
     prisma.quote.aggregate({
-      where: { status: { in: [DocumentStatus.DRAFT, DocumentStatus.SENT] }, sale: null },
+      where: { status: { in: [DocumentStatus.DRAFT, DocumentStatus.SENT] }, sale: null, lostAt: null },
       _count: { _all: true },
     }),
   ]);
