@@ -2362,3 +2362,91 @@
 .chargeLink:hover {
   color: var(--color-accent-hover);
 }
+
+/* Movimentações: colunas que não se espremem. Abaixo da largura mínima, a tabela rola dentro da superfície. */
+.tableScroll table {
+  min-width: 980px;
+}
+.tableScroll th,
+.tableScroll td {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.tableScroll th:first-child,
+.tableScroll td:first-child {
+  padding-left: 20px;
+}
+.tableScroll th:last-child,
+.tableScroll td:last-child {
+  padding-right: 20px;
+}
+.tableScroll th {
+  height: 40px;
+  background: var(--color-surface-subtle);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+}
+.tableScroll td {
+  height: auto;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  vertical-align: middle;
+}
+.tableScroll td:first-child {
+  min-width: 220px;
+}
+.tableScroll td:first-child b {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+.tableScroll td:first-child > small {
+  display: block;
+  margin-top: 2px;
+}
+.tableScroll td:nth-child(3),
+.tableScroll td:nth-child(5),
+.tableScroll td:nth-child(4) strong {
+  white-space: nowrap;
+}
+.tableScroll td:nth-child(4) small {
+  line-height: 1.4;
+}
+.progress span {
+  white-space: nowrap;
+}
+.entryLink {
+  display: block;
+  margin-top: 2px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+.actions {
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+.actions small {
+  max-width: 17ch;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  text-align: right;
+}
+.actions button,
+.actions .editAction {
+  white-space: nowrap;
+}
+.partial {
+  border-color: var(--info-border) !important;
+  color: var(--info-ink);
+  background: var(--info-bg);
+}
+.scheduled {
+  border-color: var(--neutral-border) !important;
+  color: var(--neutral-ink);
+  background: var(--neutral-bg);
+}

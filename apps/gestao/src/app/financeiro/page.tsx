@@ -30,7 +30,7 @@ function statusClass(entry: Parameters<typeof financeEntryStatusKey>[0]) { retur
 /** Quanto já entrou (ou saiu) de um lançamento em aberto e quanto falta. */
 function progress(entry: { type: string; status: string; amountCents: number; paidCents: number }) {
   if (entry.status !== FinancialEntryStatus.PENDING || entry.paidCents < 1) return null;
-  return <small className={styles.progress}>{entry.type === FinancialEntryType.INCOME ? "Recebido" : "Pago"} {money.format(entry.paidCents / 100)} · falta {money.format((entry.amountCents - entry.paidCents) / 100)}</small>;
+  return <small className={styles.progress}><span>{entry.type === FinancialEntryType.INCOME ? "Recebido" : "Pago"} {money.format(entry.paidCents / 100)} ·</span> <span>falta {money.format((entry.amountCents - entry.paidCents) / 100)}</span></small>;
 }
 const editHref = (id: string) => `/financeiro/lancamentos/${id}`;
 /** "Parcela 2 de 4" para entradas parceladas ainda em aberto. */

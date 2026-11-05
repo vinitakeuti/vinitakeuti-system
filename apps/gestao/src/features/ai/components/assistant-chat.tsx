@@ -86,7 +86,7 @@ function Icon({ name }: { name: keyof typeof ICONS }) {
 
 /** Marca VR (a mesma da navegação), em branco sobre preto. */
 function Mark() {
-  return <svg viewBox="296 192 880 657" aria-hidden="true" focusable="false"><g fill="currentColor"><path d="M316 233h451l817 678l659 829l316 415Z" /><path d="M595 212l1021 213l1151 357v617l928 361h716z" /><path d="M804 428h899l1156 738v825h994l735 499Z" /></g></svg>;
+  return <svg viewBox="296 192 880 657" aria-hidden="true" focusable="false"><g fill="currentColor"><path d="M316 233H451L817 678L659 829L316 415Z" /><path d="M595 212L1021 213L1151 357V617L928 361H716Z" /><path d="M804 428H899L1156 738V825H994L735 499Z" /></g></svg>;
 }
 
 /** Campo para renomear a conversa: Enter salva, Esc cancela, sair do campo salva. */

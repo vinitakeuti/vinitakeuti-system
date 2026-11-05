@@ -93,3 +93,11 @@ Substituições registradas, conforme a própria skill exige:
 - Dividir o `globals.css` por domínio (shell, clientes, financeiro, documentos, agenda, IA, portal), mantendo a ordem da cascata.
 - Avaliar uma variação de cor da barra lateral para a área do cliente (por exemplo, o mesmo verde mais claro). Hoje ela é idêntica à da gestão, o que reforça o "mesmo sistema", mas uma leve diferença ajudaria você a nunca confundir as duas abas abertas.
 - Revisar as frases de estado vazio, para que cada uma ensine o próximo passo com um botão.
+
+## Revisão após o primeiro teste local
+
+Ajustes pedidos depois de rodar o app com dados reais:
+
+1. **Botão de exibir a navegação encostava nos títulos.** Com a barra recolhida, a área de trabalho agora reserva espaço à esquerda para o botão fixo.
+2. **Movimentações do Financeiro espremidas.** A tabela ganhou respiro vertical nas linhas e largura mínima (rola dentro da superfície em telas estreitas). Vencimento, valor e situação não quebram mais linha; o texto de pagamento parcial quebra só entre "Recebido ... ·" e "falta ...". "Parcial" e "Programado" passaram a usar os tons de informação e neutro.
+3. **Ícone da Eliza deformado.** Era um bug do script de caixa de texto: ele passou para minúsculas os comandos do desenho SVG do logo VR (`H`/`L` viraram `h`/`l`, que têm outro significado no SVG). O desenho foi restaurado exatamente como estava na `main` e agora aparece numa placa escura com cantos suaves, igual à barra lateral. Conferi todos os outros SVGs e atributos técnicos alterados pela branch; nenhum outro foi afetado.
