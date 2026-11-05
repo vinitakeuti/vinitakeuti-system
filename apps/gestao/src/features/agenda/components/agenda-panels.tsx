@@ -214,7 +214,7 @@ export function EventForm({ clients, event, defaultDay, settings, view }: { clie
       <div className="settings-form-wide agenda-when">
         <label>Data<input name="day" type="date" required defaultValue={day} /></label>
         <label>Início<input name="start" type="time" required defaultValue={start} /></label>
-        <label>FIM<input name="end" type="time" required defaultValue={end} /></label>
+        <label>Fim<input name="end" type="time" required defaultValue={end} /></label>
       </div>
       <label className="settings-form-wide">Cliente<select name="clientId" className="ai-select" defaultValue={event?.clientId ?? ""}><option value="">Nenhum</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.company ? ` · ${client.company}` : ""}</option>)}</select></label>
       <label className="settings-form-wide">Local ou link<input name="location" maxLength={300} defaultValue={event?.location ?? (event ? "" : settings.meetingFormat ?? "")} placeholder="Endereço, link do Meet ou 'por telefone'" /></label>

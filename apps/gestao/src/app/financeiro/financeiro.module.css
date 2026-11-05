@@ -1,5 +1,5 @@
 .page {
-  --finance-line: #d9ded9;
+  --finance-line: var(--color-border);
 }
 .summary {
   display: grid;
@@ -292,9 +292,10 @@
 }
 .filters button {
   height: 37px;
-  border: 1px solid var(--black);
-  background: var(--black);
-  color: var(--white);
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-radius: var(--radius-sm);
   padding: 0 12px;
   font-family: var(--mono);
   font-size: var(--text-2xs);
@@ -372,16 +373,19 @@
   white-space: nowrap;
 }
 .settled {
-  color: var(--accent);
-  background: var(--accent-light);
+  border-color: var(--success-border) !important;
+  color: var(--success-ink);
+  background: var(--success-bg);
 }
 .pending {
+  border-color: var(--warning-border) !important;
   color: var(--warning-ink);
   background: var(--warning-bg);
 }
 .cancelled {
-  color: var(--muted);
-  background: #f1f2f0;
+  border-color: var(--neutral-border) !important;
+  color: var(--neutral-ink);
+  background: var(--neutral-bg);
 }
 .actions {
   display: flex;
@@ -773,9 +777,10 @@
 }
 .periodFilter button {
   height: 33px;
-  border: 1px solid var(--black);
-  background: var(--black);
-  color: var(--white);
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-radius: var(--radius-sm);
   padding: 0 11px;
   font-family: var(--mono);
   font-size: var(--text-2xs);
@@ -827,7 +832,6 @@
   margin: 0 0 12px;
   padding: 15px 17px;
   border: 1px solid #cbd6cf;
-  border-left: 3px solid var(--accent);
   background: linear-gradient(100deg, #f1f6f3 0%, var(--gray-25) 48%, #fff 100%);
 }
 .periodFilter > div {
@@ -1327,9 +1331,10 @@
 }
 .periodRange button {
   height: 37px;
-  border: 1px solid var(--black);
-  background: var(--black);
-  color: var(--white);
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-radius: var(--radius-sm);
   padding: 0 12px;
   font-family: var(--mono);
   font-size: var(--text-2xs);
@@ -1557,7 +1562,6 @@
   align-content: start;
   padding: 22px;
   border: 1px solid var(--finance-line);
-  border-top-width: 3px;
   background: var(--white);
 }
 .upcomingExpense {
@@ -1942,7 +1946,6 @@
   margin: 0 0 20px;
   padding: 14px 18px;
   border: 1px solid #cbd6cf;
-  border-left: 3px solid var(--accent);
   background: var(--accent-surface);
 }
 .quoteImport p {
@@ -2092,9 +2095,10 @@
 }
 .adjust button {
   height: 32px;
-  border: 1px solid var(--black);
-  background: var(--black);
-  color: var(--white);
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-radius: var(--radius-sm);
   padding: 0 10px;
   font-family: var(--mono);
   font-size: var(--text-2xs);
@@ -2304,4 +2308,57 @@
 }
 .clientLink:hover {
   text-decoration: underline;
+}
+
+/* Redesign: superfícies com raio, selos em pílula e botões do módulo no padrão do sistema. */
+.summary,
+.fixedSummary,
+.entrySummary,
+.confirmedSales,
+.chart,
+.upcomingBlock,
+.entryPanel,
+.ledger,
+.periodBar,
+.periodFilter,
+.quoteImport {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+.summary,
+.fixedSummary,
+.entrySummary,
+.ledger,
+.entryPanel {
+  overflow: hidden;
+}
+.periodBar,
+.periodFilter,
+.quoteImport {
+  border-color: var(--color-accent-border);
+}
+.status {
+  min-height: 22px;
+  align-items: center;
+  padding: 1px 9px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+}
+.inlineTag {
+  border-radius: var(--radius-full);
+  padding: 0 8px;
+  font-family: var(--font-ui);
+  font-weight: var(--weight-medium);
+}
+.filters button:hover,
+.periodFilter button:hover,
+.periodRange button:hover,
+.adjust button:hover {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+}
+.chargeLink:hover {
+  color: var(--color-accent-hover);
 }

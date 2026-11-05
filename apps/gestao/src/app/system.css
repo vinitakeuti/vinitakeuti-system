@@ -1529,3 +1529,11 @@ a:hover > .row-chevron {
 .table-scroll td:first-child > span:first-child {
   color: var(--color-text);
 }
+
+/* A barra lateral nunca encolhe quando o conteúdo é largo. */
+.sidebar {
+  flex: 0 0 auto;
+}
+.workspace {
+  min-width: 0;
+}

@@ -72,7 +72,7 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
       <div className={styles.periodShortcutsGroup}><span>Atalhos</span><nav className={styles.periodShortcuts} aria-label="Atalhos de período">{FINANCE_PERIOD_SHORTCUTS.map((shortcut) => <Link key={shortcut.key} href={href({ ...listFilters, periodo: shortcut.key })} aria-current={period.key === shortcut.key ? "true" : undefined}>{shortcut.label}</Link>)}</nav></div>
       <form className={styles.periodRange} action="/financeiro">
         {Object.entries(listFilters).map(([name, value]) => value ? <input key={name} type="hidden" name={name} value={value} /> : null)}
-        <label>DE<input name="from" type="date" defaultValue={period.from} /></label>
+        <label>De<input name="from" type="date" defaultValue={period.from} /></label>
         <label>Até<input name="to" type="date" defaultValue={period.to} /></label>
         <button type="submit" aria-current={period.key === "personalizado" ? "true" : undefined}>Aplicar</button>
       </form>

@@ -42,7 +42,7 @@ export function ClientFinanceSection({ clientId, clientName, data, cursor }: { c
         </section>
         <section className="client-finance-years" aria-label="Por ano">
           <header><h3>Por ano</h3></header>
-          <div className="table-scroll"><table><thead><tr><th>ANO</th><th>Faturado</th><th>Recebido</th><th>Saídas</th><th>Resultado</th></tr></thead>
+          <div className="table-scroll"><table><thead><tr><th>Ano</th><th>Faturado</th><th>Recebido</th><th>Saídas</th><th>Resultado</th></tr></thead>
             <tbody>{data.years.map((year) => <tr key={year.year}><td><b>{year.year}</b></td><td>{brl(year.billed)}</td><td>{brl(year.received)}</td><td>{brl(year.expenses)}</td><td className={year.result < 0 ? "is-expense" : undefined}>{brl(year.result)}</td></tr>)}</tbody>
           </table></div>
         </section>
