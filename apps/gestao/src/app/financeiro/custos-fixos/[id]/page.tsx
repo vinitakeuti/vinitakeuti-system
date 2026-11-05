@@ -41,18 +41,18 @@ export default async function RecurringEntryPage({ params, searchParams }: Recur
   const startKey = monthKeyOf(entry.startsOn);
 
   return <main className="app-shell"><AppSidebar current="finance" /><div className="workspace"><section className={"directory-page " + styles.page}>
-    <header className="directory-header"><div><p className="eyebrow">GESTÃO / FINANCEIRO / CUSTOS FIXOS</p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} mensal · {recurringDayLabel(entry.dayOfMonth)} · {entry.category}</p></div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro/custos-fixos">VOLTAR AOS CUSTOS FIXOS</Link></div></div></header>
+    <header className="directory-header"><div><p className="eyebrow">Gestão / Financeiro / Custos fixos</p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} mensal · {recurringDayLabel(entry.dayOfMonth)} · {entry.category}</p></div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro/custos-fixos">Voltar aos custos fixos</Link></div></div></header>
     {feedback ? <p className={query.error ? "form-error" : "form-success"} role={query.error ? "alert" : "status"}>{feedback}</p> : null}
 
     <section className={styles.entrySummary} aria-label="Situação da recorrência">
-      <div><span>VALOR MENSAL</span><strong className={income ? styles.income : styles.expense}>{money.format(entry.amountCents / 100)}</strong><small>{money.format((entry.amountCents * 12) / 100)} por ano</small></div>
-      <div><span>VENCIMENTO</span><strong>Dia {entry.dayOfMonth}</strong><small>{entry.dayOfMonth > 28 ? "Último dia nos meses mais curtos" : "Todo mês"}</small></div>
-      <div><span>INÍCIO</span><strong>{monthName.format(entry.startsOn)}</strong><small>Primeiro mês lançado</small></div>
-      <div><span>SITUAÇÃO</span><b className={styles.status + " " + (ended ? styles.cancelled : styles.settled)}>{ended ? "Encerrada" : entry.endsOn ? "Encerra no fim do mês" : "Ativa"}</b><small>{entry.endsOn ? `Último mês: ${monthName.format(entry.endsOn)}` : "Sem data para terminar"}</small></div>
+      <div><span>Valor mensal</span><strong className={income ? styles.income : styles.expense}>{money.format(entry.amountCents / 100)}</strong><small>{money.format((entry.amountCents * 12) / 100)} por ano</small></div>
+      <div><span>Vencimento</span><strong>Dia {entry.dayOfMonth}</strong><small>{entry.dayOfMonth > 28 ? "Último dia nos meses mais curtos" : "Todo mês"}</small></div>
+      <div><span>Início</span><strong>{monthName.format(entry.startsOn)}</strong><small>Primeiro mês lançado</small></div>
+      <div><span>Situação</span><b className={styles.status + " " + (ended ? styles.cancelled : styles.settled)}>{ended ? "Encerrada" : entry.endsOn ? "Encerra no fim do mês" : "Ativa"}</b><small>{entry.endsOn ? `Último mês: ${monthName.format(entry.endsOn)}` : "Sem data para terminar"}</small></div>
     </section>
 
     <section className={styles.entryPanel + " " + styles.entryEdit}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">DADOS DA RECORRÊNCIA</p><h2>Valor, dia e detalhes.</h2><small>As mudanças valem a partir do mês escolhido; os meses anteriores ficam como foram lançados.</small></div></div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">Dados da recorrência</p><h2>Valor, dia e detalhes.</h2><small>As mudanças valem a partir do mês escolhido; os meses anteriores ficam como foram lançados.</small></div></div>
       <form action={updateRecurringEntryAction} className={styles.entryForm}>
         <input type="hidden" name="id" value={entry.id} />
         <input type="hidden" name="type" value={entry.type} />
@@ -63,19 +63,19 @@ export default async function RecurringEntryPage({ params, searchParams }: Recur
         <label>Categoria<select name="category" defaultValue={entry.category}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
         <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField initialClient={entry.client} initialText={entry.counterparty ?? ""} placeholder="Busque um cliente ou digite fornecedor ou pessoa" /></div>
         <label className={styles.notes}>Observação<textarea name="notes" maxLength={500} rows={2} defaultValue={entry.notes ?? ""} placeholder="Opcional" /></label>
-        <div className={styles.formActions}><button className="primary-action" type="submit">SALVAR RECORRÊNCIA</button></div>
+        <div className={styles.formActions}><button className="primary-action" type="submit">Salvar recorrência</button></div>
       </form>
     </section>
 
     <section className={styles.entryPanel + " " + styles.entryEdit}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">{entry.endsOn ? "ENCERRAMENTO" : "ENCERRAR"}</p><h2>{entry.endsOn ? `Último mês: ${monthName.format(entry.endsOn)}.` : "Parar de lançar este custo."}</h2><small>{entry.endsOn ? "Reativando, os meses seguintes voltam a ser lançados." : "Os meses depois do último escolhido saem do Financeiro. Os anteriores ficam no histórico."}</small></div></div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">{entry.endsOn ? "Encerramento" : "Encerrar"}</p><h2>{entry.endsOn ? `Último mês: ${monthName.format(entry.endsOn)}.` : "Parar de lançar este custo."}</h2><small>{entry.endsOn ? "Reativando, os meses seguintes voltam a ser lançados." : "Os meses depois do último escolhido saem do Financeiro. Os anteriores ficam no histórico."}</small></div></div>
       {entry.endsOn
-        ? <form action={reactivateRecurringEntryAction} className={styles.entryForm}><input type="hidden" name="id" value={entry.id} /><div className={styles.formActions}><button className="primary-action" type="submit">REATIVAR RECORRÊNCIA</button></div></form>
-        : <form action={endRecurringEntryAction} className={styles.entryForm}><input type="hidden" name="id" value={entry.id} /><label>Último mês<input name="endsOn" type="month" required min={startKey} defaultValue={current < startKey ? startKey : current} /></label><div className={styles.formActions}><button className={styles.textAction + " " + styles.cancelAction} type="submit">ENCERRAR RECORRÊNCIA</button></div></form>}
+        ? <form action={reactivateRecurringEntryAction} className={styles.entryForm}><input type="hidden" name="id" value={entry.id} /><div className={styles.formActions}><button className="primary-action" type="submit">Reativar recorrência</button></div></form>
+        : <form action={endRecurringEntryAction} className={styles.entryForm}><input type="hidden" name="id" value={entry.id} /><label>Último mês<input name="endsOn" type="month" required min={startKey} defaultValue={current < startKey ? startKey : current} /></label><div className={styles.formActions}><button className={styles.textAction + " " + styles.cancelAction} type="submit">Encerrar recorrência</button></div></form>}
     </section>
 
     <section className={styles.ledger + " " + styles.entryEdit}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">MESES LANÇADOS</p><h2>Histórico no Financeiro.</h2><small>Os meses futuros aparecem conforme você consulta períodos à frente. Clique em um mês para ajustar só ele.</small></div></div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">Meses lançados</p><h2>Histórico no Financeiro.</h2><small>Os meses futuros aparecem conforme você consulta períodos à frente. Clique em um mês para ajustar só ele.</small></div></div>
       {entry.entries.length ? <ul className={styles.occurrenceList}>{entry.entries.map((occurrence) => <li key={occurrence.id}><Link href={`/financeiro/lancamentos/${occurrence.id}`}><span>{date.format(occurrence.dueDate)}</span><b>{money.format(occurrence.amountCents / 100)}</b><i className={styles.status + " " + styles[financeEntryStatusKey(occurrence)]}>{financeEntryStatusLabel(occurrence)}</i></Link></li>)}</ul> : <p className={styles.paymentEmpty}>Nenhum mês lançado ainda.</p>}
     </section>
   </section></div></main>;

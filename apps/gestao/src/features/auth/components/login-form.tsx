@@ -21,10 +21,10 @@ export function LoginForm({ portal, error }: { portal: SessionAudience; error?: 
       </header>
       <div className="auth-copy"><h1 id="login-title">{greeting.title}</h1><p>{greeting.description}</p></div>
       <form className="auth-form" action={loginAction}>
-        <label>E-MAIL<input name="email" type="email" autoComplete="username" inputMode="email" maxLength={254} required /></label>
-        <label>SENHA<input name="password" type="password" autoComplete="current-password" maxLength={512} required /></label>
+        <label>E-mail<input name="email" type="email" autoComplete="username" inputMode="email" maxLength={254} required /></label>
+        <label>Senha<input name="password" type="password" autoComplete="current-password" maxLength={512} required /></label>
         {message ? <p className="auth-error" role="alert">{message}</p> : null}
-        <button className="primary-action" type="submit">ENTRAR</button>
+        <button className="primary-action" type="submit">Entrar</button>
       </form>
     </section>
   </main>;

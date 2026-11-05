@@ -81,8 +81,8 @@ export function MonitoredAppCard({ app, incidents30d, now, filterClientId }: { a
     <footer className="monitor-card-foot">
       <div className="monitor-client">{app.client ? <Link href={`/monitoramento?cliente=${app.client.id}`} title="Ver sistemas deste cliente"><b>{app.client.name}</b>{app.client.company ? <span>{app.client.company}</span> : null}</Link> : <span className="is-empty">Sem cliente</span>}</div>
       <div className="monitor-card-actions">
-        <Link className="monitor-text-action" href={`/monitoramento/${app.id}`}>EDITAR</Link>
-        <form action={checkMonitoredAppAction}><input type="hidden" name="id" value={app.id} />{filterClientId ? <input type="hidden" name="filterClientId" value={filterClientId} /> : null}<button className="monitor-check" type="submit">VERIFICAR</button></form>
+        <Link className="monitor-text-action" href={`/monitoramento/${app.id}`}>Editar</Link>
+        <form action={checkMonitoredAppAction}><input type="hidden" name="id" value={app.id} />{filterClientId ? <input type="hidden" name="filterClientId" value={filterClientId} /> : null}<button className="monitor-check" type="submit">Verificar</button></form>
       </div>
     </footer>
   </article>;

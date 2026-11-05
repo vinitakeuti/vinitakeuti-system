@@ -50,7 +50,7 @@ export function CounterpartyField({ initialClient, initialText = "", placeholder
     <input type="hidden" name="clientId" value={client.id} />
     <input type="hidden" name="counterparty" value={client.name} />
     <span className="counterparty-chip">
-      <i aria-hidden="true">CLIENTE</i>
+      <i aria-hidden="true">Cliente</i>
       <b>{client.name}{client.company ? <small> · {client.company}</small> : null}</b>
       <Link href={`/clientes/${client.id}?section=finance`} className="counterparty-open" target="_blank" title="Abrir o perfil do cliente" aria-label={`Abrir o perfil de ${client.name}`}><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M6 3h7v7M13 3 4 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg></Link>
       <button type="button" className="counterparty-clear" onClick={clear} title="Trocar o cliente" aria-label={`Trocar o cliente ${client.name}`}><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg></button>
@@ -63,7 +63,7 @@ export function CounterpartyField({ initialClient, initialText = "", placeholder
       role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
       onChange={(event) => { setText(event.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => window.setTimeout(() => setOpen(false), 120)} onKeyDown={onKeyDown} />
     {open ? <span className="counterparty-list" id={listId} role="listbox" aria-label="Clientes cadastrados">
-      <small className="counterparty-list-title">{loading ? "BUSCANDO…" : results.length ? (typed ? "CLIENTES ENCONTRADOS" : "CLIENTES CADASTRADOS") : typed ? "NENHUM CLIENTE COM ESSE NOME" : "NENHUM CLIENTE CADASTRADO"}</small>
+      <small className="counterparty-list-title">{loading ? "Buscando…" : results.length ? (typed ? "Clientes encontrados" : "Clientes cadastrados") : typed ? "Nenhum cliente com esse nome" : "Nenhum cliente cadastrado"}</small>
       {results.map((item, index) => <button key={item.id} id={`${listId}-${index}`} type="button" role="option" aria-selected={index === active} className={index === active ? "is-active" : undefined} onMouseDown={(event) => event.preventDefault()} onClick={() => pick(item)}>
         <b>{item.name}</b>{item.company ? <small>{item.company}</small> : null}
       </button>)}

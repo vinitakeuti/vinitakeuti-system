@@ -34,7 +34,7 @@ export default async function AttendancePage({ params, searchParams }: Attendanc
   const nextMeeting = attendance.events.find((event) => event.status === "SCHEDULED" && event.startsAt > new Date());
 
   return <main className="app-shell"><AppSidebar current="attendances" /><div className="workspace"><section className="directory-page">
-    <header className="directory-header"><div><p className="eyebrow"><Link className="integration-crumb" href="/atendimentos">GESTÃO / ATENDIMENTOS</Link> / {channelLabel[attendance.channel]?.toUpperCase()}</p><h1>{attendance.person}.</h1><p>{channelLabel[attendance.channel] ?? attendance.channel} · começou em {dateTime.format(attendance.createdAt)} · última mensagem em {dateTime.format(attendance.lastMessageAt)}</p></div><div className="header-actions"><span className={`settings-badge ${attendance.attendanceStatus === "NEW" ? "is-warning" : "is-ok"}`}>{attendanceStatusLabel[attendance.attendanceStatus].toUpperCase()}</span><SidebarToggle location="header" /></div></header>
+    <header className="directory-header"><div><p className="eyebrow"><Link className="integration-crumb" href="/atendimentos">Gestão / Atendimentos</Link> / {channelLabel[attendance.channel]?.toUpperCase()}</p><h1>{attendance.person}.</h1><p>{channelLabel[attendance.channel] ?? attendance.channel} · começou em {dateTime.format(attendance.createdAt)} · última mensagem em {dateTime.format(attendance.lastMessageAt)}</p></div><div className="header-actions"><span className={`settings-badge ${attendance.attendanceStatus === "NEW" ? "is-warning" : "is-ok"}`}>{attendanceStatusLabel[attendance.attendanceStatus].toUpperCase()}</span><SidebarToggle location="header" /></div></header>
     {query.aviso && notices[query.aviso] ? <p className="form-success" role="status">{notices[query.aviso]}</p> : null}
     {query.erro ? <p className="form-error" role="alert">{query.erro.slice(0, 300)}</p> : null}
 
@@ -43,15 +43,15 @@ export default async function AttendancePage({ params, searchParams }: Attendanc
         <section>
           <h2>Contato</h2>
           <dl className="attendance-facts">
-            <div><dt>NOME</dt><dd>{attendance.person}</dd></div>
-            <div><dt>TELEFONE</dt><dd>{phone ? <a href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer noopener">{formatPhone(phone)}</a> : "—"}</dd></div>
-            <div><dt>E-MAIL</dt><dd>{attendance.email ? <a href={`mailto:${attendance.email}`}>{attendance.email}</a> : "—"}</dd></div>
-            <div><dt>CLIENTE</dt><dd>{attendance.client ? <Link href={`/clientes/${attendance.client.id}`}>{attendance.client.name}</Link> : "Não cadastrado"}</dd></div>
+            <div><dt>Nome</dt><dd>{attendance.person}</dd></div>
+            <div><dt>Telefone</dt><dd>{phone ? <a href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer noopener">{formatPhone(phone)}</a> : "—"}</dd></div>
+            <div><dt>E-mail</dt><dd>{attendance.email ? <a href={`mailto:${attendance.email}`}>{attendance.email}</a> : "—"}</dd></div>
+            <div><dt>Cliente</dt><dd>{attendance.client ? <Link href={`/clientes/${attendance.client.id}`}>{attendance.client.name}</Link> : "Não cadastrado"}</dd></div>
           </dl>
           <div className="attendance-buttons">
-            {phone ? <a className="primary-action" href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer noopener">WHATSAPP</a> : null}
-            {attendance.email ? <a className="secondary-action" href={`mailto:${attendance.email}`}>E-MAIL</a> : null}
-            {!attendance.client ? <form action={createClientFromAttendanceAction}><input type="hidden" name="id" value={attendance.id} /><button className="secondary-action" type="submit">CADASTRAR COMO CLIENTE</button></form> : null}
+            {phone ? <a className="primary-action" href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer noopener">WhatsApp</a> : null}
+            {attendance.email ? <a className="secondary-action" href={`mailto:${attendance.email}`}>E-mail</a> : null}
+            {!attendance.client ? <form action={createClientFromAttendanceAction}><input type="hidden" name="id" value={attendance.id} /><button className="secondary-action" type="submit">Cadastrar como cliente</button></form> : null}
           </div>
         </section>
         <section>
@@ -75,7 +75,7 @@ export default async function AttendancePage({ params, searchParams }: Attendanc
           <form className="attendance-notes" action={saveAttendanceNotesAction}>
             <input type="hidden" name="id" value={attendance.id} />
             <textarea name="notes" rows={5} maxLength={4000} defaultValue={attendance.ownerNotes ?? ""} placeholder="O que você combinou, próximos passos, observações…" aria-label="Anotações" />
-            <button className="secondary-action" type="submit">SALVAR ANOTAÇÕES</button>
+            <button className="secondary-action" type="submit">Salvar anotações</button>
           </form>
         </section>
         <section>

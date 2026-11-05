@@ -13,7 +13,7 @@ export function IntegrationHeader({ crumb, title, description, badge, tabs, curr
 }) {
   return <>
     <header className="directory-header">
-      <div><p className="eyebrow"><Link className="integration-crumb" href="/integracoes">GESTÃO / INTEGRAÇÕES</Link> / {crumb}</p><h1>{title}</h1><p>{description}</p></div>
+      <div><p className="eyebrow"><Link className="integration-crumb" href="/integracoes">Gestão / Integrações</Link> / {crumb}</p><h1>{title}</h1><p>{description}</p></div>
       <div className="header-actions">{badge ? <span className={`settings-badge ${badge.tone}`}>{badge.label}</span> : null}<SidebarToggle location="header" /></div>
     </header>
     <nav className="client-tabs settings-tabs" aria-label={`Seções de ${title.replace(/\.$/, "")}`}>

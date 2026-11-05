@@ -21,15 +21,15 @@ export function ClientFinanceSection({ clientId, clientName, data, cursor }: { c
   return <section className="client-panel client-finance">
     <div className="client-panel-heading">
       <div><h2>Financeiro</h2><p>Entradas e saídas vinculadas a {clientName}, pela data de vencimento. Vendas confirmadas entram sozinhas.</p></div>
-      <div className="client-panel-actions"><Link className="text-link" href={`/financeiro?cliente=${clientId}#novo-lancamento`}>+ NOVA ENTRADA</Link><Link className="text-link" href={`/financeiro?cliente=${clientId}&tipo=saida#novo-lancamento`}>+ NOVA SAÍDA</Link></div>
+      <div className="client-panel-actions"><Link className="text-link" href={`/financeiro?cliente=${clientId}#novo-lancamento`}>+ Nova entrada</Link><Link className="text-link" href={`/financeiro?cliente=${clientId}&tipo=saida#novo-lancamento`}>+ Nova saída</Link></div>
     </div>
     {data.total === 0 ? <div className="client-panel-empty"><p>Nenhum lançamento vinculado a este cliente ainda.</p><span>No Financeiro, escolha o cliente no campo Contraparte de uma entrada ou saída.</span></div> : <>
       <dl className="client-finance-kpis">
-        <div><dt>FATURADO</dt><dd>{brl(totals.billed)}</dd><small>{plural(totals.incomeCount, "entrada", "entradas")} · recebido + a receber</small></div>
-        <div><dt>RECEBIDO</dt><dd className="is-income">{brl(totals.received)}</dd><small>{totals.billed ? `${Math.round((totals.received / totals.billed) * 100)}% do faturado` : "—"}</small></div>
-        <div><dt>A RECEBER</dt><dd>{brl(totals.receivable)}</dd><small className={totals.overdue > 0 ? "is-late" : undefined}>{totals.overdue > 0 ? `${brl(totals.overdue)} em atraso (${totals.overdueCount})` : "Nada em atraso"}</small></div>
-        <div><dt>SAÍDAS</dt><dd className="is-expense">{brl(totals.spent)}</dd><small>{totals.scheduled > 0 ? `+ ${brl(totals.scheduled)} programadas` : plural(totals.expenseCount, "saída paga", "saídas pagas")}</small></div>
-        <div className="is-result"><dt>RESULTADO</dt><dd className={totals.result < 0 ? "is-expense" : "is-income"}>{brl(totals.result)}</dd><small>Recebido − saídas{margin !== null ? ` · margem de ${margin}%` : ""}</small></div>
+        <div><dt>Faturado</dt><dd>{brl(totals.billed)}</dd><small>{plural(totals.incomeCount, "entrada", "entradas")} · recebido + a receber</small></div>
+        <div><dt>Recebido</dt><dd className="is-income">{brl(totals.received)}</dd><small>{totals.billed ? `${Math.round((totals.received / totals.billed) * 100)}% do faturado` : "—"}</small></div>
+        <div><dt>A receber</dt><dd>{brl(totals.receivable)}</dd><small className={totals.overdue > 0 ? "is-late" : undefined}>{totals.overdue > 0 ? `${brl(totals.overdue)} em atraso (${totals.overdueCount})` : "Nada em atraso"}</small></div>
+        <div><dt>Saídas</dt><dd className="is-expense">{brl(totals.spent)}</dd><small>{totals.scheduled > 0 ? `+ ${brl(totals.scheduled)} programadas` : plural(totals.expenseCount, "saída paga", "saídas pagas")}</small></div>
+        <div className="is-result"><dt>Resultado</dt><dd className={totals.result < 0 ? "is-expense" : "is-income"}>{brl(totals.result)}</dd><small>Recebido − saídas{margin !== null ? ` · margem de ${margin}%` : ""}</small></div>
       </dl>
 
       <div className="client-finance-grid">
@@ -42,7 +42,7 @@ export function ClientFinanceSection({ clientId, clientName, data, cursor }: { c
         </section>
         <section className="client-finance-years" aria-label="Por ano">
           <header><h3>Por ano</h3></header>
-          <div className="table-scroll"><table><thead><tr><th>ANO</th><th>FATURADO</th><th>RECEBIDO</th><th>SAÍDAS</th><th>RESULTADO</th></tr></thead>
+          <div className="table-scroll"><table><thead><tr><th>ANO</th><th>Faturado</th><th>Recebido</th><th>Saídas</th><th>Resultado</th></tr></thead>
             <tbody>{data.years.map((year) => <tr key={year.year}><td><b>{year.year}</b></td><td>{brl(year.billed)}</td><td>{brl(year.received)}</td><td>{brl(year.expenses)}</td><td className={year.result < 0 ? "is-expense" : undefined}>{brl(year.result)}</td></tr>)}</tbody>
           </table></div>
         </section>
@@ -50,20 +50,20 @@ export function ClientFinanceSection({ clientId, clientName, data, cursor }: { c
 
       {data.recurring.length ? <section className="client-finance-recurring" aria-label="Recorrências">
         <h3>Recorrências deste cliente</h3>
-        <ul>{data.recurring.map((item) => <li key={item.id}><Link href={`/financeiro/custos-fixos/${item.id}`}><span className={item.type === FinancialEntryType.INCOME ? "is-income" : "is-expense"}>{item.type === FinancialEntryType.INCOME ? "ENTRADA" : "SAÍDA"}</span><b>{item.description}</b><small>todo dia {item.dayOfMonth}</small><em>{brl(item.amountCents)}</em></Link></li>)}</ul>
+        <ul>{data.recurring.map((item) => <li key={item.id}><Link href={`/financeiro/custos-fixos/${item.id}`}><span className={item.type === FinancialEntryType.INCOME ? "is-income" : "is-expense"}>{item.type === FinancialEntryType.INCOME ? "ENTRADA" : "Saída"}</span><b>{item.description}</b><small>todo dia {item.dayOfMonth}</small><em>{brl(item.amountCents)}</em></Link></li>)}</ul>
       </section> : null}
 
       <section className="client-finance-entries" aria-label="Lançamentos">
         <header><h3>Lançamentos</h3><span>{plural(data.total, "lançamento", "lançamentos")}</span></header>
-        <div className="table-scroll"><table><thead><tr><th>VENCIMENTO</th><th>LANÇAMENTO</th><th>VALOR</th><th>SITUAÇÃO</th></tr></thead>
+        <div className="table-scroll"><table><thead><tr><th>Vencimento</th><th>Lançamento</th><th>Valor</th><th>Situação</th></tr></thead>
           <tbody>{data.entries.map((entry) => <tr key={entry.id}>
             <td>{date.format(entry.dueDate)}</td>
-            <td><span className={`client-finance-type ${entry.type === FinancialEntryType.INCOME ? "is-income" : "is-expense"}`}>{entry.type === FinancialEntryType.INCOME ? "ENTRADA" : "SAÍDA"}</span><Link href={`/financeiro/lancamentos/${entry.id}`}>{entry.description}</Link><small>{entry.category}{entry.paymentCondition ? ` · ${entry.paymentCondition}` : ""}</small></td>
+            <td><span className={`client-finance-type ${entry.type === FinancialEntryType.INCOME ? "is-income" : "is-expense"}`}>{entry.type === FinancialEntryType.INCOME ? "ENTRADA" : "Saída"}</span><Link href={`/financeiro/lancamentos/${entry.id}`}>{entry.description}</Link><small>{entry.category}{entry.paymentCondition ? ` · ${entry.paymentCondition}` : ""}</small></td>
             <td><b>{brl(entry.amountCents)}</b>{entry.type === FinancialEntryType.INCOME && entry.paidCents > 0 && entry.paidCents < entry.amountCents ? <small>recebido {brl(entry.paidCents)}</small> : null}</td>
             <td><span className={`client-finance-status is-${financeEntryStatusKey(entry)}`}>{financeEntryStatusLabel(entry)}</span></td>
           </tr>)}</tbody>
         </table></div>
-        {cursor || data.next ? <div className="client-finance-pages">{cursor ? <Link className="text-link" href={base}>← MAIS RECENTES</Link> : <span />}{data.next ? <Link className="text-link" href={`${base}&depois=${data.next}`}>MAIS ANTIGOS →</Link> : null}</div> : null}
+        {cursor || data.next ? <div className="client-finance-pages">{cursor ? <Link className="text-link" href={base}>← Mais recentes</Link> : <span />}{data.next ? <Link className="text-link" href={`${base}&depois=${data.next}`}>Mais antigos →</Link> : null}</div> : null}
       </section>
     </>}
   </section>;

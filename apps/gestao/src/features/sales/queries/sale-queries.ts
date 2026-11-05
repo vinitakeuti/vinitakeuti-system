@@ -84,16 +84,16 @@ export async function getClientForDirectSale(id: string) {
 }
 
 export const saleStatusLabel: Record<SaleStatus, string> = {
-  PENDING: "PENDENTE",
-  CONFIRMED: "CONFIRMADA",
-  PAID: "PAGA",
-  CANCELLED: "CANCELADA",
+  PENDING: "Pendente",
+  CONFIRMED: "Confirmada",
+  PAID: "Paga",
+  CANCELLED: "Cancelada",
 };
 
 export const quoteStatusLabel: Record<DocumentStatus, string> = {
-  DRAFT: "EM ABERTO",
-  SENT: "AGUARDANDO CONFIRMAÇÃO",
-  ACCEPTED: "ACEITO",
-  SIGNED: "ASSINADO",
-  EXPIRED: "EXPIRADO",
+  DRAFT: "Em aberto",
+  SENT: "Aguardando confirmação",
+  ACCEPTED: "Aceito",
+  SIGNED: "Assinado",
+  EXPIRED: "Expirado",
 };

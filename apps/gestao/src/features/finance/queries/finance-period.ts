@@ -2,11 +2,11 @@
 export type FinancePeriodKey = "hoje" | "ontem" | "7d" | "mes" | "tudo" | "personalizado";
 
 export const FINANCE_PERIOD_SHORTCUTS: Array<{ key: Exclude<FinancePeriodKey, "personalizado">; label: string }> = [
-  { key: "hoje", label: "HOJE" },
-  { key: "ontem", label: "ONTEM" },
-  { key: "7d", label: "7 DIAS" },
-  { key: "mes", label: "MÊS" },
-  { key: "tudo", label: "TUDO" },
+  { key: "hoje", label: "Hoje" },
+  { key: "ontem", label: "Ontem" },
+  { key: "7d", label: "7 dias" },
+  { key: "mes", label: "Mês" },
+  { key: "tudo", label: "Tudo" },
 ];
 
 const isoDay = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "America/Maceio" });
@@ -49,9 +49,9 @@ export function resolveFinancePeriod(params: { periodo?: string; from?: string; 
 
 export function financePeriodLabel(period: { key: FinancePeriodKey; from?: string; to?: string }) {
   const format = (value: string) => { const [year, month, day] = value.split("-"); return `${day}/${month}/${year}`; };
-  const prefix = period.key === "hoje" ? "HOJE · " : period.key === "ontem" ? "ONTEM · " : period.key === "7d" ? "ÚLTIMOS 7 DIAS · " : period.key === "mes" ? "MÊS ATUAL · " : "";
-  if (period.from && period.to) return period.from === period.to ? `${prefix}${format(period.from)}` : `${prefix}${format(period.from)} ATÉ ${format(period.to)}`;
-  if (period.from) return `A PARTIR DE ${format(period.from)}`;
-  if (period.to) return `ATÉ ${format(period.to)}`;
-  return "TODO O HISTÓRICO";
+  const prefix = period.key === "hoje" ? "Hoje · " : period.key === "ontem" ? "Ontem · " : period.key === "7d" ? "Últimos 7 dias · " : period.key === "mes" ? "Mês atual · " : "";
+  if (period.from && period.to) return period.from === period.to ? `${prefix}${format(period.from)}` : `${prefix}${format(period.from)} até ${format(period.to)}`;
+  if (period.from) return `A partir de ${format(period.from)}`;
+  if (period.to) return `Até ${format(period.to)}`;
+  return "Todo o histórico";
 }

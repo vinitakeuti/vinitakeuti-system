@@ -18,7 +18,7 @@ const errors: Record<string, string> = {
 const KINDS = [
   { kind: "PROPOSAL", group: "Propostas comerciais", label: "PROPOSTA" },
   { kind: "CONTRACT", group: "Contratos", label: "CONTRATO" },
-  { kind: "IP_ASSIGNMENT", group: "Cessões de direitos", label: "CESSÃO" },
+  { kind: "IP_ASSIGNMENT", group: "Cessões de direitos", label: "Cessão" },
   { kind: "TECHNICAL_MEMORIAL", group: "Memoriais técnicos", label: "MEMORIAL" },
 ] as const;
 
@@ -34,7 +34,7 @@ function UploadForm({ document, label }: { document: PortalDocument; label: stri
     <input type="hidden" name="kind" value={document.target} />
     <input type="hidden" name="id" value={document.id} />
     <label><span>{label}</span><input name="file" type="file" accept="application/pdf,.pdf" required /></label>
-    <button className="primary-action" type="submit">ENVIAR</button>
+    <button className="primary-action" type="submit">Enviar</button>
   </form>;
 }
 
@@ -54,7 +54,7 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
   const inReview = signable.filter((document) => document.signed?.reviewStatus === "IN_REVIEW");
   const signed = signable.filter((document) => document.signed?.reviewStatus === "APPROVED");
 
-  return <PortalShell context={context} current="documents" section="DOCUMENTOS" title="Documentos." description="Propostas, contratos e demais documentos do seu projeto, separados entre o que falta assinar, o que está em conferência e o que já está assinado.">
+  return <PortalShell context={context} current="documents" section="Documentos" title="Documentos." description="Propostas, contratos e demais documentos do seu projeto, separados entre o que falta assinar, o que está em conferência e o que já está assinado.">
     {params.enviado ? <p className="portal-feedback is-ok" role="status">Recebemos a via assinada de {params.enviado.slice(0, 30)}. Vamos conferir e, quando aprovada, ela aparece em Assinados.</p> : null}
     {params.erro && errors[params.erro] ? <p className="portal-feedback is-error" role="alert">{errors[params.erro]}</p> : null}
 
@@ -72,9 +72,9 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
           </div>
           {document.signed ? <p className="portal-doc-note">A via enviada em {day(document.signed.createdAt)} foi recusada{document.signed.rejectionReason ? `: ${document.signed.rejectionReason}` : "."} Assine novamente e envie a nova via.</p> : null}
           <ol className="portal-doc-steps">
-            <li><a href={document.href} download><span>1</span>BAIXAR PDF</a></li>
-            <li><a href={GOV_BR_SIGNER_URL} target="_blank" rel="noreferrer"><span>2</span>ASSINAR NO GOV.BR</a></li>
-            <li className="portal-doc-step-upload"><span>3</span><UploadForm document={document} label="ENVIE O PDF ASSINADO" /></li>
+            <li><a href={document.href} download><span>1</span>Baixar PDF</a></li>
+            <li><a href={GOV_BR_SIGNER_URL} target="_blank" rel="noreferrer"><span>2</span>Assinar no gov.br</a></li>
+            <li className="portal-doc-step-upload"><span>3</span><UploadForm document={document} label="Envie o PDF assinado" /></li>
           </ol>
         </li>)}</ul>
       </div>)}
@@ -91,9 +91,9 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
             <span className="portal-tag">Em conferência</span>
           </div>
           <div className="portal-doc-links">
-            <a href={`/api/portal/assinados/${document.signed!.id}`} download>BAIXAR VIA ENVIADA</a>
-            <a href={document.href} download>BAIXAR ORIGINAL</a>
-            <details><summary>ENVIAR OUTRA VIA</summary><UploadForm document={document} label="NOVA VIA ASSINADA" /></details>
+            <a href={`/api/portal/assinados/${document.signed!.id}`} download>Baixar via enviada</a>
+            <a href={document.href} download>Baixar original</a>
+            <details><summary>Enviar outra via</summary><UploadForm document={document} label="Nova via assinada" /></details>
           </div>
         </li>)}</ul>
       </div>)}
@@ -110,8 +110,8 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
             <span className="portal-tag is-ok">Assinado</span>
           </div>
           <div className="portal-doc-links">
-            <a href={`/api/portal/assinados/${document.signed!.id}`} download>BAIXAR VIA ASSINADA</a>
-            <a href={document.href} download>BAIXAR ORIGINAL</a>
+            <a href={`/api/portal/assinados/${document.signed!.id}`} download>Baixar via assinada</a>
+            <a href={document.href} download>Baixar original</a>
           </div>
         </li>)}</ul>
       </div>)}
@@ -121,11 +121,11 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
       <div className="settings-panel-heading"><div><h2 id="portal-others-title">Outros documentos <span className="portal-docs-count">{others.length}</span></h2><p>Documentos para consulta. Não precisam de assinatura.</p></div></div>
       <div className="portal-docs-group"><ul>{others.map((document) => <li key={document.id} className="portal-doc">
         <div className="portal-doc-head">
-          <span className="portal-doc-kind">DOCUMENTO</span>
+          <span className="portal-doc-kind">Documento</span>
           <div><b>{document.title}</b><small>{document.code} · emitido em {day(document.completedAt)}</small></div>
           <span className="portal-tag">Para consulta</span>
         </div>
-        <div className="portal-doc-links"><a href={document.href} download>BAIXAR PDF</a></div>
+        <div className="portal-doc-links"><a href={document.href} download>Baixar PDF</a></div>
       </li>)}</ul></div>
     </section> : null}
   </PortalShell>;

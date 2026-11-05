@@ -64,7 +64,7 @@ export function SidebarToggle({ location, hideWhenOpen = true }: SidebarTogglePr
   return (
     <button className={`sidebar-toggle sidebar-toggle-${location}`} type="button" onClick={toggle} aria-label={label} aria-expanded={isOpen}>
       <span aria-hidden="true"><i /><i /></span>
-      <b>{location === "sidebar" ? "RECOLHER" : isOpen ? "RECOLHER" : "EXIBIR MENU"}</b>
+      <b>{location === "sidebar" ? "Recolher" : isOpen ? "Recolher" : "Exibir menu"}</b>
     </button>
   );
 }

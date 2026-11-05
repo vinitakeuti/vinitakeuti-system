@@ -43,7 +43,7 @@ export function DocumentProducer({ kind, initialClient, createAction }: { kind: 
   const selectedQuote = quotes.find((quote) => quote.id === quoteId);
   return <form className={`document-producer${kind.isProposal ? " is-proposal" : kind.clientOptional ? " is-free" : ""}`} action={kind.isProposal ? "/orcamentos/novo" : createAction} onSubmit={handleSubmit}>
     {kind.isProposal ? null : <input type="hidden" name="tipo" value={kind.slug} />}
-    <ClientPicker label={kind.clientOptional ? "Cliente (opcional)" : "Cliente"} initialClient={initialClient} removeLabel="TROCAR" placeholder="Buscar cliente por nome, empresa ou e-mail" className="document-producer-client" onChange={(next) => { setClient(next); setError(null); }} />
+    <ClientPicker label={kind.clientOptional ? "Cliente (opcional)" : "Cliente"} initialClient={initialClient} removeLabel="Trocar" placeholder="Buscar cliente por nome, empresa ou e-mail" className="document-producer-client" onChange={(next) => { setClient(next); setError(null); }} />
     {kind.isProposal ? null : <>
       {kind.clientOptional ? null : <label className="document-producer-field">
         <span>Proposta de referência</span>
@@ -57,7 +57,7 @@ export function DocumentProducer({ kind, initialClient, createAction }: { kind: 
         <input name="title" maxLength={180} required={kind.clientOptional || (Boolean(client) && !selectedQuote)} placeholder={kind.clientOptional ? "Título que vai na capa" : selectedQuote?.title ?? "Nome do projeto ou da entrega"} />
       </label>
     </>}
-    <button className="primary-action document-producer-submit" type="submit">{kind.isProposal ? "CRIAR PROPOSTA" : `PRODUZIR ${kind.shortName.toUpperCase()}`}</button>
+    <button className="primary-action document-producer-submit" type="submit">{kind.isProposal ? "Criar proposta" : `Produzir ${kind.shortName.toLowerCase()}`}</button>
     {error ? <p className="form-error document-producer-error" role="alert">{error}</p> : null}
   </form>;
 }

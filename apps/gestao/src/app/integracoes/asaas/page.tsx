@@ -13,7 +13,7 @@ const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Maceio" });
 
 const notices: Record<string, string> = {
-  conectado: "Asaas conectado. O webhook foi criado, o portal do cliente já oferece PAGAR AGORA e as parcelas passam a ser cobradas e baixadas automaticamente.",
+  conectado: "Asaas conectado. O webhook foi criado, o portal do cliente já oferece “Pagar agora” e as parcelas passam a ser cobradas e baixadas automaticamente.",
   verificado: "Conexão, webhook e cobranças em aberto conferidos.",
   webhook: "Webhook recriado com um token novo.",
   reativado: "Fila do webhook reativada. O Asaas reenvia os eventos que ficaram pendentes.",
@@ -22,13 +22,13 @@ const notices: Record<string, string> = {
 };
 const accountStatus: Record<string, string> = { APPROVED: "Aprovada", PENDING: "Em análise", AWAITING_ACTION_AUTHORIZATION: "Aguardando autorização", DENIED: "Recusada" };
 const webhookLabel: Record<string, { label: string; tone: string; detail: string }> = {
-  ACTIVE: { label: "ATIVO", tone: "is-ok", detail: "Pagamentos chegam na hora." },
-  INTERRUPTED: { label: "FILA INTERROMPIDA", tone: "is-warning", detail: "O Asaas parou de enviar depois de falhas seguidas. Reative para receber os eventos pendentes." },
-  DISABLED: { label: "DESATIVADO", tone: "is-warning", detail: "O webhook está desativado no Asaas." },
-  MISSING: { label: "NÃO CONFIGURADO", tone: "is-warning", detail: "Sem webhook, os pagamentos só são conferidos a cada 30 minutos." },
+  ACTIVE: { label: "Ativo", tone: "is-ok", detail: "Pagamentos chegam na hora." },
+  INTERRUPTED: { label: "Fila interrompida", tone: "is-warning", detail: "O Asaas parou de enviar depois de falhas seguidas. Reative para receber os eventos pendentes." },
+  DISABLED: { label: "Desativado", tone: "is-warning", detail: "O webhook está desativado no Asaas." },
+  MISSING: { label: "Não configurado", tone: "is-warning", detail: "Sem webhook, os pagamentos só são conferidos a cada 30 minutos." },
 };
 
-const TABS = [{ id: "conexao", label: "CONEXÃO" }, { id: "eventos", label: "EVENTOS RECEBIDOS" }] as const;
+const TABS = [{ id: "conexao", label: "Conexão" }, { id: "eventos", label: "Eventos recebidos" }] as const;
 
 type AsaasPageProps = { searchParams: Promise<{ aba?: string; aviso?: string; erro?: string; cursor?: string }> };
 
@@ -47,7 +47,7 @@ export default async function AsaasPage({ searchParams }: AsaasPageProps) {
   const webhook = webhookLabel[integration?.webhookStatus ?? "MISSING"] ?? webhookLabel.MISSING;
 
   return <main className="app-shell"><AppSidebar current="integrations" /><div className="workspace"><section className="directory-page settings-page">
-    <IntegrationHeader crumb="ASAAS" title="Asaas." description="Pagamentos online: o cliente paga as parcelas pelo portal (Pix, boleto ou cartão) e o recebimento entra sozinho no Financeiro." badge={{ label: connected ? (production ? "CONECTADO · PRODUÇÃO" : "CONECTADO · SANDBOX") : "NÃO CONECTADO", tone: connected && production ? "is-ok" : "is-warning" }} tabs={TABS} current={tab} basePath="/integracoes/asaas" />
+    <IntegrationHeader crumb="ASAAS" title="Asaas." description="Pagamentos online: o cliente paga as parcelas pelo portal (Pix, boleto ou cartão) e o recebimento entra sozinho no Financeiro." badge={{ label: connected ? (production ? "Conectado · produção" : "Conectado · sandbox") : "Não conectado", tone: connected && production ? "is-ok" : "is-warning" }} tabs={TABS} current={tab} basePath="/integracoes/asaas" />
     {params.aviso && notices[params.aviso] ? <p className="form-success" role="status">{notices[params.aviso]}</p> : null}
     {params.erro ? <p className="form-error" role="alert">{params.erro.slice(0, 300)}</p> : null}
 
@@ -57,29 +57,29 @@ export default async function AsaasPage({ searchParams }: AsaasPageProps) {
         <div className="settings-panel-body">
           {connected && integration ? <>
             <dl className="settings-facts integration-facts">
-              <div><dt>CONTA</dt><dd>{integration.accountName ?? "—"}</dd></div>
-              <div><dt>E-MAIL</dt><dd>{integration.accountEmail ?? "—"}</dd></div>
+              <div><dt>Conta</dt><dd>{integration.accountName ?? "—"}</dd></div>
+              <div><dt>E-mail</dt><dd>{integration.accountEmail ?? "—"}</dd></div>
               <div><dt>CPF / CNPJ</dt><dd>{integration.accountDocument ?? "—"}</dd></div>
-              <div><dt>SITUAÇÃO DA CONTA</dt><dd>{accountStatus[integration.accountStatus ?? ""] ?? integration.accountStatus ?? "—"}</dd></div>
-              <div><dt>CHAVE</dt><dd><code>…{integration.keyHint}</code></dd></div>
-              <div><dt>SALDO</dt><dd>{balance !== null ? money.format(balance / 100) : "—"}</dd></div>
-              <div><dt>COBRANÇAS EM ABERTO</dt><dd>{openCharges}</dd></div>
-              <div><dt>ÚLTIMA CONFERÊNCIA</dt><dd>{integration.lastSyncAt ? dateTime.format(integration.lastSyncAt) : integration.lastCheckedAt ? dateTime.format(integration.lastCheckedAt) : "—"}</dd></div>
+              <div><dt>Situação da conta</dt><dd>{accountStatus[integration.accountStatus ?? ""] ?? integration.accountStatus ?? "—"}</dd></div>
+              <div><dt>Chave</dt><dd><code>…{integration.keyHint}</code></dd></div>
+              <div><dt>Saldo</dt><dd>{balance !== null ? money.format(balance / 100) : "—"}</dd></div>
+              <div><dt>Cobranças em aberto</dt><dd>{openCharges}</dd></div>
+              <div><dt>Última conferência</dt><dd>{integration.lastSyncAt ? dateTime.format(integration.lastSyncAt) : integration.lastCheckedAt ? dateTime.format(integration.lastCheckedAt) : "—"}</dd></div>
             </dl>
             {!production ? <p className="settings-note">Ambiente de testes (sandbox): as cobranças não são reais. Para receber de verdade, salve uma chave de produção (começa com <code>$aact_prod_</code>).</p> : null}
             {integration.lastError ? <p className="settings-result is-error">{integration.lastError}</p> : null}
             <div className="integration-webhook">
-              <div><span className={`settings-badge ${webhook.tone}`}>WEBHOOK · {webhook.label}</span><p>{webhook.detail}{integration.webhookPenalized ? ` ${integration.webhookPenalized} envios penalizados.` : ""}</p><code>{integration.webhookUrl ?? asaasWebhookUrl()}</code></div>
+              <div><span className={`settings-badge ${webhook.tone}`}>Webhook · {webhook.label}</span><p>{webhook.detail}{integration.webhookPenalized ? ` ${integration.webhookPenalized} envios penalizados.` : ""}</p><code>{integration.webhookUrl ?? asaasWebhookUrl()}</code></div>
               <form className="integration-actions">
-                <button className="secondary-action" type="submit" formAction={checkAsaasAction}>VERIFICAR AGORA</button>
-                {integration.webhookStatus === "INTERRUPTED" || integration.webhookStatus === "DISABLED" ? <button className="primary-action" type="submit" formAction={reactivateAsaasWebhookAction}>REATIVAR</button> : null}
-                <button className="secondary-action" type="submit" formAction={recreateAsaasWebhookAction}>RECRIAR WEBHOOK</button>
+                <button className="secondary-action" type="submit" formAction={checkAsaasAction}>Verificar agora</button>
+                {integration.webhookStatus === "INTERRUPTED" || integration.webhookStatus === "DISABLED" ? <button className="primary-action" type="submit" formAction={reactivateAsaasWebhookAction}>Reativar</button> : null}
+                <button className="secondary-action" type="submit" formAction={recreateAsaasWebhookAction}>Recriar webhook</button>
               </form>
             </div>
             <form className="integration-auto" action={saveAutoChargeAction}>
               <div><b>Cobrança automática das parcelas.</b><p>A cobrança da próxima parcela de cada venda é gerada no Asaas, que a envia ao cliente por e-mail. Quando o pagamento cai, a parcela é baixada sozinha no Financeiro. Cobranças que deixam de valer (parcela paga por fora, valor alterado, venda cancelada) são canceladas. Conferência a cada 30 minutos.</p></div>
-              <label>GERAR A COBRANÇA<select name="autoChargeDays" defaultValue={integration.autoChargeDays === null ? "off" : String(integration.autoChargeDays)}><option value="off">Desligada (só pelo PAGAR AGORA)</option>{[3, 5, 7, 10, 15].map((days) => <option key={days} value={days}>{days} dias antes do vencimento</option>)}</select></label>
-              <button className="secondary-action" type="submit">SALVAR</button>
+              <label>Gerar a cobrança<select name="autoChargeDays" defaultValue={integration.autoChargeDays === null ? "off" : String(integration.autoChargeDays)}><option value="off">Desligada (só pelo “Pagar agora”)</option>{[3, 5, 7, 10, 15].map((days) => <option key={days} value={days}>{days} dias antes do vencimento</option>)}</select></label>
+              <button className="secondary-action" type="submit">Salvar</button>
             </form>
           </> : <ol className="integration-steps">
             <li>No Asaas, abra <b>Integrações &gt; Chaves de API</b> e gere uma chave (produção ou sandbox).</li>
@@ -87,8 +87,8 @@ export default async function AsaasPage({ searchParams }: AsaasPageProps) {
             <li>O VR Gestão cria sozinho o webhook no Asaas, com um token próprio. Nada precisa ser configurado no Easypanel.</li>
           </ol>}
           <form className="settings-form" action={saveAsaasKeyAction}>
-            <label className="settings-form-wide">{connected ? "TROCAR CHAVE DE API" : "CHAVE DE API"}<input name="apiKey" type="password" autoComplete="off" spellCheck={false} required minLength={30} maxLength={300} placeholder="$aact_prod_… ou $aact_hmlg_…" /></label>
-            <div className="settings-form-actions"><button className="primary-action" type="submit">{connected ? "SALVAR NOVA CHAVE" : "CONECTAR"}</button><small>Trocar para outra conta ou ambiente desvincula os clientes e as cobranças em aberto da conta anterior.</small>{connected ? <ConfirmSubmitButton formAction={disconnectAsaasAction} className="text-link integration-disconnect" message="Desconectar o Asaas? O webhook é removido e o portal deixa de oferecer pagamento online.">DESCONECTAR</ConfirmSubmitButton> : null}</div>
+            <label className="settings-form-wide">{connected ? "Trocar chave de API" : "Chave de API"}<input name="apiKey" type="password" autoComplete="off" spellCheck={false} required minLength={30} maxLength={300} placeholder="$aact_prod_… ou $aact_hmlg_…" /></label>
+            <div className="settings-form-actions"><button className="primary-action" type="submit">{connected ? "Salvar nova chave" : "Conectar"}</button><small>Trocar para outra conta ou ambiente desvincula os clientes e as cobranças em aberto da conta anterior.</small>{connected ? <ConfirmSubmitButton formAction={disconnectAsaasAction} className="text-link integration-disconnect" message="Desconectar o Asaas? O webhook é removido e o portal deixa de oferecer pagamento online.">Desconectar</ConfirmSubmitButton> : null}</div>
           </form>
         </div>
       </section>
@@ -97,7 +97,7 @@ export default async function AsaasPage({ searchParams }: AsaasPageProps) {
     <section className="settings-panel" aria-labelledby="asaas-events-title">
         <div className="settings-panel-heading"><div><h2 id="asaas-events-title">Eventos recebidos.</h2><p>Avisos do Asaas sobre as cobranças. Os que falham são processados de novo automaticamente (até 5 vezes).</p></div></div>
         {events.data.length ? <ul className="settings-log-list">{events.data.map((event) => <li key={event.id}><details>
-          <summary><time>{dateTime.format(event.receivedAt)}</time><span className={`settings-level ${event.processedAt ? "is-info" : event.error ? "is-error" : "is-warning"}`}>{event.processedAt ? "PROCESSADO" : event.error ? "FALHOU" : "NA FILA"}</span><b>{asaasEventLabel[event.eventName] ?? event.eventName}{event.amountCents !== null ? ` · ${money.format(event.amountCents / 100)}` : ""}</b><small>{event.charge ? `${event.charge.client.name} · ${event.charge.description}` : "Cobrança criada fora do VR Gestão"}</small></summary>
+          <summary><time>{dateTime.format(event.receivedAt)}</time><span className={`settings-level ${event.processedAt ? "is-info" : event.error ? "is-error" : "is-warning"}`}>{event.processedAt ? "Processado" : event.error ? "Falhou" : "Na fila"}</span><b>{asaasEventLabel[event.eventName] ?? event.eventName}{event.amountCents !== null ? ` · ${money.format(event.amountCents / 100)}` : ""}</b><small>{event.charge ? `${event.charge.client.name} · ${event.charge.description}` : "Cobrança criada fora do VR Gestão"}</small></summary>
           <dl className="settings-log-detail">
             <div><dt>Evento</dt><dd><code>{event.eventName}</code></dd></div>
             {event.providerPaymentId ? <div><dt>Cobrança no Asaas</dt><dd><code>{event.providerPaymentId}</code></dd></div> : null}
@@ -105,7 +105,7 @@ export default async function AsaasPage({ searchParams }: AsaasPageProps) {
             {event.error ? <div><dt>Erro</dt><dd><code>{event.error}</code></dd></div> : null}
           </dl>
         </details></li>)}</ul> : <p className="settings-empty">Nenhum evento recebido ainda.</p>}
-        {events.nextCursor ? <div className="table-footer"><Link className="text-link" href={`/integracoes/asaas?aba=eventos&cursor=${events.nextCursor}`}>CARREGAR MAIS</Link></div> : null}
+        {events.nextCursor ? <div className="table-footer"><Link className="text-link" href={`/integracoes/asaas?aba=eventos&cursor=${events.nextCursor}`}>Carregar mais</Link></div> : null}
       </section>
 
     </> : null}

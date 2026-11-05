@@ -12,6 +12,6 @@ export function PasswordChangeForm({ className = "client-portal-password", provi
     <label>{provisional ? "Senha provisória (recebida por e-mail)" : "Senha atual"}<input name="current" type="password" autoComplete="current-password" required /></label>
     <label>Nova senha<input name="next" type="password" autoComplete="new-password" minLength={8} required /></label>
     <label>Confirmar nova senha<input name="confirm" type="password" autoComplete="new-password" minLength={8} required /></label>
-    <button className="primary-action" type="submit" disabled={pending}>{pending ? "SALVANDO..." : provisional ? "CRIAR SENHA E CONTINUAR" : "ALTERAR SENHA"}</button>
+    <button className="primary-action" type="submit" disabled={pending}>{pending ? "Salvando..." : provisional ? "Criar senha e continuar" : "Alterar senha"}</button>
   </form>;
 }

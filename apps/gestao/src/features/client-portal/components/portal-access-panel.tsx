@@ -31,7 +31,7 @@ export function PortalAccessPanel({ clientId, clientName, clientEmail, access, p
       <p><b>{state.created ? "Acesso criado." : "Nova senha gerada."}</b> O acesso foi enviado por e-mail para {state.email}, e no primeiro acesso o cliente cria uma senha dele. Para mandar também por outro canal, copie a mensagem agora: a senha não será mostrada de novo.</p>
       <dl><div><dt>E-mail</dt><dd>{state.email}</dd></div><div><dt>Senha provisória</dt><dd><code>{state.password}</code></dd></div></dl>
       <textarea readOnly rows={7} value={message} aria-label="Mensagem para enviar ao cliente" />
-      <button type="button" className="secondary-action" onClick={copy}>{copied ? "MENSAGEM COPIADA" : "COPIAR MENSAGEM"}</button>
+      <button type="button" className="secondary-action" onClick={copy}>{copied ? "Mensagem copiada" : "Copiar mensagem"}</button>
     </div> : null}
 
     {access ? <>
@@ -41,15 +41,15 @@ export function PortalAccessPanel({ clientId, clientName, clientEmail, access, p
         <div><dt>Último acesso</dt><dd className={access.lastLoginAt ? undefined : "is-empty"}>{access.lastLoginAt ? date.format(new Date(access.lastLoginAt)) : "Ainda não entrou"}</dd></div>
       </dl>
       <div className="client-access-actions">
-        <form action={action} onSubmit={(event) => { if (!window.confirm("Gerar uma nova senha? A senha atual deixa de funcionar e o cliente precisa entrar de novo.")) event.preventDefault(); }}><input type="hidden" name="clientId" value={clientId} /><input type="hidden" name="userId" value={access.id} /><input type="hidden" name="intent" value="reset" /><button className="secondary-action" type="submit" disabled={pending}>GERAR NOVA SENHA</button></form>
-        <form action={action} onSubmit={(event) => { if (access.isActive && !window.confirm("Desativar o acesso? O cliente não consegue mais entrar no portal.")) event.preventDefault(); }}><input type="hidden" name="clientId" value={clientId} /><input type="hidden" name="userId" value={access.id} /><input type="hidden" name="intent" value={access.isActive ? "deactivate" : "activate"} /><button className={access.isActive ? "text-link client-access-danger" : "text-link"} type="submit" disabled={pending}>{access.isActive ? "DESATIVAR ACESSO" : "REATIVAR ACESSO"}</button></form>
+        <form action={action} onSubmit={(event) => { if (!window.confirm("Gerar uma nova senha? A senha atual deixa de funcionar e o cliente precisa entrar de novo.")) event.preventDefault(); }}><input type="hidden" name="clientId" value={clientId} /><input type="hidden" name="userId" value={access.id} /><input type="hidden" name="intent" value="reset" /><button className="secondary-action" type="submit" disabled={pending}>Gerar nova senha</button></form>
+        <form action={action} onSubmit={(event) => { if (access.isActive && !window.confirm("Desativar o acesso? O cliente não consegue mais entrar no portal.")) event.preventDefault(); }}><input type="hidden" name="clientId" value={clientId} /><input type="hidden" name="userId" value={access.id} /><input type="hidden" name="intent" value={access.isActive ? "deactivate" : "activate"} /><button className={access.isActive ? "text-link client-access-danger" : "text-link"} type="submit" disabled={pending}>{access.isActive ? "Desativar acesso" : "Reativar acesso"}</button></form>
       </div>
-      <details className="client-access-email"><summary>TROCAR E-MAIL DE ACESSO</summary><form action={action}><input type="hidden" name="clientId" value={clientId} /><input type="hidden" name="userId" value={access.id} /><input type="hidden" name="intent" value="email" /><label>Novo e-mail<input name="email" type="email" required maxLength={254} defaultValue={access.email} /></label><button className="secondary-action" type="submit" disabled={pending}>SALVAR</button></form></details>
+      <details className="client-access-email"><summary>Trocar e-mail de acesso</summary><form action={action}><input type="hidden" name="clientId" value={clientId} /><input type="hidden" name="userId" value={access.id} /><input type="hidden" name="intent" value="email" /><label>Novo e-mail<input name="email" type="email" required maxLength={254} defaultValue={access.email} /></label><button className="secondary-action" type="submit" disabled={pending}>Salvar</button></form></details>
     </> : <form action={action} className="client-access-create">
       <p>Este cliente ainda não tem acesso. Crie a conta com o e-mail dele: uma senha provisória é gerada para você enviar.</p>
       <input type="hidden" name="clientId" value={clientId} /><input type="hidden" name="intent" value="create" />
       <label>E-mail de acesso<input name="email" type="email" required maxLength={254} defaultValue={clientEmail ?? ""} placeholder="email@cliente.com" /></label>
-      <button className="primary-action" type="submit" disabled={pending}>{pending ? "CRIANDO..." : "CRIAR ACESSO"}</button>
+      <button className="primary-action" type="submit" disabled={pending}>{pending ? "Criando..." : "Criar acesso"}</button>
     </form>}
   </section>;
 }

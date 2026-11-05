@@ -25,7 +25,7 @@ export function NotificationList({ notifications }: { notifications: DashboardNo
         <div className="notification-row" key={notification.id}>
           <span className={`signal ${notification.state}`} />
           <div>{notification.href ? <Link className="text-link-inline" href={notification.href}><b>{notification.title}</b></Link> : <b>{notification.title}</b>}<small>{notification.detail}</small></div>
-          <button className="notification-dismiss" type="button" onClick={() => setVisibleNotifications((items) => items.filter((item) => item.id !== notification.id))}>DESCARTAR</button>
+          <button className="notification-dismiss" type="button" onClick={() => setVisibleNotifications((items) => items.filter((item) => item.id !== notification.id))}>Descartar</button>
         </div>
       ))}
     </div>

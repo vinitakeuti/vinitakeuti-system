@@ -364,7 +364,7 @@ function FontSizeControl({ size, onStep, onSelect }: { size: number; onStep: (di
     <button type="button" ref={menu.triggerRef} className="quote-docs-size-current" aria-haspopup="listbox" aria-expanded={menu.position !== null} aria-label={`Tamanho da fonte: ${size} pontos`} onMouseDown={(event) => event.preventDefault()} onClick={() => menu.toggle(128)}>{size}<small>PT</small></button>
     <button type="button" className="quote-docs-size-step is-increase" aria-label="Aumentar fonte" title="Aumentar fonte" disabled={size >= RICH_TEXT_SIZES.at(-1)!} onMouseDown={(event) => event.preventDefault()} onClick={() => onStep(1)}>A<small>+</small></button>
     {menu.position ? <div className="quote-docs-size-menu" role="listbox" aria-label="Tamanhos disponíveis" style={{ top: menu.position.top, left: menu.position.left }}>
-      {RICH_TEXT_SIZES.map((option) => <button type="button" role="option" aria-selected={option === size} key={option} className={option === size ? "is-active" : ""} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option); menu.close(); }}><span style={{ fontSize: `${Math.min(option, 20) / RICH_TEXT_BASE_SIZE * 0.8}rem` }}>{option}</span>{option === RICH_TEXT_BASE_SIZE ? <small>NORMAL</small> : null}</button>)}
+      {RICH_TEXT_SIZES.map((option) => <button type="button" role="option" aria-selected={option === size} key={option} className={option === size ? "is-active" : ""} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option); menu.close(); }}><span style={{ fontSize: `${Math.min(option, 20) / RICH_TEXT_BASE_SIZE * 0.8}rem` }}>{option}</span>{option === RICH_TEXT_BASE_SIZE ? <small>Normal</small> : null}</button>)}
     </div> : null}
   </div>;
 }
@@ -394,7 +394,7 @@ type ComponentOption = { key: "services" | "template" | "images" | "page-break" 
 function ComponentsMenu({ options, onOpen, onSelect }: { options: ComponentOption[]; onOpen: () => void; onSelect: (key: ComponentOption["key"]) => void }) {
   const menu = useToolbarMenu("quote-docs-components-menu");
   return <>
-    <button type="button" ref={menu.triggerRef} className="quote-docs-components-trigger" aria-haspopup="menu" aria-expanded={menu.position !== null} title="Inserir serviços incluídos, texto padrão, imagens ou quebra de página" onMouseDown={(event) => { event.preventDefault(); if (!menu.position) onOpen(); }} onClick={() => menu.toggle(300)}>COMPONENTES</button>
+    <button type="button" ref={menu.triggerRef} className="quote-docs-components-trigger" aria-haspopup="menu" aria-expanded={menu.position !== null} title="Inserir serviços incluídos, texto padrão, imagens ou quebra de página" onMouseDown={(event) => { event.preventDefault(); if (!menu.position) onOpen(); }} onClick={() => menu.toggle(300)}>Componentes</button>
     {menu.position ? <div className="quote-docs-components-menu" role="menu" aria-label="Componentes do documento" style={{ top: menu.position.top, left: menu.position.left }}>
       <p>Entra no ponto do cursor.</p>
       {options.map((option) => <button type="button" role="menuitem" key={option.key} disabled={option.disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => { menu.close(); onSelect(option.key); }}><strong>{option.label}</strong><small>{option.detail}</small></button>)}
@@ -408,9 +408,9 @@ const imageAlignOptions: Array<{ value: QuoteDocumentAlign; label: string }> = [
   { value: "right", label: "Alinhar imagem à direita" },
 ];
 const imageSizeOptions: Array<{ value: QuoteDocumentFontSize; label: string }> = [
-  { value: "small", label: "PEQUENA" },
-  { value: "medium", label: "MÉDIA" },
-  { value: "large", label: "LARGURA TOTAL" },
+  { value: "small", label: "Pequena" },
+  { value: "medium", label: "Média" },
+  { value: "large", label: "Largura total" },
 ];
 
 /** Ícone de alinhamento: linhas encostadas à esquerda, ao centro ou à direita. */
@@ -985,7 +985,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
           {contact ? <small className="quote-sheet-contact">{contact}</small> : null}
         </div>
       </div>
-      {hasClient ? <div className="quote-sheet-client"><span>CLIENTE</span><strong>{cover.client.name}</strong>{[cover.client.company, cover.client.document].filter(Boolean).map((detail) => <small key={detail}>{detail}</small>)}</div> : null}
+      {hasClient ? <div className="quote-sheet-client"><span>Cliente</span><strong>{cover.client.name}</strong>{[cover.client.company, cover.client.document].filter(Boolean).map((detail) => <small key={detail}>{detail}</small>)}</div> : null}
     </header>;
   }
 
@@ -994,7 +994,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     const role = quoteDocumentBlockRole(block);
     const selected = activeBlockId === block.id ? " is-selected" : "";
     if (block.type === "rich-text") {
-      const placeholder = block.id === QUOTE_INTRO_BLOCK_ID ? "Comece a escrever a proposta aqui. Use COMPONENTES para inserir serviços incluídos, texto padrão, imagens ou quebras de página." : block.id.startsWith(CONTINUATION_TEXT_PREFIX) ? "Continue o texto aqui." : "Descrição do serviço.";
+      const placeholder = block.id === QUOTE_INTRO_BLOCK_ID ? "Comece a escrever a proposta aqui. Use “Componentes” para inserir serviços incluídos, texto padrão, imagens ou quebras de página." : block.id.startsWith(CONTINUATION_TEXT_PREFIX) ? "Continue o texto aqui." : "Descrição do serviço.";
       // A orientação de texto vazio ocupa espaço de verdade (fica na mesma célula do editor): em telas estreitas
       // ela quebra em várias linhas sem vazar da folha, e clicar sobre ela posiciona o cursor no texto.
       return <div key={`${block.id}:${versions[block.id] ?? 0}`} data-block-id={block.id} data-flow="text" className="quote-sheet-block is-text">
@@ -1012,7 +1012,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
       <div className="quote-sheet-divider" tabIndex={0} role="separator" aria-label="Linha divisória. Backspace ou Delete remove." onFocus={activate} onKeyDown={(event) => handleComponentKeys(event, block)}><i /></div>
     </div>;
     if (block.type === "page-break") return <div key={block.id} data-block-id={block.id} data-flow="page-break" className={`quote-sheet-block is-page-break${selected}`}>
-      <div className="quote-sheet-page-break" tabIndex={0} role="separator" aria-label="Quebra de página. Backspace ou Delete remove." onFocus={activate} onKeyDown={(event) => handleComponentKeys(event, block)}><span>QUEBRA DE PÁGINA</span></div>
+      <div className="quote-sheet-page-break" tabIndex={0} role="separator" aria-label="Quebra de página. Backspace ou Delete remove." onFocus={activate} onKeyDown={(event) => handleComponentKeys(event, block)}><span>Quebra de página</span></div>
     </div>;
     if (role === "section-label") return <div key={block.id} data-block-id={block.id} data-flow="block" data-keep="next" className={`quote-sheet-block is-section-label${selected}`}>
       <div className="quote-sheet-section-label" tabIndex={0} role="heading" aria-level={2} title="Componente Serviços incluídos" onFocus={activate} onKeyDown={(event) => handleComponentKeys(event, block)}><span>{block.text}</span></div>
@@ -1036,10 +1036,10 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     <input ref={documentContentFieldRef} type="hidden" name="documentContent" defaultValue={JSON.stringify(content)} />
     <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; void uploadImages(files); }} />
     <section className="quote-docs-toolbar" aria-label="Ferramentas do editor">
-      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{kindInfo.shortName.toUpperCase()} · {documentCode} · {isCompleted ? "CONCLUÍDO" : "PENDENTE DE CONCLUSÃO"}</span><strong>{coverSettings?.title || documentTitle}</strong><small className={`quote-docs-saved is-${saveState}`} role="status" aria-live="polite">{saveLabel}</small></div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">TEXTO PADRÃO</button><Link className="quote-docs-back-link" href={backHref}>VOLTAR</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">SALVAR</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "SALVAR E SAIR" : "CONCLUIR"}</button></div></div>
+      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{kindInfo.shortName} · {documentCode} · {isCompleted ? "Concluído" : "Pendente de conclusão"}</span><strong>{coverSettings?.title || documentTitle}</strong><small className={`quote-docs-saved is-${saveState}`} role="status" aria-live="polite">{saveLabel}</small></div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">Texto padrão</button><Link className="quote-docs-back-link" href={backHref}>Voltar</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">Salvar</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "Salvar e sair" : "Concluir"}</button></div></div>
       <div className="quote-docs-toolbar-tools">
         <ComponentsMenu options={componentOptions} onOpen={() => { insertionPointRef.current = currentInsertionPoint(); }} onSelect={selectComponent} />
-        {imageUpload.busy ? <span className="quote-docs-tool-context">ENVIANDO IMAGENS...</span> : null}
+        {imageUpload.busy ? <span className="quote-docs-tool-context">Enviando imagens...</span> : null}
         {imageUpload.error ? <span className="quote-docs-tool-error" role="alert">{imageUpload.error}</span> : null}
         <span className="quote-docs-divider" />
         {activeBlock?.type === "image" ? <>
@@ -1047,20 +1047,20 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
           <span className="quote-docs-divider" />
           {imageSizeOptions.map((option) => <button type="button" key={option.value} aria-pressed={activeBlock.fontSize === option.value} className={`quote-docs-image-size${activeBlock.fontSize === option.value ? " is-active" : ""}`} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { fontSize: option.value })}>{option.label}</button>)}
           <span className="quote-docs-divider" />
-          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>REMOVER IMAGEM</button>
+          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>Remover imagem</button>
         </> : activeBlock?.type === "divider" ? <>
-          <span className="quote-docs-tool-context">LINHA</span>
-          <button type="button" aria-pressed={activeBlock.divider !== "accent"} className={activeBlock.divider !== "accent" ? "is-active" : undefined} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { divider: "line" })}>FINA</button>
-          <button type="button" aria-pressed={activeBlock.divider === "accent"} className={activeBlock.divider === "accent" ? "is-active" : undefined} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { divider: "accent" })}>DESTAQUE</button>
+          <span className="quote-docs-tool-context">Linha</span>
+          <button type="button" aria-pressed={activeBlock.divider !== "accent"} className={activeBlock.divider !== "accent" ? "is-active" : undefined} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { divider: "line" })}>Fina</button>
+          <button type="button" aria-pressed={activeBlock.divider === "accent"} className={activeBlock.divider === "accent" ? "is-active" : undefined} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { divider: "accent" })}>Destaque</button>
           <span className="quote-docs-divider" />
-          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>REMOVER LINHA</button>
+          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>Remover linha</button>
         </> : activeBlock?.type === "page-break" ? <>
-          <span className="quote-docs-tool-context">QUEBRA DE PÁGINA</span>
-          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>REMOVER QUEBRA</button>
+          <span className="quote-docs-tool-context">Quebra de página</span>
+          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={() => removeBlocks([activeBlock.id])}>Remover quebra</button>
         </> : activeRole === "section-label" ? <>
-          <span className="quote-docs-tool-context">SERVIÇOS INCLUÍDOS</span>
-          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={removeServices}>REMOVER SEÇÃO</button>
-        </> : activeRole === "service-title" || activeRole === "service-category" ? <span className="quote-docs-tool-context">{activeRole === "service-title" ? "NOME DO SERVIÇO" : "CATEGORIA DO SERVIÇO"}</span>
+          <span className="quote-docs-tool-context">Serviços incluídos</span>
+          <button type="button" className="quote-docs-remove" onMouseDown={(event) => event.preventDefault()} onClick={removeServices}>Remover seção</button>
+        </> : activeRole === "service-title" || activeRole === "service-category" ? <span className="quote-docs-tool-context">{activeRole === "service-title" ? "Nome do serviço" : "Categoria do serviço"}</span>
         : activeBlock && activeBlock.type !== "rich-text" ? <>
           <button type="button" aria-label="Negrito" className={activeBlock.bold ? "is-active" : ""} aria-pressed={activeBlock.bold} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { bold: !activeBlock.bold })}>N</button>
           <button type="button" aria-label="Itálico" className={activeBlock.italic ? "is-active quote-docs-italic" : "quote-docs-italic"} aria-pressed={activeBlock.italic} onMouseDown={(event) => event.preventDefault()} onClick={() => updateBlock(activeBlock.id, { italic: !activeBlock.italic })}>I</button>
@@ -1076,10 +1076,10 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
           <DropdownControl menuClass="quote-docs-color-menu" width={210} title="Cor do texto" current={richTextFormat.color ?? "none"} options={colorOptions} onSelect={(color) => applyRichTextFormat("color", { color })} trigger={<><span className="quote-docs-color-trigger">A<i style={{ background: richTextFormat.color ? RICH_TEXT_COLORS[richTextFormat.color].hex : "#1f1f1f" }} /></span><span className="quote-docs-caret" /></>} />
           <DropdownControl menuClass="quote-docs-align-menu" width={190} title="Alinhamento" current={richTextFormat.align} options={alignOptions} onSelect={(align) => applyRichTextFormat("align", { align })} trigger={<><AlignIcon align={richTextFormat.align} /><span className="quote-docs-caret" /></>} />
           <span className="quote-docs-divider" />
-          <DropdownControl menuClass="quote-docs-list-menu" width={280} title="Lista" current={listKey(richTextFormat.list)} options={listOptions} onSelect={(list) => applyRichTextFormat("list", { list })} trigger={<>{richTextFormat.list ? (listOptions.find((option) => option !== "divider" && option.key === listKey(richTextFormat.list)) as DropdownOption<RichTextListChoice> | undefined)?.label.toUpperCase() ?? "LISTA" : "LISTA"}<span className="quote-docs-caret" /></>} />
-          <DropdownControl menuClass="quote-docs-box-menu" width={260} title="Moldura" current={richTextFormat.box ?? "none"} options={boxOptions} onSelect={(box) => applyRichTextFormat("box", { box })} trigger={<>{richTextFormat.box ? boxOptions.find((option) => option.key === richTextFormat.box)?.label.toUpperCase() : "MOLDURA"}<span className="quote-docs-caret" /></>} />
+          <DropdownControl menuClass="quote-docs-list-menu" width={280} title="Lista" current={listKey(richTextFormat.list)} options={listOptions} onSelect={(list) => applyRichTextFormat("list", { list })} trigger={<>{richTextFormat.list ? (listOptions.find((option) => option !== "divider" && option.key === listKey(richTextFormat.list)) as DropdownOption<RichTextListChoice> | undefined)?.label.toUpperCase() ?? "Lista" : "Lista"}<span className="quote-docs-caret" /></>} />
+          <DropdownControl menuClass="quote-docs-box-menu" width={260} title="Moldura" current={richTextFormat.box ?? "none"} options={boxOptions} onSelect={(box) => applyRichTextFormat("box", { box })} trigger={<>{richTextFormat.box ? boxOptions.find((option) => option.key === richTextFormat.box)?.label.toUpperCase() : "Moldura"}<span className="quote-docs-caret" /></>} />
           <span className="quote-docs-divider" />
-          <button type="button" title="Remove negrito, itálico, sublinhado, tamanho e estilo de título da linha ou do trecho selecionado" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("removeFormat")}>LIMPAR FORMATAÇÃO</button>
+          <button type="button" title="Remove negrito, itálico, sublinhado, tamanho e estilo de título da linha ou do trecho selecionado" onMouseDown={(event) => event.preventDefault()} onClick={() => applyRichTextCommand("removeFormat")}>Limpar formatação</button>
         </>}
       </div>
     </section>
@@ -1087,8 +1087,8 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
       <div className="quote-docs-pages">
         {coverSettings ? <div className="quote-docs-cover-settings">
           <label className="quote-docs-cover-switch"><input type="checkbox" checked={coverSettings.enabled} onChange={(event) => updateCover({ enabled: event.currentTarget.checked })} /><span><b>Incluir capa</b><small>{coverSettings.enabled ? "A capa abre o PDF." : "O PDF começa sem capa."}</small></span></label>
-          <label className="quote-docs-cover-field"><span>RÓTULO DA CAPA</span><input value={coverSettings.label} maxLength={COVER_LABEL_MAX_LENGTH} placeholder="Ex.: Declaração, Relatório (opcional)" onChange={(event) => updateCover({ label: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} /></label>
-          <label className="quote-docs-cover-field is-title"><span>TÍTULO</span><input value={coverSettings.title} maxLength={COVER_TITLE_MAX_LENGTH} required placeholder="Título do documento" onChange={(event) => updateCover({ title: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} /></label>
+          <label className="quote-docs-cover-field"><span>Rótulo da capa</span><input value={coverSettings.label} maxLength={COVER_LABEL_MAX_LENGTH} placeholder="Ex.: Declaração, Relatório (opcional)" onChange={(event) => updateCover({ label: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} /></label>
+          <label className="quote-docs-cover-field is-title"><span>Título</span><input value={coverSettings.title} maxLength={COVER_TITLE_MAX_LENGTH} required placeholder="Título do documento" onChange={(event) => updateCover({ title: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} /></label>
         </div> : null}
         {coverSettings && !coverSettings.enabled ? null : <QuoteCoverPreview quote={coverSettings ? { ...cover, title: coverSettings.title || documentTitle } : cover} professional={professional} kind={kind} label={coverSettings?.label} hasClient={hasClient} />}
         <article ref={sheetRef} className="quote-sheet" style={{ "--pt": `${layout.pt}px`, paddingBottom: layout.tail + bottomSpace } as CSSProperties} aria-label="Páginas do documento">
@@ -1106,8 +1106,8 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
           </div>)}
         </article>
         {closing.type === "none" ? null : <><div className="quote-docs-closing-toggle">
-          <div><span>PÁGINA FINAL</span><small>{closing.type === "investment" ? "Investimento, condições e aceite. Gerada a partir dos valores do orçamento." : kindInfo.closing?.witnesses ? "Assinaturas das partes e das testemunhas." : "Declaração de recebimento e assinaturas."}</small></div>
-          <button type="button" className="secondary-action" aria-expanded={showClosing} onClick={() => setShowClosing((value) => !value)}>{showClosing ? "OCULTAR PÁGINA FINAL" : "EXIBIR PÁGINA FINAL"}</button>
+          <div><span>Página final</span><small>{closing.type === "investment" ? "Investimento, condições e aceite. Gerada a partir dos valores do orçamento." : kindInfo.closing?.witnesses ? "Assinaturas das partes e das testemunhas." : "Declaração de recebimento e assinaturas."}</small></div>
+          <button type="button" className="secondary-action" aria-expanded={showClosing} onClick={() => setShowClosing((value) => !value)}>{showClosing ? "Ocultar página final" : "Exibir página final"}</button>
         </div>
         {showClosing ? closing.type === "investment" ? <QuoteClosingPreview quote={closing.quote} professional={professional} pageNumber={totalPages} /> : <DocumentSignaturePreview document={closing.document} professional={professional} kind={kind} pageNumber={totalPages} /> : null}</>}
       </div>

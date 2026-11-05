@@ -17,11 +17,11 @@ export default async function PortalServicesPage() {
   const { sales, subscriptions, projects, systems } = await getPortalServices(context.clientId);
   const empty = !sales.length && !subscriptions.length && !projects.length && !systems.length;
 
-  return <PortalShell context={context} current="services" section="SERVIÇOS" title="Serviços contratados." description="O que foi contratado, o andamento dos projetos e a situação dos seus sistemas.">
+  return <PortalShell context={context} current="services" section="Serviços" title="Serviços contratados." description="O que foi contratado, o andamento dos projetos e a situação dos seus sistemas.">
     {empty ? <section className="settings-panel"><p className="settings-empty">Nenhum serviço contratado ainda. Quando uma proposta for aprovada, os serviços aparecem aqui.</p></section> : null}
 
     {sales.length ? <section className="settings-panel" aria-labelledby="portal-sales-title">
-      <div className="settings-panel-heading"><div><h2 id="portal-sales-title">Contratações.</h2><p>Cada proposta aprovada, com os serviços incluídos.</p></div><Link className="text-link" href="/pagamentos">VER PAGAMENTOS</Link></div>
+      <div className="settings-panel-heading"><div><h2 id="portal-sales-title">Contratações.</h2><p>Cada proposta aprovada, com os serviços incluídos.</p></div><Link className="text-link" href="/pagamentos">Ver pagamentos</Link></div>
       <ul className="portal-plan">{sales.map((sale) => <li key={sale.id}>
         <div className="portal-sale-heading"><div><b>{sale.title}</b><small>{sale.quote?.code ?? sale.code}{sale.confirmedAt ? ` · contratado em ${day(sale.confirmedAt)}` : ""}</small></div><div className="portal-sale-meta"><strong>{money(sale.amountCents)}</strong><span className={`portal-tag ${sale.status === "PAID" ? "is-ok" : ""}`}>{saleStatus[sale.status]}</span></div></div>
         {sale.quote?.items.length ? <ul className="portal-items">{sale.quote.items.map((item) => <li key={item.id}><span>{item.name}{item.quantity > 1 ? ` × ${item.quantity}` : ""}</span><small>{item.categoryName} · {item.billingType === "RECURRING" ? `recorrente${item.billingCycle && cycle[item.billingCycle] ? ` ${cycle[item.billingCycle]}` : ""}` : "entrega única"}</small></li>)}</ul> : null}

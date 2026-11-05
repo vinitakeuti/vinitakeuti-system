@@ -31,7 +31,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
   if (info.kind === "proposal") {
     const result = await listQuotesForDocuments({ cursor, pending });
     nextCursor = result.nextCursor;
-    rows = result.data.map((quote) => ({ id: quote.id, title: quote.title, code: quote.code, detail: money.format(quote.amountCents / 100), client: quote.client, done: Boolean(quote.completedAt), updatedAt: quote.updatedAt, editHref: `/orcamentos/${quote.id}/editor`, pdfHref: `/api/orcamentos/${quote.id}/pdf`, secondary: { href: `/orcamentos/${quote.id}/editar`, label: "VALORES" }, signed: quote.signedCopies[0] ?? null }));
+    rows = result.data.map((quote) => ({ id: quote.id, title: quote.title, code: quote.code, detail: money.format(quote.amountCents / 100), client: quote.client, done: Boolean(quote.completedAt), updatedAt: quote.updatedAt, editHref: `/orcamentos/${quote.id}/editor`, pdfHref: `/api/orcamentos/${quote.id}/pdf`, secondary: { href: `/orcamentos/${quote.id}/editar`, label: "Valores" }, signed: quote.signedCopies[0] ?? null }));
   } else {
     const result = await listClientDocuments({ cursor, kind: info.kind, pending });
     nextCursor = result.nextCursor;
@@ -45,7 +45,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
   };
 
   return <main className="app-shell"><AppSidebar current="quotes" /><div className="workspace"><section className="directory-page documents-page">
-    <header className="directory-header"><div><p className="eyebrow">DOCUMENTOS</p><h1>Documentos.</h1><p>Escolha o documento e o cliente. Documentos com cliente ficam também no perfil dele.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href={`/documentos/texto-padrao?tipo=${info.slug}`}>TEXTO PADRÃO</Link></div></header>
+    <header className="directory-header"><div><p className="eyebrow">Documentos</p><h1>Documentos.</h1><p>Escolha o documento e o cliente. Documentos com cliente ficam também no perfil dele.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href={`/documentos/texto-padrao?tipo=${info.slug}`}>Texto padrão</Link></div></header>
     {concluido ? <p className="form-success" role="status">Documento {concluido} concluído.</p> : null}
     {excluido ? <p className="form-success" role="status">Documento excluído.</p> : null}
     {error ? <p className="form-error" role="alert">{error.slice(0, 200)}</p> : null}
@@ -54,7 +54,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
     </nav>
     <section className="directory-surface documents-surface">
       <div className="documents-produce">
-        <div className="documents-produce-heading"><p className="eyebrow">NOVO DOCUMENTO</p><h2>{info.name}</h2><span>{info.description}</span></div>
+        <div className="documents-produce-heading"><p className="eyebrow">Novo documento</p><h2>{info.name}</h2><span>{info.description}</span></div>
         <DocumentProducer kind={{ slug: info.slug, shortName: info.shortName, description: info.description, isProposal: info.kind === "proposal", clientOptional: !info.requiresClient }} initialClient={initialClient ? { id: initialClient.id, name: initialClient.name, company: initialClient.company } : null} createAction={createClientDocumentAction} />
       </div>
       <div className="documents-list">
@@ -65,16 +65,16 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
             <Link className={pending ? "active" : undefined} href={href({ status: "pendentes", cursor: null })} scroll={false}>Pendentes</Link>
           </nav>
         </div>
-        {rows.length ? <div className="table-scroll"><table className="quote-pending-table documents-table"><thead><tr><th>DOCUMENTO</th><th>CLIENTE</th><th>SITUAÇÃO</th><th>ALTERADO</th><th aria-label="Ações" /></tr></thead><tbody>
+        {rows.length ? <div className="table-scroll"><table className="quote-pending-table documents-table"><thead><tr><th>Documento</th><th>Cliente</th><th>Situação</th><th>Alterado</th><th aria-label="Ações" /></tr></thead><tbody>
           {rows.map((row) => <tr key={row.id}>
             <td className="quote-pending-title"><Link className="client-name" href={row.editHref}>{row.title}</Link><small>{row.code}{row.detail ? ` · ${row.detail}` : ""}</small></td>
             <td className="quote-pending-client">{row.client ? <><Link className="table-link" href={`/clientes/${row.client.id}?section=documents`}>{row.client.name}</Link><small>{row.client.company ?? "Pessoa física"}</small></> : <small>Sem cliente</small>}</td>
             <td><span className={row.done ? "documents-status is-done" : "documents-status"}>{row.done ? "Concluído" : "Pendente"}</span>{row.signed ? <small className={row.signed.reviewStatus === "APPROVED" ? "documents-signed" : "documents-signed is-warning"}>{signedLabels[row.signed.reviewStatus]} · {dateTime.format(row.signed.createdAt)}</small> : null}</td>
             <td className="quote-pending-date"><span>{dateTime.format(row.updatedAt)}</span></td>
-            <td className="quote-pending-actions"><div><Link className="primary-action" href={row.editHref}>{row.done ? "ABRIR" : "CONTINUAR"}</Link>{row.secondary ? <Link className="table-link" href={row.secondary.href}>{row.secondary.label}</Link> : null}<a className="table-link" href={row.pdfHref}>PDF</a>{row.signed ? <a className="table-link" href={`/api/documentos/assinados/${row.signed.id}`}>VIA ASSINADA</a> : null}{info.kind === "proposal" ? null : <DeleteDocumentButton documentId={row.id} action={deleteClientDocumentAction} />}</div></td>
+            <td className="quote-pending-actions"><div><Link className="primary-action" href={row.editHref}>{row.done ? "Abrir" : "Continuar"}</Link>{row.secondary ? <Link className="table-link" href={row.secondary.href}>{row.secondary.label}</Link> : null}<a className="table-link" href={row.pdfHref}>PDF</a>{row.signed ? <a className="table-link" href={`/api/documentos/assinados/${row.signed.id}`}>Via assinada</a> : null}{info.kind === "proposal" ? null : <DeleteDocumentButton documentId={row.id} action={deleteClientDocumentAction} />}</div></td>
           </tr>)}
         </tbody></table></div> : <div className="documents-empty"><p>{pending ? `Nenhum documento pendente.` : `Nenhum documento produzido ainda.`}</p><span>{info.kind === "proposal" ? "As propostas que você criar aparecerão aqui." : `Use o painel acima para produzir ${info.kind === "contract" ? "o primeiro contrato" : info.kind === "assignment" ? "a primeira cessão" : info.kind === "free" ? "o primeiro documento livre" : "o primeiro memorial"}.`}</span></div>}
-        {nextCursor ? <div className="table-footer"><Link className="text-link" href={href({ cursor: nextCursor })}>CARREGAR PRÓXIMOS 50</Link></div> : null}
+        {nextCursor ? <div className="table-footer"><Link className="text-link" href={href({ cursor: nextCursor })}>Carregar próximos 50</Link></div> : null}
       </div>
     </section>
   </section></div></main>;
