@@ -98,7 +98,7 @@ input {
 .nav-code {
   width: 22px;
   color: #686864;
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-2xs);
   letter-spacing: -0.02em;
 }
@@ -865,7 +865,7 @@ body.sidebar-collapsed .workspace {
 }
 .integration-strip code {
   color: #555955;
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-2xs);
   background: #f0f1ef;
   padding: 7px 9px;
@@ -4136,14 +4136,14 @@ body.sidebar-collapsed .workspace {
 }
 .quote-docs-page > header span {
   color: var(--black);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 .quote-docs-page > header small {
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 0.58rem;
   letter-spacing: 0.055em;
   text-align: right;
@@ -4193,7 +4193,7 @@ body.sidebar-collapsed .workspace {
   padding-top: 15px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 0.58rem;
   letter-spacing: 0.07em;
   text-align: right;
@@ -5138,7 +5138,7 @@ body.sidebar-collapsed .workspace {
 }
 .quote-docs-page > .quote-docs-page-header .quote-docs-page-professional > span {
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 0.55rem;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -6403,7 +6403,7 @@ body.sidebar-collapsed .workspace {
 .quote-editor-document-block.quote-editor-document-role-section-label .quote-editor-document-content {
   min-height: 0;
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 0.66rem;
   letter-spacing: 0.16em;
   line-height: 1.4;
@@ -6431,7 +6431,7 @@ body.sidebar-collapsed .workspace {
 .quote-editor-document-block.quote-editor-document-role-service-category .quote-editor-document-content {
   min-height: 0;
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 0.6rem;
   letter-spacing: 0.1em;
   line-height: 1.4;
@@ -7148,7 +7148,7 @@ body.sidebar-collapsed .workspace {
   max-width: 100%;
   overflow: hidden;
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-2xs);
   letter-spacing: 0;
   text-decoration: none;
@@ -7532,7 +7532,7 @@ body.sidebar-collapsed .workspace {
 }
 .quote-docs-page > .quote-docs-page-header .quote-docs-page-client > span {
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 0.55rem;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -7731,7 +7731,7 @@ body.sidebar-collapsed .workspace {
 }
 .quote-cover-kicker {
   color: #8f948f;
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.18cqw;
   letter-spacing: 0.15cqw;
 }
@@ -7770,7 +7770,7 @@ body.sidebar-collapsed .workspace {
 }
 .quote-cover-details dt {
   color: #8f948f;
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.03cqw;
   letter-spacing: 0.09cqw;
 }
@@ -7788,7 +7788,7 @@ body.sidebar-collapsed .workspace {
   bottom: 6.55cqw;
   left: 8.74cqw;
   color: #8f948f;
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.04cqw;
   letter-spacing: 0.07cqw;
 }
@@ -7826,7 +7826,7 @@ body.sidebar-collapsed .workspace {
 }
 .quote-closing-body .quote-preview-section span {
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.28cqw;
   letter-spacing: 0.22cqw;
   text-transform: uppercase;
@@ -7853,7 +7853,7 @@ body.sidebar-collapsed .workspace {
   padding-bottom: 1.18cqw;
   border-bottom: 1px solid var(--charcoal);
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.09cqw;
   letter-spacing: 0.13cqw;
 }
@@ -7907,7 +7907,7 @@ body.sidebar-collapsed .workspace {
 }
 .quote-closing-summary .is-total span {
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.18cqw;
   letter-spacing: 0.17cqw;
 }
@@ -7974,7 +7974,7 @@ body.sidebar-collapsed .workspace {
 .quote-closing-signatures span {
   margin-top: 0.84cqw;
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.09cqw;
   letter-spacing: 0.15cqw;
 }
@@ -7987,7 +7987,7 @@ body.sidebar-collapsed .workspace {
   justify-content: space-between;
   gap: 2cqw;
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.14cqw;
   letter-spacing: 0.07cqw;
 }
@@ -8031,7 +8031,7 @@ body.sidebar-collapsed .workspace {
 }
 .quote-closing-code {
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.14cqw;
   letter-spacing: 0.13cqw;
 }
@@ -8042,7 +8042,7 @@ body.sidebar-collapsed .workspace {
 }
 .quote-closing-intro span {
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.18cqw;
   letter-spacing: 0.2cqw;
 }
@@ -8304,7 +8304,7 @@ body.sidebar-collapsed .quote-summary-panel {
 }
 .quote-closing-summary .is-balance span {
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.18cqw;
   letter-spacing: 0.17cqw;
 }
@@ -8449,7 +8449,7 @@ button.quote-docs-back-link:hover {
   gap: 10px;
   margin: calc(var(--rich-text-base) * 1.8) 0 calc(var(--rich-text-base) * 1);
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: calc(var(--rich-text-base) * 0.76);
   font-weight: 400;
   letter-spacing: 0.16em;
@@ -8856,7 +8856,7 @@ button.quote-docs-back-link:hover {
   align-items: center;
   gap: 10px;
   color: var(--sheet-muted);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 0.56rem;
   letter-spacing: 0.08em;
   cursor: pointer;
@@ -11147,7 +11147,7 @@ button.quote-docs-back-link:hover {
   font-weight: 600;
 }
 .client-access-secret code {
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-md);
   letter-spacing: 0;
 }
@@ -11426,7 +11426,7 @@ button.quote-docs-back-link:hover {
 .settings-note code,
 .settings-result code,
 .settings-log-detail code {
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
@@ -11703,7 +11703,7 @@ button.quote-docs-back-link:hover {
   padding: 10px;
   border: 1px solid var(--line);
   background: var(--gray-25);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-2xs);
   line-height: 1.5;
   white-space: pre-wrap;
@@ -12348,7 +12348,7 @@ button.quote-docs-back-link:hover {
   letter-spacing: 0;
 }
 .portal-pix code {
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
@@ -12610,7 +12610,7 @@ button.quote-docs-back-link:hover {
   line-height: 1.45;
 }
 .integration-webhook code {
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
@@ -13680,7 +13680,7 @@ button.quote-docs-back-link:hover {
 .quote-closing-signature-mark a {
   align-self: center;
   color: var(--accent);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 1.05cqw;
   letter-spacing: 0.08cqw;
   text-align: center;
@@ -13781,7 +13781,7 @@ button.quote-docs-back-link:hover {
   line-height: 1.5;
 }
 .ai-token code {
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
@@ -13825,7 +13825,7 @@ button.quote-docs-back-link:hover {
   min-width: 0;
 }
 .ai-endpoints code {
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
@@ -14433,7 +14433,7 @@ body .chat .sidebar-toggle.sidebar-toggle-header b {
   padding: 1px 5px;
   border: 1px solid var(--line);
   background: var(--paper);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: 0.8em;
 }
 .chat-turn-actions {
@@ -15120,7 +15120,7 @@ body .chat .sidebar-toggle.sidebar-toggle-header b {
 }
 .ai-model-list code {
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-2xs);
   overflow-wrap: anywhere;
 }
@@ -15145,7 +15145,7 @@ body .chat .sidebar-toggle.sidebar-toggle-header b {
   color: var(--ink);
 }
 .ai-model-selected code {
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-xs);
 }
 .ai-model-error {
@@ -15195,7 +15195,7 @@ body .chat .sidebar-toggle.sidebar-toggle-header b {
   align-self: start;
   padding-top: 3px;
   color: var(--gray-500);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-2xs);
   letter-spacing: -0.02em;
 }
@@ -15382,7 +15382,7 @@ body .chat .sidebar-toggle.sidebar-toggle-header b {
   border: 1px solid var(--line);
   background: var(--paper);
   color: #2c2f2c;
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-2xs);
   line-height: 1.6;
   white-space: pre-wrap;
@@ -15588,7 +15588,7 @@ body .chat .sidebar-toggle.sidebar-toggle-header b {
 .ai-run-usage code {
   margin-left: 10px;
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-2xs);
 }
 .ai-run-tools {
@@ -15687,7 +15687,7 @@ body .chat .sidebar-toggle.sidebar-toggle-header b {
   padding: 11px 12px;
   border: 1px solid var(--line);
   background: var(--paper);
-  font-family: var(--mono);
+  font-family: var(--font-code);
   font-size: var(--text-xs);
   line-height: 1.5;
   overflow-wrap: anywhere;
