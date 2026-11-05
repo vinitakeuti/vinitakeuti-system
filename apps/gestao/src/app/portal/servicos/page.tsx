@@ -3,6 +3,7 @@ import { PortalShell } from "@/features/client-portal/components/portal-shell";
 import { day, money } from "@/features/client-portal/components/portal-format";
 import { getPortalContext, getPortalServices } from "@/features/client-portal/queries/portal-queries";
 import { monitoringStatusLabel } from "@/features/monitoring/types/monitoring-labels";
+import { percentOf } from "@/features/projects/types/project";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +35,8 @@ export default async function PortalServicesPage() {
     </section> : null}
 
     {projects.length ? <section className="settings-panel" aria-labelledby="portal-projects-title">
-      <div className="settings-panel-heading"><div><h2 id="portal-projects-title">Projetos.</h2><p>Andamento das entregas.</p></div></div>
-      <ul className="portal-list">{projects.map((project) => <li className="portal-row is-compact" key={project.id}><div className="portal-row-main"><b>{project.name}</b><small>{project.deliveryAt ? `${project.status === "DELIVERED" ? "Entregue" : "Entrega prevista"} em ${day(project.deliveryAt)}` : project.startedAt ? `Iniciado em ${day(project.startedAt)}` : "Sem data de entrega definida"}</small></div><span className={`portal-tag ${project.status === "DELIVERED" ? "is-ok" : project.status === "WAITING_CLIENT" ? "is-soon" : ""}`}>{projectStatus[project.status] ?? project.status}</span></li>)}</ul>
+      <div className="settings-panel-heading"><div><h2 id="portal-projects-title">Projetos.</h2><p>Andamento das entregas.</p></div><Link className="text-link" href="/projetos">VER ANDAMENTO</Link></div>
+      <ul className="portal-list">{projects.map((project) => <li className="portal-row is-compact" key={project.id}><div className="portal-row-main"><b>{project.name}</b><small>{project.deliveryAt ? `${project.status === "DELIVERED" ? "Entregue" : "Entrega prevista"} em ${day(project.deliveryAt)}` : project.startedAt ? `Iniciado em ${day(project.startedAt)}` : "Sem data de entrega definida"}{project.totalWeight ? ` · ${percentOf(project.doneWeight, project.totalWeight)}% concluído` : ""}</small></div><span className={`portal-tag ${project.status === "DELIVERED" ? "is-ok" : project.status === "WAITING_CLIENT" ? "is-soon" : ""}`}>{projectStatus[project.status] ?? project.status}</span></li>)}</ul>
     </section> : null}
 
     {systems.length ? <section className="settings-panel" aria-labelledby="portal-systems-title">

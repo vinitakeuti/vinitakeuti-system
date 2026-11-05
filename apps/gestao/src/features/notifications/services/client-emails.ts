@@ -8,9 +8,9 @@ import { clientRecipient, emailProfessional, enqueueEmail, firstName } from "@/f
 import { logEvent } from "@/features/system-logs/services/system-log";
 
 /**
- * E-mails para o cliente: acesso ao portal, documentos, conferência da via assinada, pagamentos e sistemas. Cada
- * `…Email` monta a mensagem (também usada na pré-visualização das Configurações); cada `notify…` descobre o
- * destinatário (o acesso ativo ao portal) e põe na fila. Nenhuma falha aqui interrompe quem disparou.
+ * E-mails para o cliente: acesso ao portal, documentos, conferência da via assinada, pagamentos, sistemas e andamento
+ * dos projetos. Cada `…Email` monta a mensagem (também usada na pré-visualização das Configurações); cada `notify…`
+ * descobre o destinatário (o acesso ativo ao portal) e põe na fila. Nenhuma falha aqui interrompe quem disparou.
  */
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -156,6 +156,23 @@ export function systemStatusEmail({ name, system, url, down, durationMs, profess
   });
 }
 
+/** Atualização de andamento do projeto, aprovada e publicada por você. O texto quebra em parágrafos pelas linhas. */
+export function projectUpdateEmail({ name, project, title, body, percent, professional }: { name: string; project: string; title: string; body: string; percent: number; professional: EmailProfessional }) {
+  return renderBrandEmail({
+    layout: "noturno",
+    subject: `Andamento do projeto: ${project}`,
+    preheader: `${title} · ${percent}% concluído.`,
+    kicker: "ANDAMENTO DO PROJETO",
+    title,
+    paragraphs: [hello(name), ...body.split(/\n+/).map((line) => line.trim()).filter(Boolean)],
+    details: [["Projeto", project], ["Concluído", `${percent}%`]],
+    action: { label: "Ver o andamento", href: portal("/projetos") },
+    signOff: SIGN_OFF,
+    reason: CLIENT_REASON,
+    professional,
+  });
+}
+
 /* Disparos */
 
 /** Põe o e-mail na fila sem deixar uma falha (banco, perfil) interromper a ação que o disparou. */
@@ -215,6 +232,15 @@ export async function notifySystemStatus({ appId, down, durationMs }: { appId: s
   const recipient = await clientRecipient(app.clientId);
   if (!recipient) return false;
   return enqueueEmail({ kind: "client.system", to: recipient.email, clientId: app.clientId, email: systemStatusEmail({ name: recipient.firstName, system: app.name, url: app.url, down, durationMs, professional: await emailProfessional() }) });
+}
+
+/** Atualização do projeto publicada: uma vez por atualização. */
+export async function notifyProjectUpdate(updateId: string) {
+  const update = await prisma.projectUpdate.findUnique({ where: { id: updateId }, select: { id: true, title: true, body: true, progressPercent: true, project: { select: { name: true, clientId: true } } } });
+  if (!update?.project.clientId) return false;
+  const recipient = await clientRecipient(update.project.clientId);
+  if (!recipient) return false;
+  return enqueueEmail({ kind: "client.project_update", to: recipient.email, clientId: update.project.clientId, dedupeKey: `project-update:${update.id}`, email: projectUpdateEmail({ name: recipient.firstName, project: update.project.name, title: update.title, body: update.body, percent: update.progressPercent ?? 0, professional: await emailProfessional() }) });
 }
 
 /**

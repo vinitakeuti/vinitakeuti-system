@@ -5,10 +5,11 @@ import { logoutAction } from "@/features/auth/services/auth-actions";
 
 export const portalNavigation = [
   { code: "01", href: "/", id: "home", label: "Início" },
-  { code: "02", href: "/servicos", id: "services", label: "Serviços" },
-  { code: "03", href: "/pagamentos", id: "payments", label: "Pagamentos" },
-  { code: "04", href: "/documentos", id: "documents", label: "Documentos" },
-  { code: "05", href: "/configuracoes", id: "settings", label: "Configurações" },
+  { code: "02", href: "/projetos", id: "projects", label: "Projetos" },
+  { code: "03", href: "/servicos", id: "services", label: "Serviços" },
+  { code: "04", href: "/pagamentos", id: "payments", label: "Pagamentos" },
+  { code: "05", href: "/documentos", id: "documents", label: "Documentos" },
+  { code: "06", href: "/configuracoes", id: "settings", label: "Configurações" },
 ] as const;
 
 export type PortalSection = (typeof portalNavigation)[number]["id"];

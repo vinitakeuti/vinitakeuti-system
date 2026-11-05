@@ -38,7 +38,7 @@ export default async function PortalHomePage() {
     <div className="portal-home">
       <div className="portal-home-main">
         {journey ? <section className="settings-panel portal-journey" aria-labelledby="portal-journey-title">
-          <div className="settings-panel-heading"><div><p className="eyebrow">SEU PROJETO · {journey.code}</p><h2 id="portal-journey-title">{journey.title}</h2><p>{journey.done} de {journey.steps.length} etapas concluídas{journey.more > 0 ? ` · mais ${journey.more} ${journey.more === 1 ? "contratação" : "contratações"} em Serviços` : ""}.</p></div><Link className="text-link" href="/servicos">VER SERVIÇOS</Link></div>
+          <div className="settings-panel-heading"><div><p className="eyebrow">SEU PROJETO · {journey.code}</p><h2 id="portal-journey-title">{journey.title}</h2><p>{journey.done} de {journey.steps.length} etapas concluídas{journey.more > 0 ? ` · mais ${journey.more} ${journey.more === 1 ? "contratação" : "contratações"} em Serviços` : ""}.</p></div><Link className="text-link" href="/projetos">VER ANDAMENTO</Link></div>
           <ol className="portal-journey-steps">{journey.steps.map((step, index) => <li key={step.label} className={`is-${step.state}`}>
             <span className="portal-journey-dot" aria-hidden="true">{index + 1}</span>
             <b>{step.label}</b>

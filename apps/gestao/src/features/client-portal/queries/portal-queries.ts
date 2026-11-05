@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { FinancialEntryStatus, FinancialEntryType, Prisma, ProjectStatus, SaleStatus, SubscriptionStatus } from "@prisma/client";
+import { FinancialEntryStatus, FinancialEntryType, Prisma, ProjectStatus, ProjectUpdateStatus, SaleStatus, SubscriptionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isAsaasConfigured } from "@/lib/integrations/asaas";
 import { requireClientUser } from "@/features/auth/services/auth-session";
@@ -152,12 +152,33 @@ export async function getPortalServices(clientId: string) {
       select: { id: true, code: true, title: true, status: true, amountCents: true, confirmedAt: true, createdAt: true, quote: { select: { id: true, code: true, projectId: true, items: { orderBy: { createdAt: "asc" }, take: MAX_ITEMS, select: { id: true, name: true, categoryName: true, billingType: true, billingCycle: true, quantity: true } } } } },
     }),
     prisma.subscription.findMany({ where: { clientId, status: { not: SubscriptionStatus.CANCELLED } }, orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: MAX_ITEMS, select: { id: true, name: true, amountCents: true, billingCycle: true, status: true, nextPaymentAt: true, startedAt: true } }),
-    prisma.project.findMany({ where: { clientId, status: { notIn: [ProjectStatus.LEAD, ProjectStatus.CANCELLED] } }, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: MAX_ITEMS, select: { id: true, name: true, description: true, status: true, startedAt: true, deliveryAt: true } }),
+    prisma.project.findMany({ where: { clientId, status: { notIn: [ProjectStatus.LEAD, ProjectStatus.CANCELLED] } }, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: MAX_ITEMS, select: { id: true, name: true, description: true, status: true, startedAt: true, deliveryAt: true, totalWeight: true, doneWeight: true, updates: { where: { status: ProjectUpdateStatus.PUBLISHED }, orderBy: [{ publishedAt: "desc" }, { id: "desc" }], take: 1, select: { id: true, title: true, publishedAt: true } } } }),
     prisma.monitoredApp.findMany({ where: { clientId }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 20, select: { id: true, name: true, url: true, status: true, lastCheckedAt: true } }),
   ]);
   return { sales, subscriptions, projects, systems };
 }
 
+
+/**
+ * Projetos do cliente para a página Projetos do portal: situação, percentual, funcionalidades com o percentual de
+ * cada uma (pelo peso das subatividades, que não aparecem) e as atualizações publicadas.
+ */
+export async function getPortalProjects(clientId: string) {
+  const projects = await prisma.project.findMany({
+    where: { clientId, status: { notIn: [ProjectStatus.LEAD, ProjectStatus.CANCELLED] } },
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    take: MAX_ITEMS,
+    select: {
+      id: true, name: true, description: true, status: true, startedAt: true, deliveryAt: true, totalWeight: true, doneWeight: true,
+      features: { orderBy: [{ position: "asc" }, { id: "asc" }], take: 60, select: { id: true, title: true, description: true, tasks: { take: 80, select: { weight: true, status: true } } } },
+      updates: { where: { status: ProjectUpdateStatus.PUBLISHED }, orderBy: [{ publishedAt: "desc" }, { id: "desc" }], take: 10, select: { id: true, title: true, body: true, progressPercent: true, publishedAt: true } },
+    },
+  });
+  return projects.map(({ features, ...project }) => ({
+    ...project,
+    features: features.map(({ tasks, ...feature }) => ({ ...feature, totalWeight: tasks.reduce((sum, task) => sum + task.weight, 0), doneWeight: tasks.filter((task) => task.status === "DONE").reduce((sum, task) => sum + task.weight, 0) })),
+  }));
+}
 
 /** Propostas e documentos concluídos do cliente (os rascunhos não aparecem), com a última via assinada enviada. */
 export async function getPortalDocuments(clientId: string, take = MAX_ITEMS) {

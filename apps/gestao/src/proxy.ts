@@ -7,7 +7,7 @@ import { isForgedServerAction } from "@/lib/server-action-guard";
 /** Rotas sem sessão: saúde, webhooks, as entradas da IA (site público; MCP e mensagens com token próprio) e o widget do site. */
 const publicApiPaths = new Set(["/api/health", "/api/webhooks/asaas", "/api/ia/site", "/api/ia/site/inicio", "/api/ia/mcp", "/api/ia/mensagens", "/widget/atendimento.js"]);
 /** Páginas do portal do cliente: no domínio de clientes, "/pagamentos" é servido por "/portal/pagamentos". */
-const clientPortalPages = new Set(["/", "/servicos", "/pagamentos", "/documentos", "/configuracoes"]);
+const clientPortalPages = new Set(["/", "/projetos", "/servicos", "/pagamentos", "/documentos", "/configuracoes"]);
 
 function isPortalRoute(path: string) {
   return path === "/portal" || path.startsWith("/portal/") || path === "/api/portal" || path.startsWith("/api/portal/");

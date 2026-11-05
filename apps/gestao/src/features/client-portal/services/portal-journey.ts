@@ -1,4 +1,5 @@
 import type { getPortalDocuments, getPortalServices } from "@/features/client-portal/queries/portal-queries";
+import { percentOf } from "@/features/projects/types/project";
 
 /**
  * Jornada do projeto no Início do portal: da proposta aprovada à entrega, para a contratação mais recente.
@@ -26,7 +27,7 @@ export function buildProjectJourney(services: Services, documents: Documents) {
   const steps: JourneyStep[] = [
     { label: "Proposta aprovada", state: "done", detail: sale.confirmedAt ? date.format(sale.confirmedAt) : "Aprovada" },
     { label: "Contrato assinado", state: contractSigned ? "done" : "current", detail: contractSigned ? date.format(contract!.signed!.createdAt) : contractInReview ? "Via assinada em conferência" : contract ? "Aguardando sua assinatura" : "Em preparação" },
-    { label: "Desenvolvimento", state: delivered ? "done" : building ? "current" : "next", detail: project ? projectLabel[project.status] ?? "Em andamento" : contractSigned ? "Em andamento" : "Começa após o contrato" },
+    { label: "Desenvolvimento", state: delivered ? "done" : building ? "current" : "next", detail: project ? `${projectLabel[project.status] ?? "Em andamento"}${building && project.totalWeight ? ` · ${percentOf(project.doneWeight, project.totalWeight)}% concluído` : ""}` : contractSigned ? "Em andamento" : "Começa após o contrato" },
     { label: "Entrega", state: delivered ? "done" : "next", detail: delivered ? (project?.deliveryAt ? date.format(project.deliveryAt) : "Entregue") : project?.deliveryAt ? `Prevista para ${date.format(project.deliveryAt)}` : "Data a definir" },
   ];
   // O contrato pendente e o desenvolvimento em andamento podem estar ativos juntos; sem nenhuma ativa, a primeira em aberto é a atual.

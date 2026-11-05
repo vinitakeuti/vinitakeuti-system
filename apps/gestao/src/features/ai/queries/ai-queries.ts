@@ -56,23 +56,29 @@ const DAY = 24 * 60 * 60 * 1000;
 export async function getActivitySummary(scope: ActivityScope, ownerPhones: string[], price: ModelPrice) {
   const since = new Date(Date.now() - 30 * DAY);
   const where = { createdAt: { gte: since }, conversation: scopeWhere(scope, ownerPhones) };
-  const [runs, unpriced, sessions, today] = await Promise.all([
+  // Os trabalhos da Eliza nos projetos (plano, dia, atualização) contam do lado da Gestão.
+  const jobsWhere = { createdAt: { gte: since }, status: { notIn: ["PENDING" as const, "RUNNING" as const] } };
+  const [runs, unpriced, sessions, today, jobs, unpricedJobs, jobsToday] = await Promise.all([
     prisma.aiRun.aggregate({ where, _count: { _all: true }, _sum: { inputTokens: true, outputTokens: true, costMicros: true } }),
     prisma.aiRun.aggregate({ where: { ...where, costMicros: null }, _count: { _all: true }, _sum: { inputTokens: true, outputTokens: true } }),
     prisma.aiConversation.count({ where: { AND: [scopeWhere(scope, ownerPhones), { runs: { some: { createdAt: { gte: since } } } }] } }),
     prisma.aiRun.count({ where: { createdAt: { gte: startOfToday() }, conversation: scopeWhere(scope, ownerPhones) } }),
+    scope === "gestao" ? prisma.projectAiJob.aggregate({ where: jobsWhere, _count: { _all: true }, _sum: { inputTokens: true, outputTokens: true, costMicros: true } }) : null,
+    scope === "gestao" ? prisma.projectAiJob.aggregate({ where: { ...jobsWhere, costMicros: null, inputTokens: { gt: 0 } }, _count: { _all: true }, _sum: { inputTokens: true, outputTokens: true } }) : null,
+    scope === "gestao" ? prisma.projectAiJob.count({ where: { createdAt: { gte: startOfToday() } } }) : 0,
   ]);
-  const estimate = unpriced._count._all ? costFromPrice(unpriced._sum.inputTokens ?? 0, unpriced._sum.outputTokens ?? 0, price) : 0;
-  const known = runs._sum.costMicros ?? 0;
+  const unpricedCount = unpriced._count._all + (unpricedJobs?._count._all ?? 0);
+  const estimate = unpricedCount ? costFromPrice((unpriced._sum.inputTokens ?? 0) + (unpricedJobs?._sum.inputTokens ?? 0), (unpriced._sum.outputTokens ?? 0) + (unpricedJobs?._sum.outputTokens ?? 0), price) : 0;
+  const known = (runs._sum.costMicros ?? 0) + (jobs?._sum.costMicros ?? 0);
   return {
     sessions,
-    runs: runs._count._all,
-    today,
-    inputTokens: runs._sum.inputTokens ?? 0,
-    outputTokens: runs._sum.outputTokens ?? 0,
+    runs: runs._count._all + (jobs?._count._all ?? 0),
+    today: today + jobsToday,
+    inputTokens: (runs._sum.inputTokens ?? 0) + (jobs?._sum.inputTokens ?? 0),
+    outputTokens: (runs._sum.outputTokens ?? 0) + (jobs?._sum.outputTokens ?? 0),
     costMicros: estimate === null ? (known || null) : known + estimate,
-    estimated: unpriced._count._all > 0 && estimate !== null && estimate > 0,
-    unpricedRuns: estimate === null ? unpriced._count._all : 0,
+    estimated: unpricedCount > 0 && estimate !== null && estimate > 0,
+    unpricedRuns: estimate === null ? unpricedCount : 0,
   };
 }
 

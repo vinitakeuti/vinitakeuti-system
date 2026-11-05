@@ -23,6 +23,8 @@ export type AiCompletionRequest = {
   tools?: AiToolSpec[];
   maxTokens?: number;
   temperature?: number;
+  /** Tempo máximo da chamada; respostas longas (plano de projeto) precisam de mais que o padrão. */
+  timeoutMs?: number;
 };
 
 export type AiCompletion = {

@@ -54,7 +54,12 @@ export function buildPortalReminders({ context, documents, services, online, con
     reminders.push({ id: `system-${system.id}`, tone: system.status === "DOWN" ? "attention" : "soon", category: "SISTEMA", title: `${system.name} está ${system.status === "DOWN" ? "fora do ar" : "instável"}`, detail: "Já fomos avisados e estamos acompanhando.", href: "/servicos", action: "VER SERVIÇOS" });
   }
   for (const project of services.projects.filter((item) => item.status === "WAITING_CLIENT")) {
-    reminders.push({ id: `waiting-${project.id}`, tone: "soon", category: "PROJETO", title: `${project.name} aguarda um retorno seu`, detail: "O projeto continua assim que você responder.", href: "/servicos", action: "VER SERVIÇOS" });
+    reminders.push({ id: `waiting-${project.id}`, tone: "soon", category: "PROJETO", title: `${project.name} aguarda um retorno seu`, detail: "O projeto continua assim que você responder.", href: "/projetos", action: "VER PROJETO" });
+  }
+  // Atualização do projeto publicada nos últimos 7 dias.
+  for (const project of services.projects) {
+    const update = project.updates[0];
+    if (update?.publishedAt && inDays(update.publishedAt, todayStart) >= -7) reminders.push({ id: `update-${update.id}`, tone: "info", category: "PROJETO", title: `Novidade em ${project.name}`, detail: `${update.title} · publicada em ${date.format(update.publishedAt)}.`, href: "/projetos", action: "VER ANDAMENTO" });
   }
 
   // Via em conferência já não depende do cliente; recusada volta a ser pendência dele. O documento livre não se assina.

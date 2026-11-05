@@ -119,7 +119,7 @@ export async function executeRun(runId: string) {
  * Custo de uma chamada pelo preço do modelo. Na Anthropic direta, leitura do cache custa 10% e gravação 125% do
  * preço de entrada; nos demais, os tokens em cache entram pelo preço cheio (estimativa conservadora).
  */
-function costOf(usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }, price: { input: number; output: number } | null, anthropic: boolean) {
+export function costOf(usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }, price: { input: number; output: number } | null, anthropic: boolean) {
   if (!price) return null;
   const input = anthropic ? (usage.inputTokens - usage.cacheReadTokens - usage.cacheWriteTokens) + usage.cacheReadTokens * 0.1 + usage.cacheWriteTokens * 1.25 : usage.inputTokens;
   return Math.round((input * price.input + usage.outputTokens * price.output) / 1_000_000);

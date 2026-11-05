@@ -46,7 +46,7 @@ export function createAnthropicProvider(config: AiProviderConfig): AiProvider {
       try {
         response = await fetch(endpoint, {
           method: "POST",
-          signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
+          signal: AbortSignal.timeout(request.timeoutMs ?? AI_REQUEST_TIMEOUT_MS),
           headers: { "content-type": "application/json", "x-api-key": config.apiKey, "anthropic-version": "2023-06-01" },
           body: JSON.stringify({
             model: config.model,

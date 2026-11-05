@@ -13,6 +13,7 @@ import { enqueuePaymentReminders } from "@/features/notifications/services/clien
 import { checkStackUpdates, type StackUpdate } from "@/features/monitoring/services/stack-updates";
 import { sendOwnerEmail } from "@/features/notifications/services/owner-email";
 import { processAiRuns, pruneAiHistory } from "@/features/ai/services/ai-runs";
+import { enqueueWeeklyProjectUpdates, processProjectAiJobs } from "@/features/projects/services/project-ai";
 
 const TICK_MS = 60_000;
 const CONCURRENCY = 4;
@@ -24,12 +25,15 @@ const DOMAIN_EVERY_MS = DAY;
 const SUMMARY_HOUR = 8;
 /** Lembretes de vencimento e atraso aos clientes saem uma vez por dia, a partir das 9 h. */
 const PAYMENT_REMINDER_HOUR = 9;
+/** Rascunhos das atualizações semanais dos projetos: sexta, a partir das 16 h. */
+const PROJECT_UPDATE_HOUR = 16;
 const RETENTION_DAYS = 90;
 const EXPIRY_THRESHOLDS = [1, 7, 30];
 
 const isoDay = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "America/Maceio" });
 const hourOf = (date: Date) => Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "America/Maceio" }).format(date));
 const shortDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Maceio" });
+const weekdayOf = (date: Date) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "America/Maceio" }).format(date));
 
 /** Inicia o ciclo do monitoramento (uma vez por processo). Chamado pelo instrumentation.ts quando o servidor sobe. */
 export function startMonitoringScheduler() {
@@ -47,6 +51,9 @@ export function startMonitoringScheduler() {
     // Respostas da IA que ainda estão na fila (novas tentativas e as que entraram fora de uma requisição).
     try { await processAiRuns(); }
     catch (error) { await logEvent({ source: "sistema", level: "error", event: "ai.queue.failed", message: `Falha na fila da IA: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
+    // Trabalhos da Eliza nos projetos (plano, dia e atualização ao cliente) que ainda estão na fila.
+    try { await processProjectAiJobs(); }
+    catch (error) { await logEvent({ source: "sistema", level: "error", event: "project.ai.queue.failed", message: `Falha na fila da Eliza nos projetos: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
     // O mesmo ciclo cuida dos pagamentos do Asaas (eventos que falharam e sincronização a cada 30 minutos).
     try { await runAsaasCycle(); }
     catch (error) { await logEvent({ source: "sistema", level: "error", event: "asaas.scheduler.failed", message: `Falha no ciclo do Asaas: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
@@ -170,6 +177,11 @@ async function runDailyTasks(now: Date) {
   if (await claimDaily("ai-retention", today)) {
     const removed = await pruneAiHistory(now);
     if (removed) await logEvent({ source: "sistema", event: "ai.retention", message: `${removed} ${removed === 1 ? "conversa antiga da IA removida" : "conversas antigas da IA removidas"}.` });
+  }
+  // Sexta-feira, a partir das 16 h: rascunho da atualização semanal de cada projeto de cliente com dias no diário.
+  if (weekdayOf(now) === 5 && hourOf(now) >= PROJECT_UPDATE_HOUR && await claimDaily("project-weekly-updates", today)) {
+    const queued = await enqueueWeeklyProjectUpdates(now);
+    if (queued) await logEvent({ source: "sistema", event: "project.weekly_updates", message: `${queued} ${queued === 1 ? "atualização semanal de projeto pedida" : "atualizações semanais de projetos pedidas"} à Eliza.` });
   }
   if (hourOf(now) >= PAYMENT_REMINDER_HOUR && await claimDaily("client-payment-reminders", today)) {
     const queued = await enqueuePaymentReminders(now);

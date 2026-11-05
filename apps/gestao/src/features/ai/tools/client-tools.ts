@@ -3,6 +3,7 @@ import { defineTool, day, reais } from "@/features/ai/tools/tool";
 import { object, s } from "@/features/ai/tools/schema";
 import { searchClientOptions } from "@/features/clients/queries/client-queries";
 import { getPortalContact, getPortalDocuments, getPortalServices, loadReceivables } from "@/features/client-portal/queries/portal-queries";
+import { percentOf } from "@/features/projects/types/project";
 
 /**
  * Clientes (para você) e a área do cliente (para o próprio cliente no portal). As ferramentas do escopo "client"
@@ -82,7 +83,7 @@ export const clientTools = [
 
   defineTool({
     name: "meus_servicos",
-    description: "Serviços contratados pelo cliente, assinaturas, projetos (e a situação de cada um) e se os sistemas dele estão no ar.",
+    description: "Serviços contratados pelo cliente, assinaturas, projetos (situação, percentual concluído e última atualização) e se os sistemas dele estão no ar.",
     scopes: ["client"],
     mutates: false,
     input: object({}),
@@ -91,7 +92,7 @@ export const clientTools = [
       return {
         servicos: services.sales.map((sale) => ({ titulo: sale.title, contratado_em: day(sale.confirmedAt ?? sale.createdAt), itens: sale.quote?.items.map((item) => item.name) ?? [] })),
         assinaturas: services.subscriptions.map((subscription) => ({ nome: subscription.name, valor: reais(subscription.amountCents), ciclo: subscription.billingCycle, proximo_pagamento: day(subscription.nextPaymentAt) })),
-        projetos: services.projects.map((project) => ({ nome: project.name, situacao: projectStatus[project.status] ?? project.status, entrega_prevista: day(project.deliveryAt) })),
+        projetos: services.projects.map((project) => ({ nome: project.name, situacao: projectStatus[project.status] ?? project.status, concluido: project.totalWeight ? `${percentOf(project.doneWeight, project.totalWeight)}%` : "plano em preparação", entrega_prevista: day(project.deliveryAt), ultima_atualizacao: project.updates[0] ? { titulo: project.updates[0].title, publicada_em: day(project.updates[0].publishedAt) } : null, onde_ver: "Na área do cliente, em Projetos." })),
         sistemas: services.systems.map((system) => ({ nome: system.name, situacao: systemStatus[system.status], verificado_em: system.lastCheckedAt?.toISOString() ?? null })),
       };
     },

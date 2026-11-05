@@ -84,6 +84,14 @@ export const s = {
       return number;
     });
   },
+  /** Lista de ids (subatividades de um projeto, por exemplo); repetidos e inválidos são descartados. */
+  ids(options: Options & { max: number }) {
+    return field<string[]>({ type: "array", description: options.description, items: { type: "string" } }, (value, path) => {
+      if (!Array.isArray(value)) throw new ToolInputError(`${path}: informe uma lista de ids.`);
+      if (value.length > options.max) throw new ToolInputError(`${path}: no máximo ${options.max} ids.`);
+      return [...new Set(value.filter((id): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{1,50}$/.test(id)))];
+    });
+  },
   /** Lista de objetos (itens de um orçamento, por exemplo). */
   list<T>(item: ObjectSchema<T>, options: Options & { min?: number; max: number }) {
     return field<T[]>({ type: "array", description: options.description, items: item.json }, (value, path) => {

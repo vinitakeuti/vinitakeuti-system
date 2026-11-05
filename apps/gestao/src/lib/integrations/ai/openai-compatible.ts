@@ -50,7 +50,7 @@ export function createOpenAiCompatibleProvider(config: AiProviderConfig, label: 
       try {
         response = await fetch(endpoint, {
           method: "POST",
-          signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
+          signal: AbortSignal.timeout(request.timeoutMs ?? AI_REQUEST_TIMEOUT_MS),
           headers: {
             "content-type": "application/json",
             authorization: `Bearer ${config.apiKey}`,

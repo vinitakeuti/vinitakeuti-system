@@ -258,25 +258,164 @@ model ServiceCatalogItem {
   @@index([isActive, createdAt])
 }
 
+/// Projeto de cliente ou pessoal (sem cliente). O percentual vem do peso das subatividades concluídas
+/// (doneWeight / totalWeight), recalculado a cada alteração no plano.
 model Project {
-  id             String        @id @default(cuid())
-  clientId       String
-  name           String
-  description    String?
-  status         ProjectStatus @default(LEAD)
-  budgetCents    Int?
-  startedAt      DateTime?
-  deliveryAt     DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  monitoredApps  MonitoredApp[]
-  charges        Charge[]
-  quotes         Quote[]
-  contracts      Contract[]
+  id            String           @id @default(cuid())
+  clientId      String?
+  name          String
+  description   String?
+  status        ProjectStatus    @default(LEAD)
+  budgetCents   Int?
+  startedAt     DateTime?
+  deliveryAt    DateTime?
+  totalWeight   Int              @default(0)
+  doneWeight    Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  client        Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  monitoredApps MonitoredApp[]
+  charges       Charge[]
+  quotes        Quote[]
+  contracts     Contract[]
+  features      ProjectFeature[]
+  tasks         ProjectTask[]
+  logs          ProjectLog[]
+  updates       ProjectUpdate[]
+  aiJobs        ProjectAiJob[]
 
   @@index([clientId, status])
   @@index([deliveryAt])
+  @@index([status, updatedAt, id])
+  @@index([updatedAt, id])
+}
+
+enum ProjectTaskStatus {
+  TODO
+  DOING
+  WAITING_CLIENT
+  BLOCKED
+  DONE
+}
+
+/// Funcionalidade (bloco do projeto). É o que o cliente vê no portal, com o percentual dela.
+model ProjectFeature {
+  id          String        @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  position    Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       ProjectTask[]
+
+  @@index([projectId, position])
+}
+
+/// Subatividade de uma funcionalidade. Peso: 1 (pequena), 3 (média) ou 8 (grande). Só a gestão vê.
+model ProjectTask {
+  id        String            @id @default(cuid())
+  projectId String
+  featureId String
+  title     String
+  notes     String?
+  status    ProjectTaskStatus @default(TODO)
+  weight    Int               @default(3)
+  position  Int               @default(0)
+  doneAt    DateTime?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  feature   ProjectFeature    @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@index([featureId, position])
+  @@index([projectId, status])
+  @@index([projectId, doneAt])
+}
+
+/// Diário do projeto: o que foi feito em um dia de trabalho. Append-only; `tasks` guarda as subatividades
+/// concluídas no registro (id e título daquele momento), para o histórico não mudar se a tarefa for editada.
+model ProjectLog {
+  id        String   @id @default(cuid())
+  projectId String
+  day       DateTime @db.Date
+  summary   String
+  minutes   Int?
+  tasks     Json?
+  /// MANUAL (registrado na tela) ou ELIZA (marcações propostas pela Eliza e confirmadas).
+  source    String   @default("MANUAL")
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, day, id])
+}
+
+enum ProjectUpdateStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// Atualização para o cliente. Rascunho até a gestão aprovar; publicada, aparece no portal e vai por e-mail.
+model ProjectUpdate {
+  id              String              @id @default(cuid())
+  projectId       String
+  title           String
+  body            String
+  status          ProjectUpdateStatus @default(DRAFT)
+  /// Percentual do projeto no momento da publicação.
+  progressPercent Int?
+  publishedAt     DateTime?
+  emailedAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status, publishedAt])
+}
+
+enum ProjectAiJobKind {
+  PLAN
+  DAY
+  UPDATE
+}
+
+enum ProjectAiJobStatus {
+  PENDING
+  RUNNING
+  READY
+  FAILED
+  APPLIED
+  DISCARDED
+}
+
+/// Trabalho da Eliza num projeto, fora da requisição: destrinchar o plano (PLAN), identificar o que foi feito no
+/// dia (DAY) ou redigir a atualização ao cliente (UPDATE). O resultado fica como rascunho (READY) até a revisão.
+model ProjectAiJob {
+  id           String             @id @default(cuid())
+  projectId    String
+  kind         ProjectAiJobKind
+  status       ProjectAiJobStatus @default(PENDING)
+  input        String
+  /// DAY: dia e minutos informados no fechamento.
+  day          DateTime?          @db.Date
+  minutes      Int?
+  result       Json?
+  error        String?
+  attempts     Int                @default(0)
+  model        String?
+  inputTokens  Int                @default(0)
+  outputTokens Int                @default(0)
+  /// Custo em micro-dólares, como em AiRun.
+  costMicros   Int?
+  createdAt    DateTime           @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([projectId, kind, createdAt])
+  @@index([createdAt])
 }
 
 model Charge {
