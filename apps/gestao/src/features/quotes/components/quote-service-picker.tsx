@@ -16,8 +16,8 @@ const billingLabel: Record<BillingType, string> = { ONE_TIME: "Avulso", RECURRIN
 const pricingLabel: Record<PricingMethod, string> = { FIXED: "Valor fechado", HOURLY: "Por hora", DAILY: "Por dia", CUSTOM: "Definir no orçamento" };
 const cycleLabel: Record<string, string> = { MONTHLY: "mensal", QUARTERLY: "trimestral", SEMIANNUAL: "semestral", YEARLY: "anual" };
 
-function quantityLabel(method: PricingMethod) { return method === "HOURLY" ? "HORAS" : method === "DAILY" ? "DIAS" : "QTD."; }
-function rateLabel(method: PricingMethod) { return method === "HOURLY" ? "TAXA POR HORA (R$)" : method === "DAILY" ? "TAXA POR DIA (R$)" : method === "FIXED" ? "VALOR FECHADO (R$)" : "VALOR DEFINIDO AGORA (R$)"; }
+function quantityLabel(method: PricingMethod) { return method === "HOURLY" ? "Horas" : method === "DAILY" ? "Dias" : "Qtd."; }
+function rateLabel(method: PricingMethod) { return method === "HOURLY" ? "Taxa por hora (R$)" : method === "DAILY" ? "Taxa por dia (R$)" : method === "FIXED" ? "Valor fechado (R$)" : "Valor definido agora (R$)"; }
 function pricingHint(method: PricingMethod) { return method === "HOURLY" ? "Defina as horas previstas nesta proposta. Total = horas × taxa por hora." : method === "DAILY" ? "Defina os dias previstos nesta proposta. Total = dias × taxa por dia." : method === "FIXED" ? "O valor fechado do catálogo foi aplicado como ponto de partida." : "Defina o valor e a quantidade para esta proposta."; }
 function lineFormula(service: { pricingMethod: PricingMethod; quantity: number; pricingRateCents: number }) {
   const rate = money.format(service.pricingRateCents / 100);
@@ -25,7 +25,7 @@ function lineFormula(service: { pricingMethod: PricingMethod; quantity: number; 
   if (service.pricingMethod === "DAILY") return `${service.quantity} ${service.quantity === 1 ? "dia" : "dias"} × ${rate}`;
   return `${service.quantity} ${service.quantity === 1 ? "unidade" : "unidades"} × ${rate}`;
 }
-function catalogAmount(service: CatalogService) { if (!service.defaultAmountCents) return "A DEFINIR"; const suffix = service.pricingMethod === "HOURLY" ? " / H" : service.pricingMethod === "DAILY" ? " / DIA" : ""; return `${money.format(service.defaultAmountCents / 100)}${suffix}`; }
+function catalogAmount(service: CatalogService) { if (!service.defaultAmountCents) return "A definir"; const suffix = service.pricingMethod === "HOURLY" ? " / H" : service.pricingMethod === "DAILY" ? " / dia" : ""; return `${money.format(service.defaultAmountCents / 100)}${suffix}`; }
 
 type DiscountMode = QuoteDiscountMode;
 
@@ -162,8 +162,8 @@ export function QuoteServicePicker({ initialServices = [], initialDiscountCents 
   return <div className="quote-service-picker">
     <div className="quote-catalog">
       <div className="quote-catalog-search">
-        <label htmlFor="quote-service-query">ADICIONAR SERVIÇO DO CATÁLOGO <em>OBRIGATÓRIO</em></label>
-        <div><input id="quote-service-query" type="search" role="combobox" aria-expanded={isOpen} aria-controls="quote-catalog-results" aria-autocomplete="list" value={query} onChange={(event) => { setQuery(event.target.value); setIsOpen(true); }} onFocus={() => setIsOpen(true)} onKeyDown={handleSearchKeys} placeholder="Buscar por nome, descrição ou categoria" autoComplete="off" spellCheck={false} />{isOpen ? <button type="button" className="quote-catalog-close" onClick={() => setIsOpen(false)}>FECHAR</button> : <button type="button" className="quote-catalog-close" onClick={() => setIsOpen(true)}>VER CATÁLOGO</button>}</div>
+        <label htmlFor="quote-service-query">Adicionar serviço do catálogo <em>Obrigatório</em></label>
+        <div><input id="quote-service-query" type="search" role="combobox" aria-expanded={isOpen} aria-controls="quote-catalog-results" aria-autocomplete="list" value={query} onChange={(event) => { setQuery(event.target.value); setIsOpen(true); }} onFocus={() => setIsOpen(true)} onKeyDown={handleSearchKeys} placeholder="Buscar por nome, descrição ou categoria" autoComplete="off" spellCheck={false} />{isOpen ? <button type="button" className="quote-catalog-close" onClick={() => setIsOpen(false)}>Fechar</button> : <button type="button" className="quote-catalog-close" onClick={() => setIsOpen(true)}>Ver catálogo</button>}</div>
         <small>O catálogo sugere a regra de preço. Você pode ajustá-la somente nesta proposta.</small>
       </div>
       {isOpen ? <>
@@ -179,11 +179,11 @@ export function QuoteServicePicker({ initialServices = [], initialDiscountCents 
               return <button type="button" role="option" aria-selected={service.id === activeServiceId} data-service-id={service.id} key={service.id} disabled={added} className={`${added ? "is-added" : ""}${service.id === activeServiceId ? " is-active" : ""}`} onMouseEnter={() => { const index = available.findIndex((item) => item.id === service.id); if (index >= 0) setActiveIndex(index); }} onClick={() => add(service)}>
                 <span><b>{service.name}</b><small>{billingLabel[service.billingType]} · {pricingLabel[service.pricingMethod]}</small></span>
                 <strong>{catalogAmount(service)}</strong>
-                <em>{added ? "ADICIONADO" : "ADICIONAR"}</em>
+                <em>{added ? "Adicionado" : "Adicionar"}</em>
               </button>;
             })}
           </div>) : <p className="quote-catalog-empty">{query ? "Nenhum serviço encontrado. Tente outro termo ou cadastre-o em Serviços." : "Nenhum serviço ativo no catálogo."}</p>}
-          {nextOffset !== null ? <button type="button" className="quote-catalog-more" onClick={() => void loadMore()} disabled={isLoading}>{isLoading ? "CARREGANDO..." : "MOSTRAR MAIS SERVIÇOS"}</button> : null}
+          {nextOffset !== null ? <button type="button" className="quote-catalog-more" onClick={() => void loadMore()} disabled={isLoading}>{isLoading ? "Carregando..." : "Mostrar mais serviços"}</button> : null}
         </div>
       </> : null}
     </div>
@@ -196,13 +196,13 @@ export function QuoteServicePicker({ initialServices = [], initialDiscountCents 
           <input type="hidden" name="serviceId" value={service.id} />
           <div className="quote-line-head">
             <div className="quote-line-title"><b>{service.name}</b><small>{billingLabel[service.billingType]}{cycle}</small></div>
-            <button className="quote-line-remove" type="button" aria-label={`Remover ${service.name} da proposta`} onClick={() => setSelected((items) => items.filter((item) => item.id !== service.id))}>REMOVER</button>
+            <button className="quote-line-remove" type="button" aria-label={`Remover ${service.name} da proposta`} onClick={() => setSelected((items) => items.filter((item) => item.id !== service.id))}>Remover</button>
           </div>
           <div className="quote-line-fields">
-            <label className="quote-line-rule">REGRA<select name="servicePricingMethod" value={service.pricingMethod} onChange={(event) => update(service.id, { pricingMethod: event.target.value as PricingMethod })}>{Object.entries(pricingLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="quote-line-rule">Regra<select name="servicePricingMethod" value={service.pricingMethod} onChange={(event) => update(service.id, { pricingMethod: event.target.value as PricingMethod })}>{Object.entries(pricingLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             <label>{quantityLabel(service.pricingMethod)}<input name="serviceQuantity" type="number" min="1" max="10000" inputMode="numeric" value={quantityDrafts[service.id] ?? String(service.quantity)} onChange={(event) => updateQuantity(service.id, event.target.value)} onBlur={() => commitQuantity(service)} /></label>
             <label>{rateLabel(service.pricingMethod)}<input name="serviceRate" type="number" min="0" step="0.01" inputMode="decimal" value={rateDrafts[service.id] ?? (service.pricingRateCents / 100).toFixed(2)} onChange={(event) => updateRate(service.id, event.target.value)} onBlur={() => commitRate(service)} /></label>
-            <div className="quote-line-subtotal"><span>SUBTOTAL</span><strong>{money.format(itemTotal / 100)}</strong></div>
+            <div className="quote-line-subtotal"><span>Subtotal</span><strong>{money.format(itemTotal / 100)}</strong></div>
           </div>
           <p className="quote-line-hint">{lineFormula(service)}. {pricingHint(service.pricingMethod)}</p>
         </div>;

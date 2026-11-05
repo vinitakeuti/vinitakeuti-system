@@ -48,7 +48,7 @@ export function QuoteOpportunityActions({ quoteId, items }: { quoteId: string; i
   }, []);
 
   return <div className="quote-opportunity-actions" ref={containerRef}>
-    <button className="quote-opportunity-trigger" type="button" aria-expanded={isOpen} aria-haspopup="menu" onClick={toggleMenu}>AÇÕES</button>
+    <button className="quote-opportunity-trigger" type="button" aria-expanded={isOpen} aria-haspopup="menu" onClick={toggleMenu}>Ações</button>
     {isOpen ? createPortal(<div className="quote-opportunity-menu" ref={menuRef} role="menu" aria-label="Ações do orçamento" style={menuPosition}>
       {items.map((item) => <form key={item.label} action={item.action} onSubmit={(event) => { if (!window.confirm(item.confirm)) event.preventDefault(); }}>
         <input type="hidden" name="quoteId" value={quoteId} />

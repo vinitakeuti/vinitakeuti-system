@@ -14,7 +14,7 @@ import { LOG_LEVELS, LOG_SOURCES, getSystemLogSummary, listEmailLogs, listSystem
 export const dynamic = "force-dynamic";
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "medium", timeZone: "America/Maceio" });
-const SECTIONS = [{ id: "email", label: "E-MAIL" }, { id: "senha", label: "SENHA" }, { id: "logs", label: "LOGS DO SISTEMA" }] as const;
+const SECTIONS = [{ id: "email", label: "E-mail" }, { id: "senha", label: "Senha" }, { id: "logs", label: "Logs do sistema" }] as const;
 type Section = (typeof SECTIONS)[number]["id"];
 
 type SettingsPageProps = { searchParams: Promise<{ secao?: string; cursor?: string; origem?: string; nivel?: string; busca?: string; envio?: string; modelo?: string }> };
@@ -35,10 +35,10 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   const section: Section = SECTIONS.some((item) => item.id === params.secao) ? params.secao as Section : "email";
 
   return <main className="app-shell"><AppSidebar current="settings" /><div className="workspace"><section className="directory-page settings-page">
-    <header className="directory-header"><div><p className="eyebrow">GESTÃO / CONFIGURAÇÕES</p><h1>Configurações.</h1><p>Envio de e-mails, sua senha de acesso e os registros detalhados da gestão e do portal do cliente.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href="/configuracoes/profissional">PERFIL PROFISSIONAL</Link></div></header>
+    <header className="directory-header"><div><h1>Configurações</h1><p>Envio de e-mails, sua senha de acesso e os registros detalhados da gestão e do portal do cliente.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href="/configuracoes/profissional">Perfil profissional</Link></div></header>
     <nav className="client-tabs settings-tabs" aria-label="Seções das configurações">{SECTIONS.map((item) => <Link key={item.id} href={href({ secao: item.id })} className={section === item.id ? "active" : undefined} aria-current={section === item.id ? "page" : undefined}>{item.label}</Link>)}</nav>
     {section === "email" ? <EmailSection params={params} defaultTo={user.email} /> : null}
-    {section === "senha" ? <section className="settings-panel"><div className="settings-panel-heading"><div><h2>Senha de acesso.</h2><p>Entrando como {user.email}. Ao trocar, os outros aparelhos conectados precisam entrar de novo.</p></div></div><div className="settings-panel-body"><PasswordChangeForm className="settings-password" /></div></section> : null}
+    {section === "senha" ? <section className="settings-panel"><div className="settings-panel-heading"><div><h2>Senha de acesso</h2><p>Entrando como {user.email}. Ao trocar, os outros aparelhos conectados precisam entrar de novo.</p></div></div><div className="settings-panel-body"><PasswordChangeForm className="settings-password" /></div></section> : null}
     {section === "logs" ? <LogsSection params={params} /> : null}
   </section></div></main>;
 }
@@ -53,7 +53,7 @@ async function EmailSection({ params, defaultTo }: { params: Awaited<SettingsPag
   const current = EMAIL_MODELS.find((item) => item.id === model)!;
   return <>
     <section className="settings-panel">
-      <div className="settings-panel-heading"><div><h2>Servidor de envio.</h2><p>E-mails saem por SMTP, configurado nas variáveis de ambiente do serviço no Easypanel.</p></div><span className={config.configured ? "settings-badge is-ok" : "settings-badge is-warning"}>{config.configured ? "CONFIGURADO" : "NÃO CONFIGURADO"}</span></div>
+      <div className="settings-panel-heading"><div><h2>Servidor de envio</h2><p>E-mails saem por SMTP, configurado nas variáveis de ambiente do serviço no Easypanel.</p></div><span className={config.configured ? "settings-badge is-ok" : "settings-badge is-warning"}>{config.configured ? "Configurado" : "Não configurado"}</span></div>
       <div className="settings-panel-body">
         <dl className="settings-facts">
           <div><dt>Servidor</dt><dd>{config.host ?? "—"}</dd></div>
@@ -66,20 +66,20 @@ async function EmailSection({ params, defaultTo }: { params: Awaited<SettingsPag
       </div>
     </section>
     <section className="settings-panel" id="modelos">
-      <div className="settings-panel-heading"><div><h2>Modelos de e-mail.</h2><p>O que sai automaticamente para seus clientes e para você, aqui com dados de exemplo. O cliente só recebe e-mails se tiver acesso ativo ao portal, no e-mail desse acesso.</p></div></div>
+      <div className="settings-panel-heading"><div><h2>Modelos de e-mail</h2><p>O que sai automaticamente para seus clientes e para você, aqui com dados de exemplo. O cliente só recebe e-mails se tiver acesso ativo ao portal, no e-mail desse acesso.</p></div></div>
       <div className="settings-email-models">
-        <nav aria-label="Modelos de e-mail">{["Cliente", "Você"].map((group) => <div key={group}><p>{group === "Cliente" ? "PARA O CLIENTE" : "PARA VOCÊ"}</p><ul>{EMAIL_MODELS.filter((item) => item.group === group).map((item) => <li key={item.id}><Link href={`${href({ secao: "email", modelo: item.id })}#previa`} aria-current={item.id === model ? "true" : undefined}><b>{item.name}</b><small>{item.when}</small></Link></li>)}</ul></div>)}</nav>
+        <nav aria-label="Modelos de e-mail">{["Cliente", "Você"].map((group) => <div key={group}><p>{group === "Cliente" ? "Para o cliente" : "Para você"}</p><ul>{EMAIL_MODELS.filter((item) => item.group === group).map((item) => <li key={item.id}><Link href={`${href({ secao: "email", modelo: item.id })}#previa`} aria-current={item.id === model ? "true" : undefined}><b>{item.name}</b><small>{item.when}</small></Link></li>)}</ul></div>)}</nav>
         <div className="settings-email-preview" id="previa">
-          <div className="settings-email-subject"><span>ASSUNTO</span><b>{preview.subject}</b><small>{current.when}</small></div>
+          <div className="settings-email-subject"><span>Assunto</span><b>{preview.subject}</b><small>{current.when}</small></div>
           <iframe title={`Pré-visualização: ${current.name}`} srcDoc={preview.html} sandbox="allow-popups allow-popups-to-escape-sandbox" loading="lazy" />
           <EmailModelTest model={model} configured={config.configured} defaultTo={defaultTo} />
         </div>
       </div>
     </section>
     <section className="settings-panel">
-      <div className="settings-panel-heading"><div><h2>Registro de envios.</h2><p>Cada envio e teste de conexão, com a resposta do servidor ou o motivo da falha.</p></div><nav className="settings-filter" aria-label="Filtrar envios">{[{ value: undefined, label: "TODOS" }, { value: "SENT", label: "ENVIADOS" }, { value: "FAILED", label: "FALHAS" }].map((item) => <Link key={item.label} href={href({ secao: "email", envio: item.value })} aria-current={params.envio === item.value ? "true" : undefined}>{item.label}</Link>)}</nav></div>
+      <div className="settings-panel-heading"><div><h2>Registro de envios</h2><p>Cada envio e teste de conexão, com a resposta do servidor ou o motivo da falha.</p></div><nav className="settings-filter" aria-label="Filtrar envios">{[{ value: undefined, label: "Todos" }, { value: "SENT", label: "Enviados" }, { value: "FAILED", label: "Falhas" }].map((item) => <Link key={item.label} href={href({ secao: "email", envio: item.value })} aria-current={params.envio === item.value ? "true" : undefined}>{item.label}</Link>)}</nav></div>
       {logs.length ? <ul className="settings-log-list">{logs.map((log) => <li key={log.id}><details>
-        <summary><time>{dateTime.format(log.createdAt)}</time><span className={log.status === "SENT" ? "settings-level is-info" : "settings-level is-error"}>{log.status === "SENT" ? (log.kind === "verify" ? "CONEXÃO OK" : "ENVIADO") : "FALHA"}</span><b>{log.kind === "verify" ? "Teste de conexão SMTP" : log.subject}</b><small>{log.kind === "verify" ? "—" : log.toAddress}{log.durationMs !== null ? ` · ${log.durationMs} ms` : ""}</small></summary>
+        <summary><time>{dateTime.format(log.createdAt)}</time><span className={log.status === "SENT" ? "settings-level is-info" : "settings-level is-error"}>{log.status === "SENT" ? (log.kind === "verify" ? "Conexão OK" : "Enviado") : "Falha"}</span><b>{log.kind === "verify" ? "Teste de conexão SMTP" : log.subject}</b><small>{log.kind === "verify" ? "—" : log.toAddress}{log.durationMs !== null ? ` · ${log.durationMs} ms` : ""}</small></summary>
         <dl className="settings-log-detail">
           {log.messageId ? <div><dt>ID da mensagem</dt><dd><code>{log.messageId}</code></dd></div> : null}
           {log.response ? <div><dt>Resposta do servidor</dt><dd><code>{log.response}</code></dd></div> : null}
@@ -87,7 +87,7 @@ async function EmailSection({ params, defaultTo }: { params: Awaited<SettingsPag
           <div><dt>Disparado por</dt><dd>{log.actorEmail ?? "Sistema"}</dd></div>
         </dl>
       </details></li>)}</ul> : <p className="settings-empty">Nenhum envio registrado{params.envio ? " com esse filtro" : ""}.</p>}
-      {nextCursor ? <div className="table-footer"><Link className="text-link" href={href({ secao: "email", envio: params.envio, cursor: nextCursor })}>CARREGAR MAIS 50</Link></div> : null}
+      {nextCursor ? <div className="table-footer"><Link className="text-link" href={href({ secao: "email", envio: params.envio, cursor: nextCursor })}>Carregar mais 50</Link></div> : null}
     </section>
   </>;
 }
@@ -96,19 +96,19 @@ async function LogsSection({ params }: { params: Awaited<SettingsPageProps["sear
   const [{ data: logs, nextCursor }, summary] = await Promise.all([listSystemLogs({ cursor: params.cursor, source: params.origem, level: params.nivel, query: params.busca }), getSystemLogSummary()]);
   const filters = { secao: "logs", origem: params.origem, nivel: params.nivel, busca: params.busca };
   return <section className="settings-panel">
-    <div className="settings-panel-heading"><div><h2>Logs do sistema.</h2><p>Logins, senhas, acessos ao portal, envios de e-mail e erros do servidor, da gestão e do portal do cliente. Guardados por 90 dias.</p></div>
-      <dl className="settings-log-summary" aria-label="Últimas 24 horas"><div><dt>24H · INFORMAÇÃO</dt><dd>{summary.info}</dd></div><div><dt>ATENÇÃO</dt><dd className={summary.warning ? "is-warning" : undefined}>{summary.warning}</dd></div><div><dt>ERROS</dt><dd className={summary.error ? "is-error" : undefined}>{summary.error}</dd></div></dl>
+    <div className="settings-panel-heading"><div><h2>Logs do sistema</h2><p>Logins, senhas, acessos ao portal, envios de e-mail e erros do servidor, da gestão e do portal do cliente. Guardados por 90 dias.</p></div>
+      <dl className="settings-log-summary" aria-label="Últimas 24 horas"><div><dt>24H · informação</dt><dd>{summary.info}</dd></div><div><dt>Atenção</dt><dd className={summary.warning ? "is-warning" : undefined}>{summary.warning}</dd></div><div><dt>Erros</dt><dd className={summary.error ? "is-error" : undefined}>{summary.error}</dd></div></dl>
     </div>
     <form className="settings-log-filters" action="/configuracoes">
       <input type="hidden" name="secao" value="logs" />
-      <label className="settings-search">BUSCAR<input name="busca" defaultValue={params.busca ?? ""} placeholder="Evento, mensagem ou e-mail" /></label>
-      <label>ORIGEM<select name="origem" defaultValue={params.origem ?? ""}><option value="">Todas</option>{LOG_SOURCES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-      <label>NÍVEL<select name="nivel" defaultValue={params.nivel ?? ""}><option value="">Todos</option>{LOG_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-      <button type="submit">FILTRAR</button>
-      {params.origem || params.nivel || params.busca ? <Link className="text-link" href={href({ secao: "logs" })}>LIMPAR</Link> : null}
+      <label className="settings-search">Buscar<input name="busca" defaultValue={params.busca ?? ""} placeholder="Evento, mensagem ou e-mail" /></label>
+      <label>Origem<select name="origem" defaultValue={params.origem ?? ""}><option value="">Todas</option>{LOG_SOURCES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+      <label>Nível<select name="nivel" defaultValue={params.nivel ?? ""}><option value="">Todos</option>{LOG_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+      <button type="submit">Filtrar</button>
+      {params.origem || params.nivel || params.busca ? <Link className="text-link" href={href({ secao: "logs" })}>Limpar</Link> : null}
     </form>
     {logs.length ? <ul className="settings-log-list">{logs.map((log) => <li key={log.id}><details>
-      <summary><time>{dateTime.format(log.createdAt)}</time><span className={`settings-level is-${log.level}`}>{levelLabel(log.level).toUpperCase()}</span><b>{log.message}</b><small>{sourceLabel(log.source)} · {log.event}{log.actorEmail ? ` · ${log.actorEmail}` : ""}</small></summary>
+      <summary><time>{dateTime.format(log.createdAt)}</time><span className={`settings-level is-${log.level}`}>{levelLabel(log.level)}</span><b>{log.message}</b><small>{sourceLabel(log.source)} · {log.event}{log.actorEmail ? ` · ${log.actorEmail}` : ""}</small></summary>
       <dl className="settings-log-detail">
         <div><dt>Evento</dt><dd><code>{log.event}</code></dd></div>
         <div><dt>Origem</dt><dd>{sourceLabel(log.source)}</dd></div>
@@ -118,6 +118,6 @@ async function LogsSection({ params }: { params: Awaited<SettingsPageProps["sear
         {log.metadata ? <div><dt>Detalhes</dt><dd><pre>{JSON.stringify(log.metadata, null, 2)}</pre></dd></div> : null}
       </dl>
     </details></li>)}</ul> : <p className="settings-empty">Nenhum evento registrado{params.origem || params.nivel || params.busca ? " com esses filtros" : " ainda"}.</p>}
-    {nextCursor ? <div className="table-footer"><Link className="text-link" href={href({ ...filters, cursor: nextCursor })}>CARREGAR MAIS 50</Link></div> : null}
+    {nextCursor ? <div className="table-footer"><Link className="text-link" href={href({ ...filters, cursor: nextCursor })}>Carregar mais 50</Link></div> : null}
   </section>;
 }

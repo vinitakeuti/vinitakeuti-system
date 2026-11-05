@@ -26,19 +26,19 @@ export function DeleteClientPanel({ impact, error }: { impact: Impact; error?: s
   const blocked = impact.openOnlineCharges > 0;
   const matches = sameName(typed, impact.name);
   return <section className="client-delete" id="excluir" aria-labelledby="client-delete-title">
-    <div className="client-delete-head"><h2 id="client-delete-title">Excluir cliente.</h2><p>Remove o cadastro de vez. Não dá para desfazer.</p></div>
+    <div className="client-delete-head"><h2 id="client-delete-title">Excluir cliente</h2><p>Remove o cadastro de vez. Não dá para desfazer.</p></div>
     <div className="client-delete-body">
       <dl className="client-delete-impact">
-        <div><dt>APAGADO JUNTO</dt><dd>{removed.length ? removed.map(([key, one, many]) => plural(impact.removed[key], one, many)).join(" · ") : "Nada além do cadastro."}</dd></div>
-        {unlinked.length ? <div><dt>CONTINUA, SEM O VÍNCULO</dt><dd>{unlinked.map(([key, one, many]) => plural(impact.unlinked[key], one, many)).join(" · ")}</dd></div> : null}
-        {impact.kept.financialEntries ? <div><dt>FICA NO FINANCEIRO</dt><dd>{plural(impact.kept.financialEntries, "lançamento", "lançamentos")} com o nome do cliente, como histórico. Se algum ainda estiver a receber e não for mais receber, cancele no Financeiro.</dd></div> : null}
+        <div><dt>Apagado junto</dt><dd>{removed.length ? removed.map(([key, one, many]) => plural(impact.removed[key], one, many)).join(" · ") : "Nada além do cadastro."}</dd></div>
+        {unlinked.length ? <div><dt>Continua, sem o vínculo</dt><dd>{unlinked.map(([key, one, many]) => plural(impact.unlinked[key], one, many)).join(" · ")}</dd></div> : null}
+        {impact.kept.financialEntries ? <div><dt>Fica no financeiro</dt><dd>{plural(impact.kept.financialEntries, "lançamento", "lançamentos")} com o nome do cliente, como histórico. Se algum ainda estiver a receber e não for mais receber, cancele no Financeiro.</dd></div> : null}
       </dl>
       {blocked ? <p className="client-delete-blocked" role="alert">Há {plural(impact.openOnlineCharges, "cobrança em aberto", "cobranças em aberto")} no Asaas para este cliente. Cancele no lançamento do Financeiro antes de excluir, para ele não pagar algo que deixou de existir aqui.</p> : null}
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       <form className="client-delete-form" action={deleteClientAction}>
         <input type="hidden" name="id" value={impact.id} />
-        <label>PARA CONFIRMAR, DIGITE <b>{impact.name}</b><input name="confirmName" value={typed} onChange={(event) => setTyped(event.target.value)} autoComplete="off" spellCheck={false} disabled={blocked} /></label>
-        <button className="danger-action" type="submit" disabled={blocked || !matches}>EXCLUIR CLIENTE</button>
+        <label>Para confirmar, digite <b>{impact.name}</b><input name="confirmName" value={typed} onChange={(event) => setTyped(event.target.value)} autoComplete="off" spellCheck={false} disabled={blocked} /></label>
+        <button className="danger-action" type="submit" disabled={blocked || !matches}>Excluir cliente</button>
       </form>
     </div>
   </section>;

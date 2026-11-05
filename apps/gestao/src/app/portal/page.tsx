@@ -29,16 +29,16 @@ export default async function PortalHomePage() {
   const whatsapp = phoneDigits.length >= 10 ? `https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : `55${phoneDigits}`}` : null;
 
   const hero = <header className="portal-welcome">
-    <div className="portal-welcome-top"><p className="eyebrow">{longDate.format(new Date()).toUpperCase()}</p><SidebarToggle location="header" /></div>
+    <div className="portal-welcome-top"><p className="eyebrow">{(() => { const today = longDate.format(new Date()); return today.charAt(0).toUpperCase() + today.slice(1); })()}</p><SidebarToggle location="header" /></div>
     <h1>{greeting}, {firstName}.</h1>
     <p>Que bom ter você por aqui. {journey ? "Acompanhe abaixo como está o seu projeto e o que precisa da sua atenção." : "Assim que sua proposta for aprovada, você acompanha o projeto por aqui."}</p>
   </header>;
 
-  return <PortalShell context={context} current="home" section="INÍCIO" title={`Olá, ${firstName}.`} hero={hero}>
+  return <PortalShell context={context} current="home" section="Início" title={`Olá, ${firstName}.`} hero={hero}>
     <div className="portal-home">
       <div className="portal-home-main">
         {journey ? <section className="settings-panel portal-journey" aria-labelledby="portal-journey-title">
-          <div className="settings-panel-heading"><div><p className="eyebrow">SEU PROJETO · {journey.code}</p><h2 id="portal-journey-title">{journey.title}</h2><p>{journey.done} de {journey.steps.length} etapas concluídas{journey.more > 0 ? ` · mais ${journey.more} ${journey.more === 1 ? "contratação" : "contratações"} em Serviços` : ""}.</p></div><Link className="text-link" href="/projetos">VER ANDAMENTO</Link></div>
+          <div className="settings-panel-heading"><div><p className="eyebrow">Seu projeto · {journey.code}</p><h2 id="portal-journey-title">{journey.title}</h2><p>{journey.done} de {journey.steps.length} etapas concluídas{journey.more > 0 ? ` · mais ${journey.more} ${journey.more === 1 ? "contratação" : "contratações"} em Serviços` : ""}.</p></div><Link className="text-link" href="/projetos">Ver andamento</Link></div>
           <ol className="portal-journey-steps">{journey.steps.map((step, index) => <li key={step.label} className={`is-${step.state}`}>
             <span className="portal-journey-dot" aria-hidden="true">{index + 1}</span>
             <b>{step.label}</b>
@@ -47,7 +47,7 @@ export default async function PortalHomePage() {
         </section> : null}
 
         <section className="settings-panel portal-todo" aria-labelledby="portal-todo-title">
-          <div className="settings-panel-heading"><div><h2 id="portal-todo-title">Para você.</h2><p>{reminders.length ? "O que pede sua atenção agora." : "Nada pendente no momento."}</p></div></div>
+          <div className="settings-panel-heading"><div><h2 id="portal-todo-title">Para você</h2><p>{reminders.length ? "O que pede sua atenção agora." : "Nada pendente no momento."}</p></div></div>
           {reminders.length ? <ul className="portal-todo-list">{reminders.map((reminder) => <li key={reminder.id} className={`is-${reminder.tone}`}>
             <div className="portal-todo-text"><span className="portal-todo-meta"><i aria-hidden="true" />{reminder.category} · {toneLabel[reminder.tone]}</span><b>{reminder.title}</b><small>{reminder.detail}</small></div>
             <Link className="secondary-action" href={reminder.href}>{reminder.action}</Link>
@@ -56,16 +56,16 @@ export default async function PortalHomePage() {
       </div>
 
       <aside className="portal-contact-card" aria-labelledby="portal-contact-title">
-        <div className="portal-contact-person"><span className="portal-contact-mark" aria-hidden="true">{initials}</span><div><p className="eyebrow">SEU CONTATO</p><h2 id="portal-contact-title">{contact.name}</h2><small>{BRAND_TITLE}</small></div></div>
+        <div className="portal-contact-person"><span className="portal-contact-mark" aria-hidden="true">{initials}</span><div><p className="eyebrow">Seu contato</p><h2 id="portal-contact-title">{contact.name}</h2><small>{BRAND_TITLE}</small></div></div>
         <p>Dúvidas, pedidos de ajuste ou qualquer ajuda com o seu projeto: é só chamar.</p>
         {contact.email || whatsapp ? <div className="portal-contact-actions">
-          {whatsapp ? <a className="primary-action" href={whatsapp} target="_blank" rel="noreferrer">WHATSAPP</a> : null}
-          {contact.email ? <a className="secondary-action" href={`mailto:${contact.email}`}>ENVIAR E-MAIL</a> : null}
+          {whatsapp ? <a className="primary-action" href={whatsapp} target="_blank" rel="noreferrer">WhatsApp</a> : null}
+          {contact.email ? <a className="secondary-action" href={`mailto:${contact.email}`}>Enviar e-mail</a> : null}
         </div> : null}
         {contact.email || contact.phone || contact.website ? <dl>
-          {contact.email ? <div><dt>E-MAIL</dt><dd>{contact.email}</dd></div> : null}
-          {contact.phone ? <div><dt>TELEFONE</dt><dd>{contact.phone}</dd></div> : null}
-          {contact.website ? <div><dt>SITE</dt><dd><a href={contact.website} target="_blank" rel="noreferrer">{contact.website.replace(/^https?:\/\//, "")}</a></dd></div> : null}
+          {contact.email ? <div><dt>E-mail</dt><dd>{contact.email}</dd></div> : null}
+          {contact.phone ? <div><dt>Telefone</dt><dd>{contact.phone}</dd></div> : null}
+          {contact.website ? <div><dt>Site</dt><dd><a href={contact.website} target="_blank" rel="noreferrer">{contact.website.replace(/^https?:\/\//, "")}</a></dd></div> : null}
         </dl> : null}
       </aside>
     </div>

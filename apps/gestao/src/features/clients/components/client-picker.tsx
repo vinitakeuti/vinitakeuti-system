@@ -18,7 +18,7 @@ type Props = {
 };
 
 /** Busca de cliente sob demanda: não carrega a base inteira e envia somente o id selecionado. */
-export function ClientPicker({ name = "clientId", label = "Cliente vinculado", hint, initialClient = null, className, onChange, removeLabel = "REMOVER VÍNCULO", placeholder = "Buscar por nome, empresa ou e-mail" }: Props) {
+export function ClientPicker({ name = "clientId", label = "Cliente vinculado", hint, initialClient = null, className, onChange, removeLabel = "Remover vínculo", placeholder = "Buscar por nome, empresa ou e-mail" }: Props) {
   const listId = useId();
   const [selected, setSelected] = useState<ClientPickerOption | null>(initialClient);
   const [query, setQuery] = useState("");

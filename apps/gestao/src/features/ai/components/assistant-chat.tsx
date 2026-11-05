@@ -132,7 +132,7 @@ function CopyButton({ text }: { text: string }) {
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1_600); } catch { /* sem permissão de cópia */ }
   };
-  return <button type="button" className="chat-tool-button" onClick={() => void copy()} aria-label={copied ? "Resposta copiada" : "Copiar resposta"}><Icon name={copied ? "check" : "copy"} /><span>{copied ? "COPIADO" : "COPIAR"}</span></button>;
+  return <button type="button" className="chat-tool-button" onClick={() => void copy()} aria-label={copied ? "Resposta copiada" : "Copiar resposta"}><Icon name={copied ? "check" : "copy"} /><span>{copied ? "Copiado" : "Copiar"}</span></button>;
 }
 
 export function AssistantChat({ status, conversations: initialConversations, initial, greeting, menu }: { status: Status; conversations: ConversationSummary[]; initial: ConversationView | null; greeting: string; menu?: ReactNode }) {
@@ -296,8 +296,8 @@ export function AssistantChat({ status, conversations: initialConversations, ini
       ? <div className="chat-confirm" role="group" aria-label="Confirmação">
         <div><b>Posso executar?</b><span>Nada foi alterado ainda. Confira o resumo acima antes de responder.</span></div>
         <div className="chat-confirm-actions">
-          <button type="button" className="chat-button is-primary" onClick={() => void send("Sim, pode fazer.")}>SIM, PODE FAZER</button>
-          <button type="button" className="chat-button" onClick={() => void send("Não, cancele.")}>NÃO</button>
+          <button type="button" className="chat-button is-primary" onClick={() => void send("Sim, pode fazer.")}>Sim, pode fazer</button>
+          <button type="button" className="chat-button" onClick={() => void send("Não, cancele.")}>Não</button>
         </div>
       </div>
       : error ? <p className="chat-error" role="alert">{error}</p> : null;
@@ -323,7 +323,7 @@ export function AssistantChat({ status, conversations: initialConversations, ini
   return <div className={`chat${historyOpen ? " is-history-open" : ""}`}>
     <aside className="chat-history" aria-label="Conversas">
       <div className="chat-history-head">
-        <div className="chat-history-title"><span>CONVERSAS</span>{conversations.length ? <small>{conversations.length}</small> : null}
+        <div className="chat-history-title"><span>Conversas</span>{conversations.length ? <small>{conversations.length}</small> : null}
           <button className="chat-icon-button chat-history-close" type="button" onClick={() => setHistoryOpen(false)} aria-label="Fechar conversas"><Icon name="close" /></button>
         </div>
         <Link className="chat-new" href="/assistente" onClick={() => setHistoryOpen(false)}><Icon name="plus" /><span>Nova conversa</span></Link>
@@ -357,7 +357,7 @@ export function AssistantChat({ status, conversations: initialConversations, ini
           {conversationId && renaming?.place === "title" && renaming.id === conversationId ? <RenameInput initial={title} label="Novo nome da conversa" className="is-title" onDone={(value) => void rename(conversationId, value)} />
             : conversationId ? <h1><button type="button" className="chat-title-button" onClick={() => setRenaming({ id: conversationId, place: "title" })} title="Renomear a conversa"><span>{title}</span><Icon name="pencil" /></button></h1>
               : <h1>{name}</h1>}
-          <small>{empty ? "ASSISTENTE DE IA" : name.toUpperCase()}{status.ready ? ` · ${shortModel(status.model).toUpperCase()}` : " · DESCONECTADA"}</small>
+          <small>{empty ? "Assistente de IA" : name}{status.ready ? ` · ${shortModel(status.model)}` : " · desconectada"}</small>
         </div>
         <div className="chat-bar-actions">
           <Link className="chat-icon-button chat-bar-new" href="/assistente" aria-label="Nova conversa" title="Nova conversa"><Icon name="plus" /></Link>

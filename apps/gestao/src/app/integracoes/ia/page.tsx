@@ -6,11 +6,11 @@ import { AiAccessPanel, AiActivityPanel, AiConnectionPanel, AiContextPanel, AiRu
 
 export const dynamic = "force-dynamic";
 
-const TABS = [{ id: "conexao", label: "CONEXÃO" }, { id: "contexto", label: "CONTEXTO" }, { id: "regras", label: "CANAIS E REGRAS" }, { id: "acesso", label: "ACESSO EXTERNO" }, { id: "atividade", label: "ATIVIDADE" }] as const;
+const TABS = [{ id: "conexao", label: "Conexão" }, { id: "contexto", label: "Contexto" }, { id: "regras", label: "Canais e regras" }, { id: "acesso", label: "Acesso externo" }, { id: "atividade", label: "Atividade" }] as const;
 type Tab = (typeof TABS)[number]["id"];
 
 const notices: Record<string, string> = {
-  salva: "Conexão salva. Use TESTAR CONEXÃO para conferir a chave e o modelo.",
+  salva: "Conexão salva. Use “Testar conexão” para conferir a chave e o modelo.",
   desligada: "IA desligada. A chave foi apagada.",
   regras: "Canais e regras salvos.",
   contexto: "Contexto salvo. Vale a partir da próxima mensagem.",
@@ -27,9 +27,9 @@ export default async function AiIntegrationPage({ searchParams }: AiPageProps) {
   const connected = aiIsConnected(settings);
 
   return <main className="app-shell"><AppSidebar current="integrations" /><div className="workspace"><section className="directory-page settings-page">
-    <IntegrationHeader crumb="INTELIGÊNCIA ARTIFICIAL" title="Inteligência artificial." description="A IA que atende na Eliza, na área do cliente, no site e no WhatsApp, usando as mesmas regras do sistema." badge={{ label: connected ? `CONECTADA · ${aiProviderLabel(settings).toUpperCase()}` : "NÃO CONECTADA", tone: connected ? "is-ok" : "is-warning" }} tabs={TABS} current={tab} basePath="/integracoes/ia" />
+    <IntegrationHeader crumb="Inteligência artificial" title="Inteligência artificial" description="A IA que atende na Eliza, na área do cliente, no site e no WhatsApp, usando as mesmas regras do sistema." badge={{ label: connected ? `CONECTADA · ${aiProviderLabel(settings).toUpperCase()}` : "Não conectada", tone: connected ? "is-ok" : "is-warning" }} tabs={TABS} current={tab} basePath="/integracoes/ia" />
     {params.aviso && notices[params.aviso] ? <p className="form-success" role="status">{notices[params.aviso]}</p> : null}
-    {params.aviso === "teste" ? <p className="form-success" role="status">Conexão funcionando: {params.resultado?.slice(0, 700)}. <Link className="text-link" href="/assistente">ABRIR O ASSISTENTE</Link></p> : null}
+    {params.aviso === "teste" ? <p className="form-success" role="status">Conexão funcionando: {params.resultado?.slice(0, 700)}. <Link className="text-link" href="/assistente">Abrir o assistente</Link></p> : null}
     {params.erro ? <p className="form-error" role="alert">{params.erro.slice(0, 300)}</p> : null}
     {tab === "conexao" ? <AiConnectionPanel settings={settings} /> : null}
     {tab === "contexto" ? <AiContextPanel settings={settings} /> : null}

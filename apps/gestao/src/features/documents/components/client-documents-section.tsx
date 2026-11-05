@@ -59,32 +59,32 @@ export function ClientDocumentsSection({ clientId, quotes, documents, reviewed }
       <ul>{toReview.map((row) => <li key={row.signed!.id}>
         <div className="client-docs-review-main"><span className="client-docs-kind">{row.kindLabel}</span><div><b>{row.title}</b><small>{row.code} · enviada em {dateTime.format(row.signed!.createdAt)} · {row.signed!.fileName} · {fileSize(row.signed!.byteSize)}</small></div></div>
         <div className="client-docs-review-actions">
-          <a className="secondary-action" href={`/api/documentos/assinados/${row.signed!.id}`}>BAIXAR VIA</a>
-          <form action={reviewSignedDocumentAction}><input type="hidden" name="id" value={row.signed!.id} /><input type="hidden" name="decision" value="approve" /><button className="primary-action" type="submit">APROVAR</button></form>
+          <a className="secondary-action" href={`/api/documentos/assinados/${row.signed!.id}`}>Baixar via</a>
+          <form action={reviewSignedDocumentAction}><input type="hidden" name="id" value={row.signed!.id} /><input type="hidden" name="decision" value="approve" /><button className="primary-action" type="submit">Aprovar</button></form>
           <details className="client-docs-reject">
-            <summary className="secondary-action">RECUSAR</summary>
-            <form action={reviewSignedDocumentAction}><input type="hidden" name="id" value={row.signed!.id} /><input type="hidden" name="decision" value="reject" /><label>Motivo, visível para o cliente<input name="reason" maxLength={300} placeholder="Ex.: falta a assinatura na última página." /></label><button className="danger-action" type="submit">CONFIRMAR RECUSA</button></form>
+            <summary className="secondary-action">Recusar</summary>
+            <form action={reviewSignedDocumentAction}><input type="hidden" name="id" value={row.signed!.id} /><input type="hidden" name="decision" value="reject" /><label>Motivo, visível para o cliente<input name="reason" maxLength={300} placeholder="Ex.: falta a assinatura na última página." /></label><button className="danger-action" type="submit">Confirmar recusa</button></form>
           </details>
         </div>
       </li>)}</ul>
     </div> : null}
 
     {filled.length ? <div className="client-docs-table">
-      <div className="client-docs-columns" aria-hidden="true"><span>DOCUMENTO</span><span>SITUAÇÃO</span><span>ATUALIZADO</span><span /></div>
+      <div className="client-docs-columns" aria-hidden="true"><span>Documento</span><span>Situação</span><span>Atualizado</span><span /></div>
       {filled.map(({ info, rows: groupRows }) => <section className="client-docs-group" key={info.kind} aria-label={info.name}>
-        <div className="client-docs-group-head"><h3>{info.name}<span>{groupRows.length}</span></h3><Link className="text-link" href={`/documentos?tipo=${info.slug}&clientId=${clientId}`}>PRODUZIR</Link></div>
+        <div className="client-docs-group-head"><h3>{info.name}<span>{groupRows.length}</span></h3><Link className="text-link" href={`/documentos?tipo=${info.slug}&clientId=${clientId}`}>Produzir</Link></div>
         <ul>{groupRows.map((row) => {
           const detail = stateDetail(row);
           return <li key={row.id}>
             <div className="client-docs-title"><Link href={row.href}>{row.title}</Link><small>{[row.code, row.detail].filter(Boolean).join(" · ")}</small>{row.state === "rejected" && row.signed?.rejectionReason ? <small className="client-docs-reason">Motivo da recusa: {row.signed.rejectionReason}</small> : null}</div>
             <div className="client-docs-state"><span className={`doc-pill is-${row.state}`}><i aria-hidden="true" />{stateLabels[row.state]}</span>{detail ? <small>{detail}</small> : null}</div>
             <span className="client-docs-date">{date.format(row.date)}</span>
-            <div className="client-docs-actions"><Link className="table-link" href={row.href}>EDITAR</Link><a className="table-link" href={row.pdf}>PDF</a>{row.signed ? <a className="table-link" href={`/api/documentos/assinados/${row.signed.id}`}>VIA ASSINADA</a> : null}{row.state === "signed" ? <form><input type="hidden" name="id" value={row.signed!.id} /><ConfirmSubmitButton formAction={discardSignedDocumentAction} className="table-link client-docs-discard" message={`Excluir a via assinada de ${row.code} e pedir um novo envio? O documento volta para "Para assinar" na área do cliente.`}>EXCLUIR VIA</ConfirmSubmitButton></form> : null}</div>
+            <div className="client-docs-actions"><Link className="table-link" href={row.href}>Editar</Link><a className="table-link" href={row.pdf}>PDF</a>{row.signed ? <a className="table-link" href={`/api/documentos/assinados/${row.signed.id}`}>Via assinada</a> : null}{row.state === "signed" ? <form><input type="hidden" name="id" value={row.signed!.id} /><ConfirmSubmitButton formAction={discardSignedDocumentAction} className="table-link client-docs-discard" message={`Excluir a via assinada de ${row.code} e pedir um novo envio? O documento volta para "Para assinar" na área do cliente.`}>Excluir via</ConfirmSubmitButton></form> : null}</div>
           </li>;
         })}</ul>
       </section>)}
     </div> : <div className="client-panel-empty"><p>Nenhum documento produzido para este cliente.</p></div>}
 
-    {missing.length ? <div className="client-docs-missing"><p>{filled.length ? "AINDA SEM DOCUMENTO" : "PRODUZIR"}</p><ul>{missing.map(({ info }) => <li key={info.kind}><span>{info.name}</span><Link className="text-link" href={`/documentos?tipo=${info.slug}&clientId=${clientId}`}>PRODUZIR</Link></li>)}</ul></div> : null}
+    {missing.length ? <div className="client-docs-missing"><p>{filled.length ? "Ainda sem documento" : "Produzir"}</p><ul>{missing.map(({ info }) => <li key={info.kind}><span>{info.name}</span><Link className="text-link" href={`/documentos?tipo=${info.slug}&clientId=${clientId}`}>Produzir</Link></li>)}</ul></div> : null}
   </section>;
 }

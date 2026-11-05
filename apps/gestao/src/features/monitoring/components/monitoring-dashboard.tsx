@@ -17,7 +17,7 @@ export function MonitoringDashboard({ summary }: { summary: Summary }) {
 
   return <section className="monitor-dashboard" aria-label="Resumo do monitoramento">
     <div className="monitor-dashboard-total">
-      <span>SISTEMAS</span>
+      <span>Sistemas</span>
       <strong>{summary.total}</strong>
       <small>{!summary.total ? "Nenhum sistema cadastrado" : attention ? `${attention} ${attention === 1 ? "pede" : "pedem"} atenção` : "Nenhum alerta no momento"}</small>
     </div>

@@ -54,7 +54,7 @@ function MoveButtons({ event, view, large = false }: { event: { id: string; star
       return <form key={days} action={shiftEventAction}>
         <input type="hidden" name="id" value={event.id} /><input type="hidden" name="dias" value={days} /><Origin view={view} />{large ? <input type="hidden" name="manter" value="1" /> : null}
         <PendingButton className="agenda-move-button" label={`Remarcar para ${shortDay(target)}`} title={`Remarcar para ${shortDay(target)}`}>
-          {days < 0 ? <Chevron direction="left" /> : null}{large ? <span>{days < 0 ? "DIA ANTERIOR" : "DIA SEGUINTE"}</span> : null}{days > 0 ? <Chevron direction="right" /> : null}
+          {days < 0 ? <Chevron direction="left" /> : null}{large ? <span>{days < 0 ? "Dia anterior" : "Dia seguinte"}</span> : null}{days > 0 ? <Chevron direction="right" /> : null}
         </PendingButton>
       </form>;
     })}
@@ -68,19 +68,19 @@ function EventCard({ event, view, index, highlight }: { event: WeekEvent; view: 
     <Link className="agenda-event-main" href={`/agenda?${view}&evento=${event.id}`} scroll={false}>
       <span className="agenda-event-time" aria-hidden="true"><b>{timeOf(event.startsAt)}</b><small>{timeOf(event.endsAt)}</small></span>
       <span className="agenda-event-body">
-        <span className="agenda-event-meta"><i className="agenda-kind-mark" aria-hidden="true" />{eventKindLabel(event.kind).toUpperCase()}<time>{timeOf(event.startsAt)}–{timeOf(event.endsAt)}</time></span>
+        <span className="agenda-event-meta"><i className="agenda-kind-mark" aria-hidden="true" />{eventKindLabel(event.kind)}<time>{timeOf(event.startsAt)}–{timeOf(event.endsAt)}</time></span>
         <b>{event.title}</b>
         {person ? <small>{person}</small> : null}
         {done || event.rescheduledCount || event.source === "ia-atendimento" ? <span className="agenda-event-tags">
-          {done ? <em className="is-done">CONCLUÍDO</em> : null}
-          {event.rescheduledCount ? <em>REMARCADO{event.rescheduledCount > 1 ? ` ${event.rescheduledCount}×` : ""}</em> : null}
-          {event.source === "ia-atendimento" ? <em>ATENDIMENTO</em> : null}
+          {done ? <em className="is-done">Concluído</em> : null}
+          {event.rescheduledCount ? <em>Remarcado{event.rescheduledCount > 1 ? ` ${event.rescheduledCount}×` : ""}</em> : null}
+          {event.source === "ia-atendimento" ? <em>Atendimento</em> : null}
         </span> : null}
       </span>
     </Link>
     {event.status === "SCHEDULED" ? <MoveButtons event={event} view={view} /> : done ? <form action={archiveEventAction} className="agenda-event-archive">
       <input type="hidden" name="id" value={event.id} /><Origin view={view} />
-      <PendingButton className="agenda-text-button">ARQUIVAR</PendingButton>
+      <PendingButton className="agenda-text-button">Arquivar</PendingButton>
     </form> : null}
   </article>;
 }
@@ -115,13 +115,13 @@ export function AgendaWeek({ monday, events, workDays, highlight }: { monday: st
         const isToday = day === today;
         const showMonth = day.endsWith("-01");
         const nowAt = isToday ? dayEvents.findIndex((event) => event.startsAt > now) : -2;
-        const nowLine = <div className="agenda-now" key="agora" aria-label={`Agora, ${nowTime.format(now)}`}><span>AGORA · {nowTime.format(now)}</span></div>;
+        const nowLine = <div className="agenda-now" key="agora" aria-label={`Agora, ${nowTime.format(now)}`}><span>Agora · {nowTime.format(now)}</span></div>;
         const classes = ["agenda-day", isToday ? "is-today" : "", day < today ? "is-past" : "", workDays.includes(weekday) ? "" : "is-off", dayEvents.length ? "" : "is-empty"].filter(Boolean).join(" ");
         return <section key={day} id={`dia-${day}`} className={classes} style={{ "--i": index } as React.CSSProperties} aria-label={fullDate.format(noon(day))}>
           <header className="agenda-day-head">
             <b className="agenda-day-num">{day.slice(8, 10)}</b>
             <span className="agenda-day-name">
-              <span className="agenda-day-weekday"><span className="is-short">{WEEKDAYS_SHORT[weekday]}</span><span className="is-long">{WEEKDAYS[weekday]}</span>{isToday ? <em>HOJE</em> : null}</span>
+              <span className="agenda-day-weekday"><span className="is-short">{WEEKDAYS_SHORT[weekday]}</span><span className="is-long">{WEEKDAYS[weekday]}</span>{isToday ? <em>Hoje</em> : null}</span>
               <small className={showMonth ? "is-shown" : undefined}>{monthLong.format(noon(day))}</small>
             </span>
             {dayEvents.length ? <span className="agenda-day-count" title={`${dayEvents.length} ${dayEvents.length === 1 ? "evento" : "eventos"}`}>{dayEvents.length}</span> : <span className="agenda-day-free">Livre</span>}
@@ -143,19 +143,19 @@ export function ArchiveDoneButton({ from, to, view, count }: { from: string; to:
   if (!count) return null;
   return <form action={archiveDoneAction} className="agenda-archive-done">
     <input type="hidden" name="de" value={from} /><input type="hidden" name="ate" value={to} /><Origin view={view} />
-    <PendingButton className="secondary-action">ARQUIVAR CONCLUÍDOS · {count}</PendingButton>
+    <PendingButton className="secondary-action">Arquivar concluídos · {count}</PendingButton>
   </form>;
 }
 
 export function EventDetailPanel({ event, view }: { event: EventDetail; view: string }) {
-  const statusLabel = event.archivedAt ? "ARQUIVADO" : event.status === "CANCELLED" ? "CANCELADO" : event.status === "DONE" ? "CONCLUÍDO" : "MARCADO";
+  const statusLabel = event.archivedAt ? "Arquivado" : event.status === "CANCELLED" ? "Cancelado" : event.status === "DONE" ? "Concluído" : "Marcado";
   const statusForm = (status: string, label: string, className = "secondary-action") => <form action={setEventStatusAction}>
     <input type="hidden" name="id" value={event.id} /><input type="hidden" name="status" value={status} /><Origin view={view} />
     <PendingButton className={className}>{label}</PendingButton>
   </form>;
   return <div className="agenda-sheet">
     <header className={`agenda-sheet-head ${kindClass(event.kind)}`}>
-      <p className="agenda-sheet-kind"><i className="agenda-kind-mark" aria-hidden="true" />{eventKindLabel(event.kind).toUpperCase()}{event.source === "ia-atendimento" ? " · MARCADO PELA ASSISTENTE NO ATENDIMENTO" : event.source === "ia-gestao" ? " · CRIADO PELA ASSISTENTE" : ""}</p>
+      <p className="agenda-sheet-kind"><i className="agenda-kind-mark" aria-hidden="true" />{eventKindLabel(event.kind)}{event.source === "ia-atendimento" ? " · marcado pela assistente no atendimento" : event.source === "ia-gestao" ? " · criado pela assistente" : ""}</p>
       <h2 id="agenda-modal-title">{event.title}</h2>
       <p className="agenda-sheet-when"><span>{fullDate.format(event.startsAt)}</span><b>{timeOf(event.startsAt)} – {timeOf(event.endsAt)}</b></p>
       <span className={`agenda-status is-${event.archivedAt ? "archived" : event.status.toLowerCase()}`}>{statusLabel}</span>
@@ -163,28 +163,28 @@ export function EventDetailPanel({ event, view }: { event: EventDetail; view: st
     <div className="agenda-sheet-body">
       {event.rescheduledFrom ? <p className="agenda-sheet-note">Remarcado {event.rescheduledCount > 1 ? `${event.rescheduledCount} vezes` : "uma vez"} · originalmente {fullDate.format(event.rescheduledFrom)}, às {timeOf(event.rescheduledFrom)}.</p> : null}
       <dl className="agenda-facts">
-        {event.client ? <div><dt>CLIENTE</dt><dd><Link href={`/clientes/${event.client.id}`}>{event.client.name}</Link></dd></div> : null}
-        {event.contactName && !event.client ? <div><dt>CONTATO</dt><dd>{event.contactName}</dd></div> : null}
-        {event.contactPhone ? <div><dt>TELEFONE</dt><dd><a href={`https://wa.me/${event.contactPhone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer noopener">{phoneLabel(event.contactPhone)}</a></dd></div> : null}
-        {event.contactEmail ? <div><dt>E-MAIL</dt><dd><a href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></dd></div> : null}
-        {event.location ? <div><dt>LOCAL OU FORMATO</dt><dd>{/^https?:\/\//.test(event.location) ? <a href={event.location} target="_blank" rel="noreferrer noopener">{event.location}</a> : event.location}</dd></div> : null}
-        <div><dt>CRIADO</dt><dd>{stamp.format(event.createdAt)}{event.createdBy && event.createdBy !== "ia" ? ` · ${event.createdBy}` : ""}</dd></div>
-        {event.archivedAt ? <div><dt>ARQUIVADO</dt><dd>{stamp.format(event.archivedAt)}</dd></div> : null}
+        {event.client ? <div><dt>Cliente</dt><dd><Link href={`/clientes/${event.client.id}`}>{event.client.name}</Link></dd></div> : null}
+        {event.contactName && !event.client ? <div><dt>Contato</dt><dd>{event.contactName}</dd></div> : null}
+        {event.contactPhone ? <div><dt>Telefone</dt><dd><a href={`https://wa.me/${event.contactPhone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer noopener">{phoneLabel(event.contactPhone)}</a></dd></div> : null}
+        {event.contactEmail ? <div><dt>E-mail</dt><dd><a href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></dd></div> : null}
+        {event.location ? <div><dt>Local ou formato</dt><dd>{/^https?:\/\//.test(event.location) ? <a href={event.location} target="_blank" rel="noreferrer noopener">{event.location}</a> : event.location}</dd></div> : null}
+        <div><dt>Criado</dt><dd>{stamp.format(event.createdAt)}{event.createdBy && event.createdBy !== "ia" ? ` · ${event.createdBy}` : ""}</dd></div>
+        {event.archivedAt ? <div><dt>Arquivado</dt><dd>{stamp.format(event.archivedAt)}</dd></div> : null}
       </dl>
-      {event.conversation?.summary ? <div className="ai-session-summary"><span>RESUMO DO ATENDIMENTO{event.conversation.summaryUpdatedAt ? ` · ${stamp.format(event.conversation.summaryUpdatedAt)}` : ""}</span><p>{event.conversation.summary}</p></div> : null}
+      {event.conversation?.summary ? <div className="ai-session-summary"><span>Resumo do atendimento{event.conversation.summaryUpdatedAt ? ` · ${stamp.format(event.conversation.summaryUpdatedAt)}` : ""}</span><p>{event.conversation.summary}</p></div> : null}
       {event.description && !event.conversation?.summary ? <p className="agenda-description">{event.description}</p> : null}
-      {event.conversation ? <Link className="text-link agenda-sheet-link" href={`/integracoes/ia?aba=atividade${event.conversation.channel === "GESTAO" || event.conversation.channel === "SISTEMA" ? "" : "&escopo=atendimento"}`}>VER NA ATIVIDADE DA IA →</Link> : null}
+      {event.conversation ? <Link className="text-link agenda-sheet-link" href={`/integracoes/ia?aba=atividade${event.conversation.channel === "GESTAO" || event.conversation.channel === "SISTEMA" ? "" : "&escopo=atendimento"}`}>Ver na atividade da IA →</Link> : null}
     </div>
-    {event.status === "SCHEDULED" ? <div className="agenda-sheet-move"><span>REMARCAR</span><MoveButtons event={event} view={view} large /></div> : null}
+    {event.status === "SCHEDULED" ? <div className="agenda-sheet-move"><span>Remarcar</span><MoveButtons event={event} view={view} large /></div> : null}
     <footer className="agenda-sheet-actions">
-      {event.status === "SCHEDULED" ? statusForm("DONE", "CONCLUIR", "primary-action") : null}
-      {event.status === "DONE" && !event.archivedAt ? <form action={archiveEventAction}><input type="hidden" name="id" value={event.id} /><Origin view={view} /><PendingButton className="primary-action">ARQUIVAR</PendingButton></form> : null}
-      {event.archivedAt ? <form action={archiveEventAction}><input type="hidden" name="id" value={event.id} /><input type="hidden" name="arquivar" value="0" /><Origin view={view} /><PendingButton className="primary-action">DESARQUIVAR</PendingButton></form> : null}
-      {event.status !== "SCHEDULED" ? statusForm("SCHEDULED", "REABRIR") : null}
-      {event.archivedAt ? null : <Link className="secondary-action" href={`/agenda?${view}&evento=${event.id}&editar=1`} scroll={false}>EDITAR</Link>}
+      {event.status === "SCHEDULED" ? statusForm("DONE", "Concluir", "primary-action") : null}
+      {event.status === "DONE" && !event.archivedAt ? <form action={archiveEventAction}><input type="hidden" name="id" value={event.id} /><Origin view={view} /><PendingButton className="primary-action">Arquivar</PendingButton></form> : null}
+      {event.archivedAt ? <form action={archiveEventAction}><input type="hidden" name="id" value={event.id} /><input type="hidden" name="arquivar" value="0" /><Origin view={view} /><PendingButton className="primary-action">Desarquivar</PendingButton></form> : null}
+      {event.status !== "SCHEDULED" ? statusForm("SCHEDULED", "Reabrir") : null}
+      {event.archivedAt ? null : <Link className="secondary-action" href={`/agenda?${view}&evento=${event.id}&editar=1`} scroll={false}>Editar</Link>}
       <span className="agenda-detail-spacer" />
-      {event.status === "SCHEDULED" ? <form><input type="hidden" name="id" value={event.id} /><input type="hidden" name="status" value="CANCELLED" /><Origin view={view} /><ConfirmSubmitButton formAction={setEventStatusAction} className="text-link integration-disconnect" message="Cancelar este evento? Ele sai da agenda, mas continua no histórico.">CANCELAR EVENTO</ConfirmSubmitButton></form> : null}
-      <form><input type="hidden" name="id" value={event.id} /><Origin view={view} /><ConfirmSubmitButton formAction={deleteEventAction} className="text-link integration-disconnect" message="Excluir este evento de vez? Não dá para desfazer.">EXCLUIR</ConfirmSubmitButton></form>
+      {event.status === "SCHEDULED" ? <form><input type="hidden" name="id" value={event.id} /><input type="hidden" name="status" value="CANCELLED" /><Origin view={view} /><ConfirmSubmitButton formAction={setEventStatusAction} className="text-link integration-disconnect" message="Cancelar este evento? Ele sai da agenda, mas continua no histórico.">Cancelar evento</ConfirmSubmitButton></form> : null}
+      <form><input type="hidden" name="id" value={event.id} /><Origin view={view} /><ConfirmSubmitButton formAction={deleteEventAction} className="text-link integration-disconnect" message="Excluir este evento de vez? Não dá para desfazer.">Excluir</ConfirmSubmitButton></form>
     </footer>
   </div>;
 }
@@ -197,29 +197,29 @@ export function EventForm({ clients, event, defaultDay, settings, view }: { clie
   const end = event ? timeOf(event.endsAt) : minutesToTime(settings.dayStart + settings.meetingMinutes);
   return <div className="agenda-sheet">
     <header className="agenda-sheet-head">
-      <p className="agenda-sheet-kind">{event ? "EDITAR EVENTO" : `NOVO EVENTO · ${shortDay(day).toUpperCase()}`}</p>
+      <p className="agenda-sheet-kind">{event ? "Editar evento" : `Novo evento · ${shortDay(day)}`}</p>
       <h2 id="agenda-modal-title">{event ? event.title : "O que entra na agenda?"}</h2>
       <p className="agenda-sheet-sub">{event ? "Altere o que for preciso. O resumo do atendimento continua ligado ao evento." : "Reunião, compromisso, demanda ou lembrete. Conflitos de horário são avisados, mas não impedem."}</p>
     </header>
     <form className="settings-form agenda-form" action={event ? updateEventAction : createEventAction}>
       {event ? <input type="hidden" name="id" value={event.id} /> : null}
       <Origin view={view} />
-      <fieldset className="settings-form-wide agenda-kinds"><legend>TIPO</legend>
+      <fieldset className="settings-form-wide agenda-kinds"><legend>Tipo</legend>
         {Object.entries(EVENT_KINDS).map(([value, label]) => <label key={value} className={kindClass(value)}>
           <input type="radio" name="kind" value={value} defaultChecked={(event?.kind ?? "MEETING") === value} />
           <span><i className="agenda-kind-mark" aria-hidden="true" /><b>{label}</b><small>{KIND_HINTS[value]}</small></span>
         </label>)}
       </fieldset>
-      <label className="settings-form-wide">TÍTULO<input name="title" required maxLength={160} defaultValue={event?.title ?? ""} placeholder="Ex.: Reunião de briefing · Construtora Virtus" autoFocus={!event} /></label>
+      <label className="settings-form-wide">Título<input name="title" required maxLength={160} defaultValue={event?.title ?? ""} placeholder="Ex.: Reunião de briefing · Construtora Virtus" autoFocus={!event} /></label>
       <div className="settings-form-wide agenda-when">
-        <label>DATA<input name="day" type="date" required defaultValue={day} /></label>
-        <label>INÍCIO<input name="start" type="time" required defaultValue={start} /></label>
-        <label>FIM<input name="end" type="time" required defaultValue={end} /></label>
+        <label>Data<input name="day" type="date" required defaultValue={day} /></label>
+        <label>Início<input name="start" type="time" required defaultValue={start} /></label>
+        <label>Fim<input name="end" type="time" required defaultValue={end} /></label>
       </div>
-      <label className="settings-form-wide">CLIENTE<select name="clientId" className="ai-select" defaultValue={event?.clientId ?? ""}><option value="">Nenhum</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.company ? ` · ${client.company}` : ""}</option>)}</select></label>
-      <label className="settings-form-wide">LOCAL OU LINK<input name="location" maxLength={300} defaultValue={event?.location ?? (event ? "" : settings.meetingFormat ?? "")} placeholder="Endereço, link do Meet ou 'por telefone'" /></label>
-      <label className="settings-form-wide">DESCRIÇÃO<textarea name="description" rows={3} maxLength={4000} defaultValue={event?.description ?? ""} placeholder="Pauta, o que levar, observações…" /></label>
-      <div className="settings-form-actions agenda-form-actions"><PendingButton className="primary-action">{event ? "SALVAR" : "CRIAR EVENTO"}</PendingButton><Link className="text-link" href={`/agenda?${view}${event ? `&evento=${event.id}` : ""}`} scroll={false}>CANCELAR</Link></div>
+      <label className="settings-form-wide">Cliente<select name="clientId" className="ai-select" defaultValue={event?.clientId ?? ""}><option value="">Nenhum</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.company ? ` · ${client.company}` : ""}</option>)}</select></label>
+      <label className="settings-form-wide">Local ou link<input name="location" maxLength={300} defaultValue={event?.location ?? (event ? "" : settings.meetingFormat ?? "")} placeholder="Endereço, link do Meet ou 'por telefone'" /></label>
+      <label className="settings-form-wide">Descrição<textarea name="description" rows={3} maxLength={4000} defaultValue={event?.description ?? ""} placeholder="Pauta, o que levar, observações…" /></label>
+      <div className="settings-form-actions agenda-form-actions"><PendingButton className="primary-action">{event ? "Salvar" : "Criar evento"}</PendingButton><Link className="text-link" href={`/agenda?${view}${event ? `&evento=${event.id}` : ""}`} scroll={false}>Cancelar</Link></div>
     </form>
   </div>;
 }
@@ -227,28 +227,28 @@ export function EventForm({ clients, event, defaultDay, settings, view }: { clie
 export function AvailabilityPanel({ settings, preview }: { settings: AgendaSettingsView; preview: FreeDay[] }) {
   const workDays = new Set(settings.workDays);
   return <section className="settings-panel" aria-labelledby="agenda-availability-title">
-    <div className="settings-panel-heading"><div><h2 id="agenda-availability-title">Disponibilidade para reuniões.</h2><p>Quando a assistente pode marcar reuniões no atendimento. Ela só oferece horários livres dentro destas regras e nunca mostra os seus compromissos.</p></div></div>
+    <div className="settings-panel-heading"><div><h2 id="agenda-availability-title">Disponibilidade para reuniões</h2><p>Quando a assistente pode marcar reuniões no atendimento. Ela só oferece horários livres dentro destas regras e nunca mostra os seus compromissos.</p></div></div>
     <div className="settings-panel-body">
       <form className="settings-form" action={saveAgendaSettingsAction}>
-        <fieldset className="settings-form-wide agenda-days"><legend>DIAS DE ATENDIMENTO</legend>{[1, 2, 3, 4, 5, 6, 0].map((day) => <label key={day}><input type="checkbox" name="workDays" value={day} defaultChecked={workDays.has(day)} /><span>{WEEKDAYS[day]}</span></label>)}</fieldset>
+        <fieldset className="settings-form-wide agenda-days"><legend>Dias de atendimento</legend>{[1, 2, 3, 4, 5, 6, 0].map((day) => <label key={day}><input type="checkbox" name="workDays" value={day} defaultChecked={workDays.has(day)} /><span>{WEEKDAYS[day]}</span></label>)}</fieldset>
         <div className="settings-form-wide agenda-when">
-          <label>INÍCIO DO ATENDIMENTO<input name="dayStart" type="time" required defaultValue={minutesToTime(settings.dayStart)} /></label>
-          <label>FIM DO ATENDIMENTO<input name="dayEnd" type="time" required defaultValue={minutesToTime(settings.dayEnd)} /></label>
-          <label>PAUSA · INÍCIO<input name="breakStart" type="time" defaultValue={settings.breakStart !== null ? minutesToTime(settings.breakStart) : ""} /></label>
-          <label>PAUSA · FIM<input name="breakEnd" type="time" defaultValue={settings.breakEnd !== null ? minutesToTime(settings.breakEnd) : ""} /></label>
+          <label>Início do atendimento<input name="dayStart" type="time" required defaultValue={minutesToTime(settings.dayStart)} /></label>
+          <label>Fim do atendimento<input name="dayEnd" type="time" required defaultValue={minutesToTime(settings.dayEnd)} /></label>
+          <label>Pausa · início<input name="breakStart" type="time" defaultValue={settings.breakStart !== null ? minutesToTime(settings.breakStart) : ""} /></label>
+          <label>Pausa · fim<input name="breakEnd" type="time" defaultValue={settings.breakEnd !== null ? minutesToTime(settings.breakEnd) : ""} /></label>
         </div>
         <div className="settings-form-wide agenda-when">
-          <label>DURAÇÃO DA REUNIÃO<select name="meetingMinutes" className="ai-select" defaultValue={settings.meetingMinutes}>{[15, 20, 30, 45, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutos</option>)}</select></label>
-          <label>INTERVALO ENTRE COMPROMISSOS<select name="bufferMinutes" className="ai-select" defaultValue={settings.bufferMinutes}>{[0, 5, 10, 15, 30, 60].map((minutes) => <option key={minutes} value={minutes}>{minutes ? `${minutes} minutos` : "Sem intervalo"}</option>)}</select></label>
-          <label>ANTECEDÊNCIA MÍNIMA (HORAS)<input name="minNoticeHours" type="number" min={0} max={336} required defaultValue={settings.minNoticeHours} /></label>
-          <label>ATÉ QUANTOS DIAS À FRENTE<input name="maxDaysAhead" type="number" min={1} max={120} required defaultValue={settings.maxDaysAhead} /></label>
+          <label>Duração da reunião<select name="meetingMinutes" className="ai-select" defaultValue={settings.meetingMinutes}>{[15, 20, 30, 45, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutos</option>)}</select></label>
+          <label>Intervalo entre compromissos<select name="bufferMinutes" className="ai-select" defaultValue={settings.bufferMinutes}>{[0, 5, 10, 15, 30, 60].map((minutes) => <option key={minutes} value={minutes}>{minutes ? `${minutes} minutos` : "Sem intervalo"}</option>)}</select></label>
+          <label>Antecedência mínima (horas)<input name="minNoticeHours" type="number" min={0} max={336} required defaultValue={settings.minNoticeHours} /></label>
+          <label>Até quantos dias à frente<input name="maxDaysAhead" type="number" min={1} max={120} required defaultValue={settings.maxDaysAhead} /></label>
         </div>
-        <label className="settings-form-wide">COMO A REUNIÃO ACONTECE<input name="meetingFormat" maxLength={300} defaultValue={settings.meetingFormat ?? ""} placeholder="Ex.: Google Meet, com o link enviado pelo WhatsApp" /></label>
+        <label className="settings-form-wide">Como a reunião acontece<input name="meetingFormat" maxLength={300} defaultValue={settings.meetingFormat ?? ""} placeholder="Ex.: Google Meet, com o link enviado pelo WhatsApp" /></label>
         <label className="settings-form-wide ai-check"><input type="checkbox" name="aiBooking" defaultChecked={settings.aiBooking} /><span><b>A assistente pode marcar reuniões no atendimento.</b><small>No site, no WhatsApp de clientes e na área do cliente. Você recebe um e-mail a cada reunião marcada, com o contato e o resumo da conversa.</small></span></label>
-        <div className="settings-form-actions"><button className="primary-action" type="submit">SALVAR</button></div>
+        <div className="settings-form-actions"><button className="primary-action" type="submit">Salvar</button></div>
       </form>
       <div className="agenda-preview">
-        <p className="ai-previews-title">PRÓXIMOS HORÁRIOS QUE A ASSISTENTE OFERECERIA</p>
+        <p className="ai-previews-title">Próximos horários que a assistente ofereceria</p>
         {preview.length ? <ul>{preview.map((day) => <li key={day.data}><b>{day.dia}</b><span>{day.horarios.join(" · ")}</span></li>)}</ul> : <p className="settings-empty">Nenhum horário livre no período configurado.</p>}
       </div>
     </div>
@@ -309,7 +309,7 @@ function ArchiveTree({ months, month }: { months: Array<{ month: string; count: 
 export function AgendaArchive({ months, month, events, next, cursor }: { months: Array<{ month: string; count: number }>; month: string | null; events: WeekEvent[]; next: string | null; cursor?: string }) {
   if (!months.length) return <div className="agenda-archive-empty">
     <span className="agenda-archive-empty-mark" aria-hidden="true" />
-    <h2>Nada arquivado ainda.</h2>
+    <h2>Nada arquivado ainda</h2>
     <p>Conclua eventos e demandas e arquive para tirá-los da semana. Eles ficam guardados aqui, organizados por mês.</p>
   </div>;
   const view = `aba=arquivo&mes=${month}`;
@@ -319,11 +319,11 @@ export function AgendaArchive({ months, month, events, next, cursor }: { months:
   return <div className="agenda-archive">
     <aside className="agenda-archive-side" aria-label="Arquivo por ano e mês">{tree}</aside>
     <details className="agenda-archive-picker">
-      <summary><span>NAVEGAR NO ARQUIVO</span><b>{month ? monthLabel(month) : ""}</b><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg></summary>
+      <summary><span>Navegar no arquivo</span><b>{month ? monthLabel(month) : ""}</b><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg></summary>
       {tree}
     </details>
     <div className="agenda-archive-list">
-      <header><p className="agenda-archive-crumb">ARQUIVO / {month?.slice(0, 4)}</p><h2>{month ? MONTH_NAMES[Number(month.slice(5, 7)) - 1] : ""}</h2><span>{total} {total === 1 ? "evento arquivado" : "eventos arquivados"}</span></header>
+      <header><p className="agenda-archive-crumb">Arquivo / {month?.slice(0, 4)}</p><h2>{month ? MONTH_NAMES[Number(month.slice(5, 7)) - 1] : ""}</h2><span>{total} {total === 1 ? "evento arquivado" : "eventos arquivados"}</span></header>
       {days.length ? days.map((day) => <section key={day} className="agenda-archive-day">
         <h3><b>{day.slice(8, 10)}</b><span>{WEEKDAYS[weekdayOf(day)]}</span></h3>
         <ul>{events.filter((event) => dayKey(event.startsAt) === day).map((event) => <li key={event.id} className={kindClass(event.kind)}>
@@ -333,12 +333,12 @@ export function AgendaArchive({ months, month, events, next, cursor }: { months:
             <b>{event.title}</b>
             <small>{event.client?.name ?? event.contactName ?? ""}</small>
           </Link>
-          <form action={archiveEventAction}><input type="hidden" name="id" value={event.id} /><input type="hidden" name="arquivar" value="0" /><Origin view={view} /><PendingButton className="agenda-text-button" label={`Desarquivar ${event.title}`}>DESARQUIVAR</PendingButton></form>
+          <form action={archiveEventAction}><input type="hidden" name="id" value={event.id} /><input type="hidden" name="arquivar" value="0" /><Origin view={view} /><PendingButton className="agenda-text-button" label={`Desarquivar ${event.title}`}>Desarquivar</PendingButton></form>
         </li>)}</ul>
       </section>) : <p className="settings-empty">Nenhum evento arquivado neste mês.</p>}
       {cursor || next ? <div className="agenda-archive-pages">
-        {cursor ? <Link className="secondary-action" href={`/agenda?${view}`}>← MAIS RECENTES</Link> : <span />}
-        {next ? <Link className="secondary-action" href={`/agenda?${view}&depois=${next}`}>MAIS ANTIGOS →</Link> : null}
+        {cursor ? <Link className="secondary-action" href={`/agenda?${view}`}>← Mais recentes</Link> : <span />}
+        {next ? <Link className="secondary-action" href={`/agenda?${view}&depois=${next}`}>Mais antigos →</Link> : null}
       </div> : null}
     </div>
   </div>;

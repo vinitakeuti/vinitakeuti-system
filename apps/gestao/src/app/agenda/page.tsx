@@ -62,14 +62,14 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
   const doneCount = events.filter((item) => item.status === "DONE" && (tab !== "mes" || monthOf(dayKey(item.startsAt)) === month)).length;
   const closeHref = `/agenda?${view}${params.depois ? `&depois=${params.depois}` : ""}`;
   const tabs = [
-    { id: "semana", label: "SEMANA", href: `/agenda?semana=${monday}` },
-    { id: "mes", label: "MÊS", href: `/agenda?visao=mes&mes=${tab === "semana" ? monthOf(addDays(monday, 3)) : month}` },
-    { id: "arquivo", label: "ARQUIVO", href: "/agenda?aba=arquivo" },
-    { id: "disponibilidade", label: "DISPONIBILIDADE", href: "/agenda?aba=disponibilidade" },
+    { id: "semana", label: "Semana", href: `/agenda?semana=${monday}` },
+    { id: "mes", label: "Mês", href: `/agenda?visao=mes&mes=${tab === "semana" ? monthOf(addDays(monday, 3)) : month}` },
+    { id: "arquivo", label: "Arquivo", href: "/agenda?aba=arquivo" },
+    { id: "disponibilidade", label: "Disponibilidade", href: "/agenda?aba=disponibilidade" },
   ];
 
   return <main className="app-shell"><AppSidebar current="agenda" /><div className="workspace"><section className="directory-page settings-page agenda-page">
-    <header className="directory-header"><div><p className="eyebrow">GESTÃO / AGENDA</p><h1>Agenda.</h1><p>Reuniões, compromissos, demandas e lembretes. A assistente consulta e marca eventos aqui, e as reuniões do atendimento chegam com o contato e o resumo da conversa.</p></div><div className="header-actions"><SidebarToggle location="header" />{tab === "semana" || tab === "mes" ? <Link className="primary-action" href={`/agenda?${view}&novo=1`} scroll={false}>+ NOVO EVENTO</Link> : null}</div></header>
+    <header className="directory-header"><div><h1>Agenda</h1><p>Reuniões, compromissos, demandas e lembretes. A assistente consulta e marca eventos aqui, e as reuniões do atendimento chegam com o contato e o resumo da conversa.</p></div><div className="header-actions"><SidebarToggle location="header" />{tab === "semana" || tab === "mes" ? <Link className="primary-action" href={`/agenda?${view}&novo=1`} scroll={false}>+ Novo evento</Link> : null}</div></header>
     <nav className="client-tabs settings-tabs" aria-label="Seções da agenda">
       {tabs.map((item) => <Link key={item.id} href={item.href} className={tab === item.id ? "active" : undefined} aria-current={tab === item.id ? "page" : undefined}>{item.label}</Link>)}
     </nav>
@@ -84,7 +84,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
       <div className="agenda-toolbar">
         <div className="agenda-nav">
           <Link href={`/agenda?visao=mes&mes=${addMonths(month, -1)}`} aria-label="Mês anterior" title="Mês anterior">←</Link>
-          <Link href={`/agenda?visao=mes&mes=${monthOf(today)}`} className="is-today">HOJE</Link>
+          <Link href={`/agenda?visao=mes&mes=${monthOf(today)}`} className="is-today">Hoje</Link>
           <Link href={`/agenda?visao=mes&mes=${addMonths(month, 1)}`} aria-label="Próximo mês" title="Próximo mês">→</Link>
         </div>
         <div className="agenda-toolbar-title"><b>{monthLabel(month)}</b><span>{events.filter((item) => monthOf(dayKey(item.startsAt)) === month).length} eventos no mês</span></div>
@@ -97,7 +97,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
       <div className="agenda-toolbar">
         <div className="agenda-nav">
           <Link href={`/agenda?semana=${addDays(monday, -7)}`} aria-label="Semana anterior" title="Semana anterior">←</Link>
-          <Link href={`/agenda?semana=${weekStart(today)}`} className="is-today">HOJE</Link>
+          <Link href={`/agenda?semana=${weekStart(today)}`} className="is-today">Hoje</Link>
           <Link href={`/agenda?semana=${addDays(monday, 7)}`} aria-label="Próxima semana" title="Próxima semana">→</Link>
         </div>
         <div className="agenda-toolbar-title"><b>{weekRangeLabel(monday)}</b><span>{addDays(monday, 6).slice(0, 4)} · {events.length} {events.length === 1 ? "evento" : "eventos"}</span></div>
@@ -111,7 +111,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
       {params.novo ? <EventForm clients={clients} defaultDay={defaultDay} settings={settings} view={view} />
         : event && params.editar ? <EventForm clients={clients} event={event} defaultDay={defaultDay} settings={settings} view={view} />
           : event ? <EventDetailPanel event={event} view={view} />
-            : <div className="agenda-sheet"><header className="agenda-sheet-head"><h2 id="agenda-modal-title">Evento não encontrado.</h2><p className="agenda-sheet-sub">Ele pode ter sido excluído.</p></header></div>}
+            : <div className="agenda-sheet"><header className="agenda-sheet-head"><h2 id="agenda-modal-title">Evento não encontrado</h2><p className="agenda-sheet-sub">Ele pode ter sido excluído.</p></header></div>}
     </AgendaModal> : null}
   </section></div></main>;
 }

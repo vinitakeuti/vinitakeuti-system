@@ -9,27 +9,27 @@ export default async function PortalSettingsPage() {
   const { profile } = await getPortalPaymentOptions();
   const { client, user } = context;
 
-  return <PortalShell context={context} current="settings" section="CONFIGURAÇÕES" title="Configurações." description="Seus dados de acesso e a senha da área do cliente.">
+  return <PortalShell context={context} current="settings" section="Configurações" title="Configurações" description="Seus dados de acesso e a senha da área do cliente.">
     <section className="settings-panel" aria-labelledby="portal-account-title">
-      <div className="settings-panel-heading"><div><h2 id="portal-account-title">Sua conta.</h2><p>Para corrigir algum dado cadastral, fale com {profile?.name ?? "Vinicius Riudi"}.</p></div></div>
+      <div className="settings-panel-heading"><div><h2 id="portal-account-title">Sua conta</h2><p>Para corrigir algum dado cadastral, fale com {profile?.name ?? "Vinicius Riudi"}.</p></div></div>
       <div className="settings-panel-body"><dl className="settings-facts">
-        <div><dt>NOME</dt><dd>{client?.name ?? user.name}</dd></div>
-        <div><dt>E-MAIL DE ACESSO</dt><dd>{user.email}</dd></div>
-        <div><dt>EMPRESA</dt><dd>{client?.company || "—"}</dd></div>
+        <div><dt>Nome</dt><dd>{client?.name ?? user.name}</dd></div>
+        <div><dt>E-mail de acesso</dt><dd>{user.email}</dd></div>
+        <div><dt>Empresa</dt><dd>{client?.company || "—"}</dd></div>
         <div><dt>CPF / CNPJ</dt><dd>{client?.document || "—"}</dd></div>
       </dl></div>
     </section>
     <section className={`settings-panel${user.mustChangePassword ? " is-required" : ""}`} aria-labelledby="portal-password-title">
-      <div className="settings-panel-heading"><div><h2 id="portal-password-title">{user.mustChangePassword ? "Crie sua senha para continuar." : "Senha de acesso."}</h2><p>{user.mustChangePassword ? "Você entrou com a senha provisória recebida por e-mail. Crie uma senha sua, com pelo menos 8 caracteres, para liberar a área do cliente." : "Ao trocar, os outros aparelhos conectados precisam entrar de novo."}</p></div></div>
+      <div className="settings-panel-heading"><div><h2 id="portal-password-title">{user.mustChangePassword ? "Crie sua senha para continuar" : "Senha de acesso"}</h2><p>{user.mustChangePassword ? "Você entrou com a senha provisória recebida por e-mail. Crie uma senha sua, com pelo menos 8 caracteres, para liberar a área do cliente." : "Ao trocar, os outros aparelhos conectados precisam entrar de novo."}</p></div></div>
       <div className="settings-panel-body"><PasswordChangeForm className="settings-password" provisional={user.mustChangePassword} /></div>
     </section>
     {profile?.email || profile?.phone || profile?.website ? <section className="settings-panel" aria-labelledby="portal-contact-title">
-      <div className="settings-panel-heading"><div><h2 id="portal-contact-title">Contato.</h2><p>Dúvidas, pedidos e suporte.</p></div></div>
+      <div className="settings-panel-heading"><div><h2 id="portal-contact-title">Contato</h2><p>Dúvidas, pedidos e suporte.</p></div></div>
       <div className="settings-panel-body"><dl className="settings-facts portal-contact-facts">
-        <div><dt>RESPONSÁVEL</dt><dd>{profile.name}</dd></div>
-        {profile.email ? <div><dt>E-MAIL</dt><dd><a className="text-link-inline" href={`mailto:${profile.email}`}>{profile.email}</a></dd></div> : null}
-        {profile.phone ? <div><dt>TELEFONE</dt><dd><a className="text-link-inline" href={`tel:${profile.phone.replace(/[^\d+]/g, "")}`}>{profile.phone}</a></dd></div> : null}
-        {profile.website ? <div><dt>SITE</dt><dd><a className="text-link-inline" href={profile.website} target="_blank" rel="noreferrer">{profile.website.replace(/^https?:\/\//, "")}</a></dd></div> : null}
+        <div><dt>Responsável</dt><dd>{profile.name}</dd></div>
+        {profile.email ? <div><dt>E-mail</dt><dd><a className="text-link-inline" href={`mailto:${profile.email}`}>{profile.email}</a></dd></div> : null}
+        {profile.phone ? <div><dt>Telefone</dt><dd><a className="text-link-inline" href={`tel:${profile.phone.replace(/[^\d+]/g, "")}`}>{profile.phone}</a></dd></div> : null}
+        {profile.website ? <div><dt>Site</dt><dd><a className="text-link-inline" href={profile.website} target="_blank" rel="noreferrer">{profile.website.replace(/^https?:\/\//, "")}</a></dd></div> : null}
       </dl></div>
     </section> : null}
   </PortalShell>;

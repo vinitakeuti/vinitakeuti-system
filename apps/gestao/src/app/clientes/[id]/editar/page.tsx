@@ -19,8 +19,8 @@ export default async function EditClientPage({ params, searchParams }: EditClien
   const profileHref = `/clientes/${client.id}`;
   return (
     <main className="app-shell"><AppSidebar current="clients" /><div className="workspace"><section className="directory-page form-page">
-      <header className="directory-header"><div><p className="eyebrow">CLIENTES / EDITAR CADASTRO</p><h1>{client.name}</h1><p>As alterações valem para os próximos documentos e PDFs gerados para este cliente.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href={profileHref}>VOLTAR PARA O PERFIL</Link></div></header>
-      <ClientForm action={updateClient} values={client} error={error} cancelHref={profileHref} submitLabel="SALVAR CADASTRO" />
+      <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/clientes">Clientes</Link></p><h1>{client.name}</h1><p>As alterações valem para os próximos documentos e PDFs gerados para este cliente.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href={profileHref}>Voltar para o perfil</Link></div></header>
+      <ClientForm action={updateClient} values={client} error={error} cancelHref={profileHref} submitLabel="Salvar cadastro" />
       <DeleteClientPanel impact={impact} error={deleteError?.slice(0, 300)} />
     </section></div></main>
   );

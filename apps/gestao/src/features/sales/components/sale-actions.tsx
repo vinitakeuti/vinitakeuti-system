@@ -51,10 +51,10 @@ export function SaleActions({ saleId, status, updateAction, deleteAction }: { sa
   }, [isEditing]);
 
   return <div className="sale-actions">
-    <button ref={triggerRef} className="sale-edit-toggle" type="button" aria-expanded={isEditing} onClick={() => setIsEditing((open) => !open)}>{isEditing ? "FECHAR" : "EDITAR"}</button>
+    <button ref={triggerRef} className="sale-edit-toggle" type="button" aria-expanded={isEditing} onClick={() => setIsEditing((open) => !open)}>{isEditing ? "Fechar" : "Editar"}</button>
     {isEditing ? createPortal(<div ref={panelRef} className="sale-edit-panel is-floating" style={{ top: position?.top ?? -9999, left: position?.left ?? -9999, width: PANEL_WIDTH }}>
-      <form action={updateAction}><input type="hidden" name="saleId" value={saleId} /><select name="status" value={selected} onChange={(event) => setSelected(event.target.value)} aria-label="Status da venda">{statuses.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select><button type="submit">SALVAR</button></form>
-      {(status === "PENDING" || status === "CONFIRMED") ? <form action={deleteAction} onSubmit={(event) => { if (!window.confirm("Excluir esta venda? Esta ação não pode ser desfeita.")) event.preventDefault(); }}><input type="hidden" name="saleId" value={saleId} /><button className="sale-delete-action" type="submit">EXCLUIR</button></form> : null}
+      <form action={updateAction}><input type="hidden" name="saleId" value={saleId} /><select name="status" value={selected} onChange={(event) => setSelected(event.target.value)} aria-label="Status da venda">{statuses.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select><button type="submit">Salvar</button></form>
+      {(status === "PENDING" || status === "CONFIRMED") ? <form action={deleteAction} onSubmit={(event) => { if (!window.confirm("Excluir esta venda? Esta ação não pode ser desfeita.")) event.preventDefault(); }}><input type="hidden" name="saleId" value={saleId} /><button className="sale-delete-action" type="submit">Excluir</button></form> : null}
     </div>, document.body) : null}
   </div>;
 }

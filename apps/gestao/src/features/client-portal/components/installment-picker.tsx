@@ -30,7 +30,7 @@ export function InstallmentPicker({ entryId, description, installments, online }
     </li>)}</ul>
     {online ? <div className="portal-picker-footer">
       <span>{count ? `${count} ${count === 1 ? "parcela selecionada" : "parcelas selecionadas"}` : "Nenhuma parcela selecionada"}</span>
-      <button className="primary-action" type="submit" disabled={!count}>{count ? `PAGAR ${money.format(total / 100)}` : "PAGAR"}</button>
+      <button className="primary-action" type="submit" disabled={!count}>{count ? `PAGAR ${money.format(total / 100)}` : "Pagar"}</button>
     </div> : null}
   </form>;
 }

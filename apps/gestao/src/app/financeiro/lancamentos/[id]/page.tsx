@@ -80,17 +80,17 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
   const asaas = income && open ? await getEntryAsaasState(entry) : null;
   const automated = Boolean(asaas?.automated);
   const nextCharge = asaas?.openCharges.get(next?.number ?? 0) ?? null;
-  const manualPaid = <form action={markNextInstallmentPaidAction} className={styles.markPaid}><input type="hidden" name="entryId" value={entry.id} /><input name="paidAt" type="date" required defaultValue={today} aria-label="Data do pagamento" /><button type="submit">MARCAR PAGA</button></form>;
+  const manualPaid = <form action={markNextInstallmentPaidAction} className={styles.markPaid}><input type="hidden" name="entryId" value={entry.id} /><input name="paidAt" type="date" required defaultValue={today} aria-label="Data do pagamento" /><button type="submit">Marcar paga</button></form>;
   // Na próxima parcela: com o Asaas, a cobrança (ou o botão para gerá-la) e o registro manual só para recebimentos fora dele.
   const nextActions = automated ? <>
-    {nextCharge ? <a className={styles.chargeLink} href={nextCharge.invoiceUrl ?? undefined} target="_blank" rel="noreferrer">COBRANÇA ENVIADA · FATURA</a> : <form action={chargeNextInstallmentAction}><input type="hidden" name="entryId" value={entry.id} /><button className={styles.textAction} type="submit">GERAR COBRANÇA AGORA</button></form>}
-    <details className={styles.adjust}><summary>RECEBIDO FORA DO ASAAS</summary>{manualPaid}</details>
+    {nextCharge ? <a className={styles.chargeLink} href={nextCharge.invoiceUrl ?? undefined} target="_blank" rel="noreferrer">Cobrança enviada · fatura</a> : <form action={chargeNextInstallmentAction}><input type="hidden" name="entryId" value={entry.id} /><button className={styles.textAction} type="submit">Gerar cobrança agora</button></form>}
+    <details className={styles.adjust}><summary>Recebido fora do Asaas</summary>{manualPaid}</details>
   </> : manualPaid;
 
-  const header = <header className="directory-header"><div><p className="eyebrow">GESTÃO / FINANCEIRO / {income ? "ENTRADA" : "SAÍDA"}</p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} · {entry.counterparty ?? "Sem contraparte"} · {entry.category}{entry.origin === "QUOTE" ? " · venda confirmada" : ""}</p>{entry.paymentCondition ? <span className={styles.conditionTag + " " + styles.headerTag}>{entry.paymentCondition}</span> : null}</div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">VOLTAR AO FINANCEIRO</Link></div></div></header>;
+  const header = <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/financeiro">Financeiro</Link> / {income ? "Entrada" : "Saída"}</p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} · {entry.counterparty ?? "Sem contraparte"} · {entry.category}{entry.origin === "QUOTE" ? " · venda confirmada" : ""}</p>{entry.paymentCondition ? <span className={styles.conditionTag + " " + styles.headerTag}>{entry.paymentCondition}</span> : null}</div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">Voltar ao financeiro</Link></div></div></header>;
 
   const detailsForm = <section className={styles.entryPanel + " " + styles.entryEdit}>
-    <div className={styles.ledgerHeading}><div><p className="eyebrow">DADOS DO LANÇAMENTO</p><h2>Descrição e detalhes.</h2><small>{income ? "Valor, condição e datas ficam na condição de pagamento, acima." : "O valor e a data definem quanto e quando esta saída conta nos custos."}</small></div></div>
+    <div className={styles.ledgerHeading}><div><p className="eyebrow">Dados do lançamento</p><h2>Descrição e detalhes</h2><small>{income ? "Valor, condição e datas ficam na condição de pagamento, acima." : "O valor e a data definem quanto e quando esta saída conta nos custos."}</small></div></div>
     <form action={updateFinancialEntryAction} className={styles.entryForm}>
       <input type="hidden" name="id" value={entry.id} />
       <label>Descrição<input name="description" maxLength={180} required defaultValue={entry.description} /></label>
@@ -102,10 +102,10 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
       <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField initialClient={entry.client} initialText={entry.counterparty ?? ""} placeholder="Busque um cliente ou digite fornecedor ou pessoa" /></div>
       <label className={styles.notes}>Observação<textarea name="notes" maxLength={500} rows={2} defaultValue={entry.notes ?? ""} placeholder="Opcional" /></label>
       <div className={styles.formActions}>
-        {cancellable ? <ConfirmSubmitButton formAction={cancelFinancialEntryAction} className={styles.textAction + " " + styles.cancelAction} message="Cancelar este lançamento? Ele deixa de contar no caixa e no resultado.">CANCELAR LANÇAMENTO</ConfirmSubmitButton> : null}
-        {cancelled ? <button className={styles.textAction} type="submit" formAction={reopenFinancialEntryAction} formNoValidate>REABRIR LANÇAMENTO</button> : null}
+        {cancellable ? <ConfirmSubmitButton formAction={cancelFinancialEntryAction} className={styles.textAction + " " + styles.cancelAction} message="Cancelar este lançamento? Ele deixa de contar no caixa e no resultado.">Cancelar lançamento</ConfirmSubmitButton> : null}
+        {cancelled ? <button className={styles.textAction} type="submit" formAction={reopenFinancialEntryAction} formNoValidate>Reabrir lançamento</button> : null}
         <input type="hidden" name="returnTo" value="entry" />
-        <button className="primary-action" type="submit">SALVAR DADOS</button>
+        <button className="primary-action" type="submit">Salvar dados</button>
       </div>
     </form>
   </section>;
@@ -115,9 +115,9 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
       {header}
       {feedback ? <p className={query.error ? "form-error" : "form-success"} role={query.error ? "alert" : "status"}>{feedback}</p> : null}
       <section className={styles.entrySummary} aria-label="Situação do lançamento">
-        <div><span>VALOR</span><strong className={styles.expense}>{money.format(entry.amountCents / 100)}</strong><small>Vence {date.format(entry.dueDate)}</small></div>
-        <div className={styles.entrySummaryWide}><span>COMO CONTA NO CAIXA</span><strong>{cancelled ? "Fora do caixa" : entry.dueDate.getTime() > Date.now() ? "Programado" : "Pago"}</strong><small>{cancelled ? "Saída cancelada: não entra nos custos." : `Saídas não precisam de confirmação: contam como pagas em ${date.format(entry.dueDate)}.`}</small></div>
-        <div><span>STATUS</span><b className={styles.status + " " + styles[financeEntryStatusKey(entry)]}>{financeEntryStatusLabel(entry)}</b></div>
+        <div><span>Valor</span><strong className={styles.expense}>{money.format(entry.amountCents / 100)}</strong><small>Vence {date.format(entry.dueDate)}</small></div>
+        <div className={styles.entrySummaryWide}><span>Como conta no caixa</span><strong>{cancelled ? "Fora do caixa" : entry.dueDate.getTime() > Date.now() ? "Programado" : "Pago"}</strong><small>{cancelled ? "Saída cancelada: não entra nos custos." : `Saídas não precisam de confirmação: contam como pagas em ${date.format(entry.dueDate)}.`}</small></div>
+        <div><span>Status</span><b className={styles.status + " " + styles[financeEntryStatusKey(entry)]}>{financeEntryStatusLabel(entry)}</b></div>
       </section>
       {entry.recurringEntry ? <p className={styles.recurringNote}>Este lançamento é o mês de {monthLabel.format(entry.dueDate)} do custo fixo <Link href={`/financeiro/custos-fixos/${entry.recurringEntry.id}`}>{entry.recurringEntry.description}</Link>. Para mudar todos os meses, edite o custo fixo; aqui a alteração vale só para este mês.</p> : null}
       {detailsForm}
@@ -130,17 +130,17 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
 
     {/* 1. Situação: quanto vale, quanto entrou, quanto falta e a próxima parcela. */}
     <section className={styles.entrySummary} aria-label="Situação da venda">
-      <div><span>VALOR TOTAL</span><strong>{money.format(entry.amountCents / 100)}</strong><small>{installments.length ? `${installments.length} ${installments.length === 1 ? "parcela" : "parcelas"}` : "Cobrança única"}</small></div>
-      <div><span>RECEBIDO</span><strong className={styles.income}>{money.format(entry.paidCents / 100)}</strong><i className={styles.entryProgress} aria-hidden="true"><i style={{ width: `${progress}%` }} /></i><small>{progress}% do total</small></div>
-      <div><span>FALTA</span><strong>{money.format((cancelled ? 0 : remaining) / 100)}</strong><small>{cancelled ? "Lançamento cancelado" : remaining ? `${installments.filter((installment) => installment.state !== "paid").length || 1} em aberto` : "Tudo recebido"}</small></div>
-      <div><span>PRÓXIMA PARCELA</span>{open && nextDue ? <><strong className={late ? styles.expense : undefined}>{money.format(nextAmount / 100)}</strong><small className={late ? styles.lateText : undefined}>{late ? "Atrasada · venceu em " : "Vence em "}{shortDate.format(nextDue)}</small></> : <><b className={styles.status + " " + styles[financeEntryStatusKey(entry)]}>{financeEntryStatusLabel(entry)}</b><small>{cancelled ? "Sem cobranças" : "Nenhuma parcela em aberto"}</small></>}</div>
+      <div><span>Valor total</span><strong>{money.format(entry.amountCents / 100)}</strong><small>{installments.length ? `${installments.length} ${installments.length === 1 ? "parcela" : "parcelas"}` : "Cobrança única"}</small></div>
+      <div><span>Recebido</span><strong className={styles.income}>{money.format(entry.paidCents / 100)}</strong><i className={styles.entryProgress} aria-hidden="true"><i style={{ width: `${progress}%` }} /></i><small>{progress}% do total</small></div>
+      <div><span>Falta</span><strong>{money.format((cancelled ? 0 : remaining) / 100)}</strong><small>{cancelled ? "Lançamento cancelado" : remaining ? `${installments.filter((installment) => installment.state !== "paid").length || 1} em aberto` : "Tudo recebido"}</small></div>
+      <div><span>Próxima parcela</span>{open && nextDue ? <><strong className={late ? styles.expense : undefined}>{money.format(nextAmount / 100)}</strong><small className={late ? styles.lateText : undefined}>{late ? "Atrasada · venceu em " : "Vence em "}{shortDate.format(nextDue)}</small></> : <><b className={styles.status + " " + styles[financeEntryStatusKey(entry)]}>{financeEntryStatusLabel(entry)}</b><small>{cancelled ? "Sem cobranças" : "Nenhuma parcela em aberto"}</small></>}</div>
     </section>
 
-    {missingQuotePayments ? <form action={importQuotePaymentsAction} className={styles.quoteImport}><input type="hidden" name="entryId" value={entry.id} /><p>A proposta desta venda tem <b>{quotePayments.length} {quotePayments.length === 1 ? "pagamento registrado" : "pagamentos registrados"} ({money.format(quotePaid / 100)})</b> que ainda não estão aqui. Pagamentos iguais já lançados à mão não são duplicados.</p><button className="primary-action" type="submit">TRAZER DA PROPOSTA</button></form> : null}
+    {missingQuotePayments ? <form action={importQuotePaymentsAction} className={styles.quoteImport}><input type="hidden" name="entryId" value={entry.id} /><p>A proposta desta venda tem <b>{quotePayments.length} {quotePayments.length === 1 ? "pagamento registrado" : "pagamentos registrados"} ({money.format(quotePaid / 100)})</b> que ainda não estão aqui. Pagamentos iguais já lançados à mão não são duplicados.</p><button className="primary-action" type="submit">Trazer da proposta</button></form> : null}
 
     {/* 2. Condição de pagamento: como o cliente vai pagar. Salvar refaz as parcelas em aberto. */}
     {!cancelled ? <section className={styles.entryPanel + " " + styles.planPanel}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">CONDIÇÃO DE PAGAMENTO</p><h2>Como o cliente vai pagar.</h2><small>Defina o dia do mês e o valor de cada parcela (ou quantas são). O que já foi pago é descontado do total.</small></div></div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">Condição de pagamento</p><h2>Como o cliente vai pagar</h2><small>Defina o dia do mês e o valor de cada parcela (ou quantas são). O que já foi pago é descontado do total.</small></div></div>
       <form action={savePaymentPlanAction} className={styles.planForm}>
         <input type="hidden" name="entryId" value={entry.id} />
         <div className={styles.planGrid}>
@@ -149,13 +149,13 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
           <label>Próxima parcela em<input name="firstMonth" type="month" required defaultValue={plan.firstMonth} /></label>
         </div>
         <PaymentPlanCalculator paidCents={entry.paidCents} paidCount={entry.payments.length} defaultTotalCents={entry.amountCents} defaultCount={plan.count} defaultMonthlyCents={installments.length ? plan.monthlyCents : null} classNames={{ grid: styles.planGrid, preview: styles.planPreview, hint: styles.fieldHint }} />
-        <div className={styles.planActions}><small className={styles.fieldHint}>Dia 29, 30 ou 31 cai no último dia nos meses mais curtos.</small><button className="primary-action" type="submit">SALVAR CONDIÇÃO</button></div>
+        <div className={styles.planActions}><small className={styles.fieldHint}>Dia 29, 30 ou 31 cai no último dia nos meses mais curtos.</small><button className="primary-action" type="submit">Salvar condição</button></div>
       </form>
     </section> : null}
 
     {/* 3. Parcelas: com o Asaas, cobradas e baixadas automaticamente; sem ele, a próxima é marcada como paga na data em que o pagamento entrou. */}
     <section className={styles.ledger + " " + styles.entryEdit}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">PARCELAS</p><h2>{installments.length ? "Cronograma de pagamento." : "Cobrança única."}</h2><small>{automated ? `Confirmadas automaticamente pelo Asaas: a cobrança da próxima parcela é enviada ao cliente${asaas?.autoChargeDays !== null ? ` ${asaas?.autoChargeDays} dias antes do vencimento` : " quando ele usa PAGAR AGORA no portal"} e a parcela é baixada quando o pagamento cai.${installments.length ? " Use AJUSTAR para mudar a data ou o valor." : ""}` : installments.length ? "Marque a próxima parcela como paga quando o pagamento entrar. Use AJUSTAR para mudar a data ou o valor de uma parcela." : "Para dividir em parcelas, preencha a condição de pagamento acima."}</small></div>{open && remaining ? <form action={settleFinancialEntryAction}><input type="hidden" name="id" value={entry.id} /><input type="hidden" name="returnTo" value="entry" /><button className={styles.textAction} type="submit">QUITAR TUDO</button></form> : null}</div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">Parcelas</p><h2>{installments.length ? "Cronograma de pagamento" : "Cobrança única"}</h2><small>{automated ? `Confirmadas automaticamente pelo Asaas: a cobrança da próxima parcela é enviada ao cliente${asaas?.autoChargeDays !== null ? ` ${asaas?.autoChargeDays} dias antes do vencimento` : " quando ele usa “Pagar agora” no portal"} e a parcela é baixada quando o pagamento cai.${installments.length ? " Use “Ajustar” para mudar a data ou o valor." : ""}` : installments.length ? "Marque a próxima parcela como paga quando o pagamento entrar. Use “Ajustar” para mudar a data ou o valor de uma parcela." : "Para dividir em parcelas, preencha a condição de pagamento acima."}</small></div>{open && remaining ? <form action={settleFinancialEntryAction}><input type="hidden" name="id" value={entry.id} /><input type="hidden" name="returnTo" value="entry" /><button className={styles.textAction} type="submit">Quitar tudo</button></form> : null}</div>
       {automated && asaas?.missingDocument ? <p className={styles.chargeWarning}>O cliente não tem CPF nem CNPJ no cadastro, e o Asaas exige um deles para cobrar. <Link href={`/clientes/${asaas.clientId}/editar`}>Completar cadastro</Link></p> : null}
       <ol className={styles.scheduleList}>
         {installments.length ? installments.map((installment) => {
@@ -169,7 +169,7 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
             <i className={styles.status + " " + (installment.state === "paid" ? styles.settled : overdue ? styles.cancelledLate : installment.state === "partial" ? styles.partial : styles.pending)}>{installment.state === "paid" ? (paidOn ? `Paga em ${shortDate.format(paidOn)}` : "Paga") : installment.state === "partial" ? `Falta ${money.format(installment.remaining / 100)}` : overdue ? "Atrasada" : "Em aberto"}</i>
             <div className={styles.scheduleActions}>
               {isNext ? nextActions : null}
-              {installment.state !== "paid" ? <details className={styles.adjust}><summary>AJUSTAR</summary><form action={updateInstallmentAction}><input type="hidden" name="installmentId" value={installment.id} /><label>Vencimento<input name="dueDate" type="date" required defaultValue={isoDay.format(installment.dueDate)} /></label><label>Valor<input name="amount" inputMode="decimal" required defaultValue={amountField(installment.amountCents)} /></label><button type="submit">SALVAR</button></form></details> : null}
+              {installment.state !== "paid" ? <details className={styles.adjust}><summary>Ajustar</summary><form action={updateInstallmentAction}><input type="hidden" name="installmentId" value={installment.id} /><label>Vencimento<input name="dueDate" type="date" required defaultValue={isoDay.format(installment.dueDate)} /></label><label>Valor<input name="amount" inputMode="decimal" required defaultValue={amountField(installment.amountCents)} /></label><button type="submit">Salvar</button></form></details> : null}
             </div>
           </li>;
         }) : open && remaining ? <li className={styles.scheduleNext}>
@@ -182,19 +182,19 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
 
     {/* 4. Pagamentos recebidos: o histórico do que entrou, com a origem. */}
     <section className={styles.ledger + " " + styles.entryEdit}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">PAGAMENTOS RECEBIDOS</p><h2>{entry.payments.length ? `${entry.payments.length} ${entry.payments.length === 1 ? "pagamento" : "pagamentos"} · ${money.format(entry.paidCents / 100)}` : "Nenhum pagamento ainda."}</h2><small>Cada valor que entrou, com a data. Os da proposta comercial vêm automaticamente.</small></div></div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">Pagamentos recebidos</p><h2>{entry.payments.length ? `${entry.payments.length} ${entry.payments.length === 1 ? "pagamento" : "pagamentos"} · ${money.format(entry.paidCents / 100)}` : "Nenhum pagamento ainda."}</h2><small>Cada valor que entrou, com a data. Os da proposta comercial vêm automaticamente.</small></div></div>
       {entry.payments.length ? <ul className={styles.receiptList}>{entry.payments.map((payment) => <li key={payment.id}>
         <span>{shortDate.format(payment.paidAt)}</span>
         <strong>{money.format(payment.amountCents / 100)}</strong>
-        <small>{payment.notes ?? "Sem observação"}{payment.fromQuote ? <em className={styles.originTag}>PROPOSTA</em> : null}{payment.chargeId ? <em className={styles.originTag}>ASAAS</em> : null}</small>
-        <details className={styles.adjust}><summary>EDITAR</summary><form action={updateFinancialPaymentAction}><input type="hidden" name="paymentId" value={payment.id} /><label>Data<input name="paidAt" type="date" required defaultValue={isoDay.format(payment.paidAt)} /></label><label>Valor<input name="amount" inputMode="decimal" required defaultValue={amountField(payment.amountCents)} /></label><label>Observação<input name="notes" maxLength={300} defaultValue={payment.notes ?? ""} /></label><button type="submit">SALVAR</button><ConfirmSubmitButton formAction={deleteFinancialPaymentAction} className={styles.cancelAction} message={`Remover este pagamento de ${money.format(payment.amountCents / 100)}? O valor volta a ficar em aberto.`}>REMOVER</ConfirmSubmitButton></form></details>
+        <small>{payment.notes ?? "Sem observação"}{payment.fromQuote ? <em className={styles.originTag}>Proposta</em> : null}{payment.chargeId ? <em className={styles.originTag}>Asaas</em> : null}</small>
+        <details className={styles.adjust}><summary>Editar</summary><form action={updateFinancialPaymentAction}><input type="hidden" name="paymentId" value={payment.id} /><label>Data<input name="paidAt" type="date" required defaultValue={isoDay.format(payment.paidAt)} /></label><label>Valor<input name="amount" inputMode="decimal" required defaultValue={amountField(payment.amountCents)} /></label><label>Observação<input name="notes" maxLength={300} defaultValue={payment.notes ?? ""} /></label><button type="submit">Salvar</button><ConfirmSubmitButton formAction={deleteFinancialPaymentAction} className={styles.cancelAction} message={`Remover este pagamento de ${money.format(payment.amountCents / 100)}? O valor volta a ficar em aberto.`}>Remover</ConfirmSubmitButton></form></details>
       </li>)}</ul> : null}
-      {!cancelled && remaining ? <details className={styles.installmentPlan}><summary>REGISTRAR OUTRO VALOR</summary><form action={addFinancialPaymentAction} className={styles.paymentRow + " " + styles.paymentNew}>
+      {!cancelled && remaining ? <details className={styles.installmentPlan}><summary>Registrar outro valor</summary><form action={addFinancialPaymentAction} className={styles.paymentRow + " " + styles.paymentNew}>
         <input type="hidden" name="entryId" value={entry.id} />
         <label><span>Data</span><input name="paidAt" type="date" required defaultValue={today} /></label>
         <label><span>Valor</span><input name="amount" inputMode="decimal" required placeholder={amountField(nextAmount)} /></label>
         <label><span>Observação</span><input name="notes" maxLength={300} placeholder="Ex.: pagamento adiantado" /></label>
-        <div className={styles.paymentActions}><button className="primary-action" type="submit">REGISTRAR</button></div>
+        <div className={styles.paymentActions}><button className="primary-action" type="submit">Registrar</button></div>
       </form></details> : null}
     </section>
 

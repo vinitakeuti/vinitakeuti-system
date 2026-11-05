@@ -17,7 +17,7 @@ export function EmailTestPanel({ configured, defaultTo }: { configured: boolean;
   const [sendState, send, sending] = useActionState<EmailTestState, FormData>(sendTestEmailAction, { status: "idle" });
   return <>
     <form action={verify} className="settings-inline-action">
-      <button className="secondary-action" type="submit" disabled={!configured || verifying}>{verifying ? "TESTANDO..." : "TESTAR CONEXÃO"}</button>
+      <button className="secondary-action" type="submit" disabled={!configured || verifying}>{verifying ? "Testando..." : "Testar conexão"}</button>
       <small>Conecta e faz login no servidor, sem enviar nada.</small>
     </form>
     <Result state={verifyState} />
@@ -25,7 +25,7 @@ export function EmailTestPanel({ configured, defaultTo }: { configured: boolean;
       <label>Para<input name="to" type="email" required maxLength={254} defaultValue={defaultTo} /></label>
       <label>Assunto<input name="subject" maxLength={160} defaultValue="Teste de envio · VR Gestão" /></label>
       <label className="settings-form-wide">Mensagem<textarea name="message" rows={3} maxLength={2000} defaultValue="Este é um e-mail de teste enviado pelas Configurações da VR Gestão." /></label>
-      <div className="settings-form-actions"><button className="primary-action" type="submit" disabled={!configured || sending}>{sending ? "ENVIANDO..." : "ENVIAR E-MAIL DE TESTE"}</button>{!configured ? <small>Configure o servidor de envio para habilitar.</small> : null}</div>
+      <div className="settings-form-actions"><button className="primary-action" type="submit" disabled={!configured || sending}>{sending ? "Enviando..." : "Enviar e-mail de teste"}</button>{!configured ? <small>Configure o servidor de envio para habilitar.</small> : null}</div>
     </form>
     <Result state={sendState} />
   </>;
@@ -37,7 +37,7 @@ export function EmailModelTest({ model, configured, defaultTo }: { model: string
   return <form action={send} className="settings-model-test">
     <input type="hidden" name="model" value={model} />
     <label>Enviar este modelo para<input name="to" type="email" required maxLength={254} defaultValue={defaultTo} /></label>
-    <button className="secondary-action" type="submit" disabled={!configured || sending}>{sending ? "ENVIANDO..." : "ENVIAR TESTE"}</button>
+    <button className="secondary-action" type="submit" disabled={!configured || sending}>{sending ? "Enviando..." : "Enviar teste"}</button>
     <Result state={state} />
   </form>;
 }

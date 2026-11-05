@@ -3,7 +3,11 @@ import { headers } from "next/headers";
 import "@fontsource-variable/inter";
 import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
+import "./tokens.css";
 import "./globals.css";
+import "./system.css";
+import { Suspense } from "react";
+import { RouteProgress } from "@/components/route-progress";
 import { homeScreenName, portalForRequest } from "@/features/auth/services/auth-host";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,5 +26,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR"><body>{children}</body></html>;
+  return <html lang="pt-BR"><body><Suspense fallback={null}><RouteProgress /></Suspense>{children}</body></html>;
 }

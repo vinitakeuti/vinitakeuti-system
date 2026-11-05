@@ -18,7 +18,7 @@ export function BudgetCalculator() {
   return (
     <section className="calculator" aria-labelledby="calculator-title">
       <div className="section-heading">
-        <div><p className="eyebrow">ORÇAMENTO</p><h2 id="calculator-title">Estimativa rápida</h2></div>
+        <div><p className="eyebrow">Orçamento</p><h2 id="calculator-title">Estimativa rápida</h2></div>
         <span className="ai-label">IA em breve</span>
       </div>
       <p className="muted">Use como ponto de partida; a análise de escopo por IA entrará nesta mesma tela.</p>

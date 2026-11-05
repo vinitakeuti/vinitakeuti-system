@@ -72,8 +72,8 @@ export function QuoteSummaryPanel({ serviceCount, oneTimeCents, recurringCents, 
 
   return <aside ref={panelRef} className={`quote-summary-panel${stateClass}`} aria-label="Resumo do orçamento">
     <div className="quote-summary-panel-head">
-      <div><span>RESUMO DO ORÇAMENTO</span><small>{serviceCount} {serviceCount === 1 ? "serviço selecionado" : "serviços selecionados"}</small></div>
-      <button className="quote-summary-panel-toggle" type="button" aria-expanded={detailsVisible} aria-controls={detailsId} onClick={() => setExpanded(!detailsVisible)}>{detailsVisible ? "OCULTAR" : "DETALHES"}</button>
+      <div><span>Resumo do orçamento</span><small>{serviceCount} {serviceCount === 1 ? "serviço selecionado" : "serviços selecionados"}</small></div>
+      <button className="quote-summary-panel-toggle" type="button" aria-expanded={detailsVisible} aria-controls={detailsId} onClick={() => setExpanded(!detailsVisible)}>{detailsVisible ? "Ocultar" : "Detalhes"}</button>
     </div>
     <dl className="quote-summary-panel-details" id={detailsId}>
       <div><dt>Implantação e avulsos</dt><dd>{money.format(oneTimeCents / 100)}</dd></div>
@@ -90,6 +90,6 @@ export function QuoteSummaryPanel({ serviceCount, oneTimeCents, recurringCents, 
       </div>
       {discount.amountCents > 0 ? <div className="quote-summary-panel-equivalent"><dt>Equivale a</dt><dd>{discount.mode === "percent" ? `- ${money.format(discount.amountCents / 100)}` : `${percentText(discount.effectivePercentBps)}% do subtotal`}</dd></div> : null}
     </dl>
-    <div className="quote-summary-panel-total"><span>TOTAL DA PROPOSTA</span><strong>{money.format(totalCents / 100)}</strong></div>
+    <div className="quote-summary-panel-total"><span>Total da proposta</span><strong>{money.format(totalCents / 100)}</strong></div>
   </aside>;
 }

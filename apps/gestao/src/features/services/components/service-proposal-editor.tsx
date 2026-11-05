@@ -724,10 +724,10 @@ export function ServiceProposalEditor({ name, initialValue, onChange }: Props) {
       <button type="button" title="Itálico" aria-label="Itálico" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("italic")}><em>I</em></button>
       <button type="button" title="Sublinhado" aria-label="Sublinhado" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("underline")}><u>S</u></button>
       <span aria-hidden="true" />
-      <button type="button" title="Lista com marcadores" aria-label="Lista com marcadores" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("insertUnorderedList")}>LISTA</button>
+      <button type="button" title="Lista com marcadores" aria-label="Lista com marcadores" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("insertUnorderedList")}>Lista</button>
       <button type="button" title="Lista numerada" aria-label="Lista numerada" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("insertOrderedList")}>1.</button>
       <span aria-hidden="true" />
-      <button type="button" title="Limpar formatação" aria-label="Limpar formatação" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("removeFormat")}>LIMPAR</button>
+      <button type="button" title="Limpar formatação" aria-label="Limpar formatação" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("removeFormat")}>Limpar</button>
     </div>
     <InlineRichTextEditor initialValue={initialValue} onChange={syncValue} ariaLabel="Descrição que será exibida no PDF" className="service-proposal-content" />
   </div>;

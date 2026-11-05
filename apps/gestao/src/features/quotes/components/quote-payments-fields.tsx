@@ -54,15 +54,15 @@ export function QuotePaymentsFields({ initialPayments = [], initialNotes = "", i
 
   return <div className={`quote-payments${rows.length ? "" : " is-empty"}`} ref={containerRef}>
     <div className="quote-payments-heading">
-      <div><span>{rows.length ? `${rows.length} ${rows.length === 1 ? "PAGAMENTO REGISTRADO" : "PAGAMENTOS REGISTRADOS"}` : "NENHUM PAGAMENTO REGISTRADO"}</span><small>Total da proposta: {money.format(totalCents / 100)}</small></div>
-      <button className="secondary-action quote-payments-add" type="button" onClick={addRow} disabled={rows.length >= MAX_QUOTE_PAYMENTS}>ADICIONAR PAGAMENTO</button>
+      <div><span>{rows.length ? `${rows.length} ${rows.length === 1 ? "Pagamento registrado" : "Pagamentos registrados"}` : "Nenhum pagamento registrado"}</span><small>Total da proposta: {money.format(totalCents / 100)}</small></div>
+      <button className="secondary-action quote-payments-add" type="button" onClick={addRow} disabled={rows.length >= MAX_QUOTE_PAYMENTS}>Adicionar pagamento</button>
     </div>
     {rows.length ? <>
       <div className="quote-payments-rows" aria-live="polite">{rows.map((row, index) => <div className="quote-payment-row" key={row.key}>
         <span className="quote-payment-index">{String(index + 1).padStart(2, "0")}</span>
-        <label>VALOR PAGO (R$)<input name="paymentAmount" type="number" min="0.01" step="0.01" inputMode="decimal" required value={row.amount} onChange={(event) => updateRow(row.key, { amount: event.target.value })} placeholder="0,00" /></label>
-        <label>DATA DO PAGAMENTO<input name="paymentDate" type="date" required value={row.date} onChange={(event) => updateRow(row.key, { date: event.target.value })} /></label>
-        <button className="quote-remove-service" type="button" onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))} aria-label={`Remover pagamento ${index + 1}`}>REMOVER</button>
+        <label>Valor pago (R$)<input name="paymentAmount" type="number" min="0.01" step="0.01" inputMode="decimal" required value={row.amount} onChange={(event) => updateRow(row.key, { amount: event.target.value })} placeholder="0,00" /></label>
+        <label>Data do pagamento<input name="paymentDate" type="date" required value={row.date} onChange={(event) => updateRow(row.key, { date: event.target.value })} /></label>
+        <button className="quote-remove-service" type="button" onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))} aria-label={`Remover pagamento ${index + 1}`}>Remover</button>
       </div>)}</div>
       <dl className="quote-payments-summary">
         <div><dt>Total da proposta</dt><dd>{money.format(totalCents / 100)}</dd></div>
