@@ -1537,3 +1537,201 @@ a:hover > .row-chevron {
 .workspace {
   min-width: 0;
 }
+
+/* ---------- Documentos e orçamentos ---------- */
+/* Rótulos de campo dos componentes de documentos no mesmo desenho dos formulários. */
+.client-picker-label,
+.document-producer-field > span,
+.quote-selected-service label,
+.quote-service-search label,
+.client-form .quote-payment-row label {
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.client-picker-results,
+.quote-client-results,
+.quote-service-results {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+.client-picker-results button:hover,
+.client-picker-results button:focus-visible {
+  background: var(--color-accent-soft);
+}
+.client-picker-selected {
+  border-color: var(--color-accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+}
+.client-picker-selected button {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+/* Seletor de tipo de documento: controle segmentado. */
+.documents-switch {
+  border-color: var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+.documents-switch a {
+  min-height: 40px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition:
+    background var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+.documents-switch a.active {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.documents-produce {
+  padding: 20px;
+}
+.documents-produce-heading h2,
+.documents-list-heading h2 {
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+}
+.documents-produce-heading span {
+  color: var(--color-text-secondary);
+}
+.documents-list-heading {
+  padding: 14px 20px;
+}
+.documents-filters {
+  gap: 4px;
+}
+.documents-filters a {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.documents-filters a:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+.documents-filters a.active {
+  background: var(--color-accent-soft-strong);
+  color: var(--green-700);
+}
+.documents-empty p {
+  color: var(--color-text);
+}
+.documents-empty span {
+  color: var(--color-text-secondary);
+}
+.documents-signed {
+  font-size: var(--text-2xs) !important;
+  font-weight: var(--weight-medium);
+}
+.quote-pending-actions .primary-action {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: var(--text-xs);
+}
+@media (max-width: 640px) {
+  .documents-switch a {
+    min-height: var(--touch-target);
+  }
+}
+/* Etapas da proposta: número em círculo, etapa atual em verde. */
+.quote-creation-steps {
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+.quote-creation-steps li > span,
+.quote-form-step-heading > span {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.quote-creation-steps .is-current > span {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  color: var(--color-on-accent);
+  opacity: 1;
+}
+.quote-creation-steps .is-complete > span {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-ink);
+}
+.quote-form-step-heading > span {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.quote-creation-steps .is-current {
+  box-shadow: none;
+}
+/* "Obrigatório" ao lado do rótulo, como marca discreta. */
+.client-form label > em,
+.quote-catalog-search label em {
+  display: inline;
+  margin-left: 6px;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-style: normal;
+  font-weight: var(--weight-regular);
+}
+.client-form label:has(> em) {
+  display: block;
+}
+.client-form label:has(> em) > input,
+.client-form label:has(> em) > textarea,
+.client-form label:has(> em) > select {
+  display: block;
+  margin-top: 8px;
+}
+.client-form label:has(> em) > small {
+  display: block;
+  margin-top: 8px;
+}
+/* Seletor de tipo no celular: uma linha rolável em vez de grade quebrada. */
+@media (max-width: 640px) {
+  .documents-switch {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .documents-switch::-webkit-scrollbar {
+    display: none;
+  }
+  .documents-switch a,
+  .documents-switch a:nth-child(odd),
+  .documents-switch a:nth-child(n + 3) {
+    flex: 1 0 auto;
+    border-top: 0;
+    border-left: 1px solid var(--color-border);
+  }
+  .documents-switch a:first-child {
+    border-left: 0;
+  }
+}
