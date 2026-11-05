@@ -14,7 +14,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
   return (
     <main className="app-shell"><AppSidebar current="clients" /><div className="workspace"><section className="directory-page">
-      <header className="directory-header"><div><p className="eyebrow">Relacionamento / Base</p><h1>Clientes.</h1><p>Perfis que concentram serviços, orçamentos, assinaturas e pagamentos.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="primary-action" href="/clientes/novo">Novo cliente</Link></div></header>
+      <header className="directory-header"><div><h1>Clientes</h1><p>Perfis que concentram serviços, orçamentos, assinaturas e pagamentos.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="primary-action" href="/clientes/novo">Novo cliente</Link></div></header>
       {excluido ? <p className="form-success" role="status">Cliente excluído: {excluido.slice(0, 160)}.</p> : null}
       <section className="directory-surface" aria-label="Lista de clientes">
         <form className="client-search" action="/clientes"><div className="search-control"><label htmlFor="client-query">Buscar cliente</label><input id="client-query" name="q" defaultValue={q ?? ""} placeholder="Nome, empresa ou e-mail" /></div><button type="submit">Buscar</button></form>

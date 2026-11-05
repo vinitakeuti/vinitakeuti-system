@@ -14,7 +14,7 @@ export default async function NewMonitoredAppPage({ searchParams }: { searchPara
   const backHref = client ? `/monitoramento?cliente=${client.id}` : "/monitoramento";
 
   return <main className="app-shell"><AppSidebar current="monitoring" /><div className="workspace"><section className="directory-page form-page">
-    <header className="directory-header"><div><p className="eyebrow">Monitoramento / Novo sistema</p><h1>Adicionar sistema.</h1><p>Informe a URL ou o endpoint de saúde. A verificação é feita sob demanda, pelo botão “Verificar” na lista.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href={backHref}>Voltar para monitoramento</Link></div></header>
+    <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/monitoramento">Monitoramento</Link></p><h1>Adicionar sistema</h1><p>Informe a URL ou o endpoint de saúde. A verificação é feita sob demanda, pelo botão “Verificar” na lista.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href={backHref}>Voltar para monitoramento</Link></div></header>
     <form className="client-form" action={createMonitoredApp}>
       {client ? <input type="hidden" name="filterClientId" value={client.id} /> : null}
       {error ? <p className="form-error" role="alert">{error}</p> : null}

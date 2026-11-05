@@ -69,7 +69,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
   ];
 
   return <main className="app-shell"><AppSidebar current="agenda" /><div className="workspace"><section className="directory-page settings-page agenda-page">
-    <header className="directory-header"><div><p className="eyebrow">Gestão / Agenda</p><h1>Agenda.</h1><p>Reuniões, compromissos, demandas e lembretes. A assistente consulta e marca eventos aqui, e as reuniões do atendimento chegam com o contato e o resumo da conversa.</p></div><div className="header-actions"><SidebarToggle location="header" />{tab === "semana" || tab === "mes" ? <Link className="primary-action" href={`/agenda?${view}&novo=1`} scroll={false}>+ Novo evento</Link> : null}</div></header>
+    <header className="directory-header"><div><h1>Agenda</h1><p>Reuniões, compromissos, demandas e lembretes. A assistente consulta e marca eventos aqui, e as reuniões do atendimento chegam com o contato e o resumo da conversa.</p></div><div className="header-actions"><SidebarToggle location="header" />{tab === "semana" || tab === "mes" ? <Link className="primary-action" href={`/agenda?${view}&novo=1`} scroll={false}>+ Novo evento</Link> : null}</div></header>
     <nav className="client-tabs settings-tabs" aria-label="Seções da agenda">
       {tabs.map((item) => <Link key={item.id} href={item.href} className={tab === item.id ? "active" : undefined} aria-current={tab === item.id ? "page" : undefined}>{item.label}</Link>)}
     </nav>
@@ -111,7 +111,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
       {params.novo ? <EventForm clients={clients} defaultDay={defaultDay} settings={settings} view={view} />
         : event && params.editar ? <EventForm clients={clients} event={event} defaultDay={defaultDay} settings={settings} view={view} />
           : event ? <EventDetailPanel event={event} view={view} />
-            : <div className="agenda-sheet"><header className="agenda-sheet-head"><h2 id="agenda-modal-title">Evento não encontrado.</h2><p className="agenda-sheet-sub">Ele pode ter sido excluído.</p></header></div>}
+            : <div className="agenda-sheet"><header className="agenda-sheet-head"><h2 id="agenda-modal-title">Evento não encontrado</h2><p className="agenda-sheet-sub">Ele pode ter sido excluído.</p></header></div>}
     </AgendaModal> : null}
   </section></div></main>;
 }

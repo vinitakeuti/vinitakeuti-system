@@ -16,11 +16,11 @@ export default async function PendingQuotesPage({ searchParams }: { searchParams
   const { data: quotes, nextCursor } = await listPendingQuotes({ cursor });
 
   return <main className="app-shell"><AppSidebar current="quotes" /><div className="workspace"><section className="directory-page quote-pending-page">
-    <header className="directory-header"><div><p className="eyebrow">Documentos / Propostas pendentes</p><h1>Documentos.</h1><p>Propostas que você começou e ainda não concluiu no editor. Retome de onde parou ou descarte o que não for seguir.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="primary-action" href="/orcamentos/novo">Nova proposta</Link></div></header>
+    <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/documentos">Documentos</Link></p><h1>Documentos</h1><p>Propostas que você começou e ainda não concluiu no editor. Retome de onde parou ou descarte o que não for seguir.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="primary-action" href="/orcamentos/novo">Nova proposta</Link></div></header>
     <QuoteTabs current="pending" />
     {excluido ? <p className="form-success" role="status">Orçamento excluído.</p> : null}
     <section className="directory-surface quote-pending-surface" aria-labelledby="quote-pending-title">
-      <div className="quote-pending-heading"><div><p className="eyebrow">Pendentes de conclusão</p><h2 id="quote-pending-title">Continue a edição.</h2></div><span>Um orçamento sai desta lista quando você usa “Concluir” no editor.</span></div>
+      <div className="quote-pending-heading"><div><p className="eyebrow">Pendentes de conclusão</p><h2 id="quote-pending-title">Continue a edição</h2></div><span>Um orçamento sai desta lista quando você usa “Concluir” no editor.</span></div>
       {quotes.length ? <div className="quote-pending-list"><div className="table-scroll"><table className="quote-pending-table"><thead><tr><th>Orçamento</th><th>Cliente</th><th>Valor</th><th>Última alteração</th><th aria-label="Ações" /></tr></thead><tbody>
         {quotes.map((quote) => <tr key={quote.id}>
           <td className="quote-pending-title"><Link className="client-name" href={`/orcamentos/${quote.id}/editor`}>{quote.title}</Link><small>{quote.code}</small></td>

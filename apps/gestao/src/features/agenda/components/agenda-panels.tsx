@@ -227,7 +227,7 @@ export function EventForm({ clients, event, defaultDay, settings, view }: { clie
 export function AvailabilityPanel({ settings, preview }: { settings: AgendaSettingsView; preview: FreeDay[] }) {
   const workDays = new Set(settings.workDays);
   return <section className="settings-panel" aria-labelledby="agenda-availability-title">
-    <div className="settings-panel-heading"><div><h2 id="agenda-availability-title">Disponibilidade para reuniões.</h2><p>Quando a assistente pode marcar reuniões no atendimento. Ela só oferece horários livres dentro destas regras e nunca mostra os seus compromissos.</p></div></div>
+    <div className="settings-panel-heading"><div><h2 id="agenda-availability-title">Disponibilidade para reuniões</h2><p>Quando a assistente pode marcar reuniões no atendimento. Ela só oferece horários livres dentro destas regras e nunca mostra os seus compromissos.</p></div></div>
     <div className="settings-panel-body">
       <form className="settings-form" action={saveAgendaSettingsAction}>
         <fieldset className="settings-form-wide agenda-days"><legend>Dias de atendimento</legend>{[1, 2, 3, 4, 5, 6, 0].map((day) => <label key={day}><input type="checkbox" name="workDays" value={day} defaultChecked={workDays.has(day)} /><span>{WEEKDAYS[day]}</span></label>)}</fieldset>
@@ -309,7 +309,7 @@ function ArchiveTree({ months, month }: { months: Array<{ month: string; count: 
 export function AgendaArchive({ months, month, events, next, cursor }: { months: Array<{ month: string; count: number }>; month: string | null; events: WeekEvent[]; next: string | null; cursor?: string }) {
   if (!months.length) return <div className="agenda-archive-empty">
     <span className="agenda-archive-empty-mark" aria-hidden="true" />
-    <h2>Nada arquivado ainda.</h2>
+    <h2>Nada arquivado ainda</h2>
     <p>Conclua eventos e demandas e arquive para tirá-los da semana. Eles ficam guardados aqui, organizados por mês.</p>
   </div>;
   const view = `aba=arquivo&mes=${month}`;

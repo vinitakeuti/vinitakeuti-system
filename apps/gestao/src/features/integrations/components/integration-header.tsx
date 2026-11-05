@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 
 /** Cabeçalho das páginas de cada integração: caminho, título, situação e as abas da integração. */
-export function IntegrationHeader({ crumb, title, description, badge, tabs, current, basePath }: {
+export function IntegrationHeader({ title, description, badge, tabs, current, basePath }: {
   crumb: string;
   title: string;
   description: string;
@@ -13,7 +13,7 @@ export function IntegrationHeader({ crumb, title, description, badge, tabs, curr
 }) {
   return <>
     <header className="directory-header">
-      <div><p className="eyebrow"><Link className="integration-crumb" href="/integracoes">Gestão / Integrações</Link> / {crumb}</p><h1>{title}</h1><p>{description}</p></div>
+      <div><p className="eyebrow page-crumb"><Link href="/integracoes">Integrações</Link></p><h1>{title}</h1><p>{description}</p></div>
       <div className="header-actions">{badge ? <span className={`settings-badge ${badge.tone}`}>{badge.label}</span> : null}<SidebarToggle location="header" /></div>
     </header>
     <nav className="client-tabs settings-tabs" aria-label={`Seções de ${title.replace(/\.$/, "")}`}>

@@ -34,7 +34,7 @@ export default async function AttendancesPage({ searchParams }: AttendancesPageP
   };
 
   return <main className="app-shell"><AppSidebar current="attendances" /><div className="workspace"><section className="directory-page">
-    <header className="directory-header"><div><p className="eyebrow">Gestão / Atendimentos</p><h1>Atendimentos.</h1><p>As conversas da assistente com clientes e visitantes no site, no WhatsApp e na área do cliente: quem é a pessoa, como falar com ela e o resumo do que ela precisa.</p></div><div className="header-actions"><SidebarToggle location="header" /></div></header>
+    <header className="directory-header"><div><h1>Atendimentos</h1><p>As conversas da assistente com clientes e visitantes no site, no WhatsApp e na área do cliente: quem é a pessoa, como falar com ela e o resumo do que ela precisa.</p></div><div className="header-actions"><SidebarToggle location="header" /></div></header>
     <nav className="client-tabs settings-tabs" aria-label="Situação dos atendimentos">{TABS.map((tab) => <Link key={tab.id} href={href({ situacao: tab.id === "NEW" ? undefined : tab.id, cursor: undefined })} className={status === tab.id ? "active" : undefined} aria-current={status === tab.id ? "page" : undefined}>{tab.label} <b>{counts[tab.id]}</b></Link>)}</nav>
 
     <div className="directory-surface">

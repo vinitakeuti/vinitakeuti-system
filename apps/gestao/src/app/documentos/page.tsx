@@ -45,7 +45,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
   };
 
   return <main className="app-shell"><AppSidebar current="quotes" /><div className="workspace"><section className="directory-page documents-page">
-    <header className="directory-header"><div><p className="eyebrow">Documentos</p><h1>Documentos.</h1><p>Escolha o documento e o cliente. Documentos com cliente ficam também no perfil dele.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href={`/documentos/texto-padrao?tipo=${info.slug}`}>Texto padrão</Link></div></header>
+    <header className="directory-header"><div><h1>Documentos</h1><p>Escolha o documento e o cliente. Documentos com cliente ficam também no perfil dele.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href={`/documentos/texto-padrao?tipo=${info.slug}`}>Texto padrão</Link></div></header>
     {concluido ? <p className="form-success" role="status">Documento {concluido} concluído.</p> : null}
     {excluido ? <p className="form-success" role="status">Documento excluído.</p> : null}
     {error ? <p className="form-error" role="alert">{error.slice(0, 200)}</p> : null}

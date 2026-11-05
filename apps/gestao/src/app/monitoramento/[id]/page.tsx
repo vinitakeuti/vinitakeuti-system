@@ -45,7 +45,7 @@ export default async function MonitoredAppPage({ params, searchParams }: PagePro
   try { host = new URL(app.url ?? app.healthEndpoint ?? "").hostname; } catch { host = null; }
 
   return <main className="app-shell"><AppSidebar current="monitoring" /><div className="workspace"><section className="directory-page monitor-detail">
-    <header className="directory-header"><div><p className="eyebrow">Monitoramento / Sistema</p><h1>{app.name}</h1><p><span className={`monitoring-status monitoring-status-${statusKey}`}><i />{monitoringStatusLabel[app.status]}</span>{app.client ? <> · <Link className="text-link-inline" href={`/clientes/${app.client.id}?section=systems`}>{app.client.name}</Link></> : null}{app.url ? <> · <a className="text-link-inline" href={app.url} target="_blank" rel="noopener noreferrer">{host}</a></> : null}</p></div>
+    <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/monitoramento">Monitoramento</Link></p><h1>{app.name}</h1><p><span className={`monitoring-status monitoring-status-${statusKey}`}><i />{monitoringStatusLabel[app.status]}</span>{app.client ? <> · <Link className="text-link-inline" href={`/clientes/${app.client.id}?section=systems`}>{app.client.name}</Link></> : null}{app.url ? <> · <a className="text-link-inline" href={app.url} target="_blank" rel="noopener noreferrer">{host}</a></> : null}</p></div>
       <div className="header-actions"><SidebarToggle location="header" /><Link className="monitor-guide-link" href={`/monitoramento/guia?sistema=${app.id}`} title="Guia do endpoint de saúde, preenchido com os dados deste sistema">Guia do endpoint</Link><Link className="text-link" href="/monitoramento">Voltar</Link><form action={checkMonitoredAppAction}><input type="hidden" name="id" value={app.id} /><input type="hidden" name="returnTo" value="detail" /><button className="primary-action" type="submit">Verificar agora</button></form></div>
     </header>
     {feedback ? <p className={query.error ? "form-error" : "form-success"} role={query.error ? "alert" : "status"}>{feedback}</p> : null}
@@ -72,7 +72,7 @@ async function OverviewTab({ app, now, host }: { app: App; now: Date; host: stri
       <div><span>Resposta média 24 h</span><strong>{uptime.day.avgMs !== null ? `${uptime.day.avgMs} ms` : "—"}</strong><small>{app.lastResponseMs !== null ? `Última: ${app.lastResponseMs} ms` : "Sem verificações"}</small></div>
     </section>
     <section className="monitor-panel">
-      <div className="monitor-panel-heading"><div><h2>Tempo de resposta · últimas 24 horas.</h2><p>Pontos amarelos: degradado. Pontos vermelhos no topo: fora do ar (sem resposta).</p></div><small>{app.nextCheckAt ? `Próxima verificação automática às ${time.format(app.nextCheckAt)}` : "Verificação automática a cada 5 minutos"}</small></div>
+      <div className="monitor-panel-heading"><div><h2>Tempo de resposta · últimas 24 horas</h2><p>Pontos amarelos: degradado. Pontos vermelhos no topo: fora do ar (sem resposta).</p></div><small>{app.nextCheckAt ? `Próxima verificação automática às ${time.format(app.nextCheckAt)}` : "Verificação automática a cada 5 minutos"}</small></div>
       <ResponseTimeChart points={series.map((point) => ({ checkedAt: point.checkedAt.toISOString(), responseMs: point.responseMs, status: point.status }))} now={now.toISOString()} />
     </section>
     <section className="monitor-facts monitor-facts-secondary" aria-label="Certificado, domínio e última verificação">
@@ -81,7 +81,7 @@ async function OverviewTab({ app, now, host }: { app: App; now: Date; host: stri
       <div className="monitor-facts-wide"><span>Última verificação</span><strong className="monitor-summary-text">{app.lastCheckSummary ?? "Ainda não verificado"}</strong><small>{app.lastCheckedAt ? date.format(app.lastCheckedAt) : "Use “Verificar agora” ou aguarde a verificação automática"}</small></div>
     </section>
     <section className="monitor-panel">
-      <div className="monitor-panel-heading"><div><h2>Verificações recentes.</h2><p>As 12 últimas, da mais nova para a mais antiga.</p></div></div>
+      <div className="monitor-panel-heading"><div><h2>Verificações recentes</h2><p>As 12 últimas, da mais nova para a mais antiga.</p></div></div>
       {recent.length ? <table className="monitor-table"><thead><tr><th>Horário</th><th>Situação</th><th>Resposta</th><th>Detalhe</th></tr></thead><tbody>{recent.map((check) => <tr key={check.id}><td>{date.format(check.checkedAt)}</td><td><span className={`monitoring-status monitoring-status-${monitoringStatusClass[check.status]}`}><i />{monitoringStatusLabel[check.status]}</span></td><td>{check.responseMs} ms</td><td className="monitor-table-detail">{check.summary ?? "—"}</td></tr>)}</tbody></table> : <p className="monitor-chart-empty">Nenhuma verificação ainda.</p>}
     </section>
   </>;
@@ -90,7 +90,7 @@ async function OverviewTab({ app, now, host }: { app: App; now: Date; host: stri
 async function IncidentsTab({ appId, now }: { appId: string; now: Date }) {
   const incidents = await listMonitoringIncidents(appId);
   return <section className="monitor-panel">
-    <div className="monitor-panel-heading"><div><h2>Incidentes.</h2><p>Quedas e degradações, com início, fim e quanto duraram. Os 50 mais recentes.</p></div></div>
+    <div className="monitor-panel-heading"><div><h2>Incidentes</h2><p>Quedas e degradações, com início, fim e quanto duraram. Os 50 mais recentes.</p></div></div>
     {incidents.length ? <ol className="monitor-incidents">{incidents.map((incident) => {
       const ongoing = !incident.resolvedAt;
       const duration = formatDuration((incident.resolvedAt ?? now).getTime() - incident.occurredAt.getTime());

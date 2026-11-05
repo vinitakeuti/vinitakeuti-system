@@ -54,7 +54,7 @@ export default async function PortalDocumentsPage({ searchParams }: DocumentsPag
   const inReview = signable.filter((document) => document.signed?.reviewStatus === "IN_REVIEW");
   const signed = signable.filter((document) => document.signed?.reviewStatus === "APPROVED");
 
-  return <PortalShell context={context} current="documents" section="Documentos" title="Documentos." description="Propostas, contratos e demais documentos do seu projeto, separados entre o que falta assinar, o que está em conferência e o que já está assinado.">
+  return <PortalShell context={context} current="documents" section="Documentos" title="Documentos" description="Propostas, contratos e demais documentos do seu projeto, separados entre o que falta assinar, o que está em conferência e o que já está assinado.">
     {params.enviado ? <p className="portal-feedback is-ok" role="status">Recebemos a via assinada de {params.enviado.slice(0, 30)}. Vamos conferir e, quando aprovada, ela aparece em Assinados.</p> : null}
     {params.erro && errors[params.erro] ? <p className="portal-feedback is-error" role="alert">{errors[params.erro]}</p> : null}
 

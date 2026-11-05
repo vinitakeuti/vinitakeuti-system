@@ -50,7 +50,7 @@ export default async function PaymentConditionsPage({ searchParams }: Conditions
   const statusLabel = params.status === "quitadas" ? "quitadas" : params.status === "todas" ? "todas" : "em aberto";
 
   return <main className="app-shell"><AppSidebar current="finance" /><div className="workspace"><section className={"directory-page " + styles.page}>
-    <header className="directory-header"><div><p className="eyebrow">Gestão / Financeiro / Condições especiais</p><h1>Condições especiais.</h1><p>Vendas com pagamento combinado à parte, como Pix mensal ou boleto parcelado. Aqui ficam todas, de qualquer data, pela próxima cobrança.</p></div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">Voltar ao financeiro</Link></div></div></header>
+    <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/financeiro">Financeiro</Link></p><h1>Condições especiais</h1><p>Vendas com pagamento combinado à parte, como Pix mensal ou boleto parcelado. Aqui ficam todas, de qualquer data, pela próxima cobrança.</p></div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">Voltar ao financeiro</Link></div></div></header>
     {feedback ? <p className={params.error ? "form-error" : "form-success"} role={params.error ? "alert" : "status"}>{feedback}</p> : null}
 
     <section className={styles.fixedSummary} aria-label="Resumo das condições especiais">

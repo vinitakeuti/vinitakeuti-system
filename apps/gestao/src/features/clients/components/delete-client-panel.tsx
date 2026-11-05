@@ -26,7 +26,7 @@ export function DeleteClientPanel({ impact, error }: { impact: Impact; error?: s
   const blocked = impact.openOnlineCharges > 0;
   const matches = sameName(typed, impact.name);
   return <section className="client-delete" id="excluir" aria-labelledby="client-delete-title">
-    <div className="client-delete-head"><h2 id="client-delete-title">Excluir cliente.</h2><p>Remove o cadastro de vez. Não dá para desfazer.</p></div>
+    <div className="client-delete-head"><h2 id="client-delete-title">Excluir cliente</h2><p>Remove o cadastro de vez. Não dá para desfazer.</p></div>
     <div className="client-delete-body">
       <dl className="client-delete-impact">
         <div><dt>Apagado junto</dt><dd>{removed.length ? removed.map(([key, one, many]) => plural(impact.removed[key], one, many)).join(" · ") : "Nada além do cadastro."}</dd></div>

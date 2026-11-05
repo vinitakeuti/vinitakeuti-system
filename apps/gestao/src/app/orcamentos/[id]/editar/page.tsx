@@ -19,7 +19,7 @@ export default async function EditQuotePage({ params, searchParams }: { params: 
   const initialPayments = quote.payments.map((payment) => ({ amountCents: payment.amountCents, paidAt: payment.paidAt.toISOString().slice(0, 10) }));
 
   return <main className="app-shell"><AppSidebar current="quotes" /><div className="workspace"><section className="directory-page form-page">
-    <header className="directory-header"><div><p className="eyebrow">Orçamento / Edição</p><h1>Editar orçamento.</h1><p>{quote.code} · {quote.client.name}</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href={returnHref}>Voltar para orçamento</Link></div></header>
+    <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/documentos">Documentos</Link> / <Link href={`/orcamentos/${quote.id}`}>{quote.code}</Link></p><h1>Editar orçamento</h1><p>{quote.code} · {quote.client.name}</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href={returnHref}>Voltar para orçamento</Link></div></header>
     <form className="client-form quote-form" action={updateQuoteAction}>
       <input type="hidden" name="quoteId" value={quote.id} /><input type="hidden" name="clientId" value={quote.clientId} />
       {error ? <p className="form-error" role="alert">{error}</p> : null}

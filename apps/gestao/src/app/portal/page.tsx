@@ -47,7 +47,7 @@ export default async function PortalHomePage() {
         </section> : null}
 
         <section className="settings-panel portal-todo" aria-labelledby="portal-todo-title">
-          <div className="settings-panel-heading"><div><h2 id="portal-todo-title">Para você.</h2><p>{reminders.length ? "O que pede sua atenção agora." : "Nada pendente no momento."}</p></div></div>
+          <div className="settings-panel-heading"><div><h2 id="portal-todo-title">Para você</h2><p>{reminders.length ? "O que pede sua atenção agora." : "Nada pendente no momento."}</p></div></div>
           {reminders.length ? <ul className="portal-todo-list">{reminders.map((reminder) => <li key={reminder.id} className={`is-${reminder.tone}`}>
             <div className="portal-todo-text"><span className="portal-todo-meta"><i aria-hidden="true" />{reminder.category} · {toneLabel[reminder.tone]}</span><b>{reminder.title}</b><small>{reminder.detail}</small></div>
             <Link className="secondary-action" href={reminder.href}>{reminder.action}</Link>

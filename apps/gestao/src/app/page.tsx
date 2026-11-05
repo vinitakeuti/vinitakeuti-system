@@ -48,25 +48,25 @@ export default async function Home() {
   return <main className="app-shell">
     <AppSidebar current="overview" />
     <div className="workspace">
-      <header className="topbar"><div><p className="eyebrow">Gestão / Operação / 01</p><h1>Visão geral.</h1></div><div className="topbar-actions"><SidebarToggle location="header" /></div></header>
+      <header className="topbar"><div><h1>Visão geral</h1></div><div className="topbar-actions"><SidebarToggle location="header" /></div></header>
       <section id="visao-geral" className="overview" aria-label="Visão geral">
         <article className="revenue-summary">
-          <div className="section-heading"><div><p className="eyebrow">Faturamento / Mensal</p><h2>Resultado financeiro</h2></div><span className="period-label">{periodText}</span></div>
+          <div className="section-heading"><div><h2>Resultado financeiro</h2></div><span className="period-label">{periodText}</span></div>
           <div className="revenue-main"><div><span>Recebido no mês</span><strong>{money.format(finance.incomeSettled / 100)}</strong><small>{progress}% do previsto</small></div><div className="revenue-progress" aria-label={`${progress}% do faturamento previsto realizado`}><span style={{ width: `${progress}%` }} /></div></div>
           <div className="revenue-breakdown"><div><span>Previsto</span><b>{money.format(expected / 100)}</b></div><div><span>Em aberto</span><b>{money.format(finance.incomePending / 100)}</b></div><div><span>Atrasado</span><b className="attention-text">{money.format(finance.overdueAmount / 100)}</b></div></div>
         </article>
         <article className="notification-panel" aria-labelledby="notifications-title">
-          <div className="section-heading"><div><p className="eyebrow">Atenção / Sistema</p><h2 id="notifications-title">Notificações relevantes</h2></div><Link className="text-button" href="/financeiro">Ver financeiro</Link></div>
+          <div className="section-heading"><div><h2 id="notifications-title">Notificações relevantes</h2></div><Link className="text-button" href="/financeiro">Ver financeiro</Link></div>
           <NotificationList notifications={notifications} />
         </article>
       </section>
       <section className="main-grid">
         <div id="monitoramento" className="panel monitoring-panel">
-          <div className="section-heading"><div><p className="eyebrow">Monitoramento / Live</p><h2>Central de sinais</h2></div><Link className="text-button" href="/monitoramento">Ver monitoramento</Link></div>
+          <div className="section-heading"><div><h2>Central de sinais</h2></div><Link className="text-button" href="/monitoramento">Ver monitoramento</Link></div>
           {monitoredApps.length ? <div className="alerts scroll-region">{monitoredApps.map((app) => <div className="alert-row" key={app.id}><span className={`signal ${monitoringState(app.status)}`} /><div><b>{app.name}</b><small>{monitoringDetail(app)}</small></div><span className="chevron">›</span></div>)}</div> : <p className="list-empty">Nenhum sistema monitorado.</p>}
         </div>
         <div id="financeiro" className="panel payments-panel">
-          <div className="section-heading"><div><p className="eyebrow">Financeiro / A receber</p><h2>Próximos pagamentos</h2></div><Link className="text-button" href="/financeiro">Ver financeiro</Link></div>
+          <div className="section-heading"><div><h2>Próximos pagamentos</h2></div><Link className="text-button" href="/financeiro">Ver financeiro</Link></div>
           {payments.length ? <div className="payment-list scroll-region" aria-label="Lista de próximos pagamentos">{payments.map((payment) => <div className="payment-row" key={payment.id}><span className="signal info" /><div><b>{payment.counterparty || payment.description}</b><small>{money.format(payment.amountCents / 100)} · vence {date.format(payment.dueDate)}</small></div><span className="chevron">›</span></div>)}</div> : <p className="list-empty">Nenhum recebimento previsto.</p>}
         </div>
       </section>

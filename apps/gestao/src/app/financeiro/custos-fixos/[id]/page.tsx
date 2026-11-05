@@ -41,7 +41,7 @@ export default async function RecurringEntryPage({ params, searchParams }: Recur
   const startKey = monthKeyOf(entry.startsOn);
 
   return <main className="app-shell"><AppSidebar current="finance" /><div className="workspace"><section className={"directory-page " + styles.page}>
-    <header className="directory-header"><div><p className="eyebrow">Gestão / Financeiro / Custos fixos</p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} mensal · {recurringDayLabel(entry.dayOfMonth)} · {entry.category}</p></div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro/custos-fixos">Voltar aos custos fixos</Link></div></div></header>
+    <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/financeiro">Financeiro</Link> / <Link href="/financeiro/custos-fixos">Custos fixos</Link></p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} mensal · {recurringDayLabel(entry.dayOfMonth)} · {entry.category}</p></div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro/custos-fixos">Voltar aos custos fixos</Link></div></div></header>
     {feedback ? <p className={query.error ? "form-error" : "form-success"} role={query.error ? "alert" : "status"}>{feedback}</p> : null}
 
     <section className={styles.entrySummary} aria-label="Situação da recorrência">
@@ -52,7 +52,7 @@ export default async function RecurringEntryPage({ params, searchParams }: Recur
     </section>
 
     <section className={styles.entryPanel + " " + styles.entryEdit}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">Dados da recorrência</p><h2>Valor, dia e detalhes.</h2><small>As mudanças valem a partir do mês escolhido; os meses anteriores ficam como foram lançados.</small></div></div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">Dados da recorrência</p><h2>Valor, dia e detalhes</h2><small>As mudanças valem a partir do mês escolhido; os meses anteriores ficam como foram lançados.</small></div></div>
       <form action={updateRecurringEntryAction} className={styles.entryForm}>
         <input type="hidden" name="id" value={entry.id} />
         <input type="hidden" name="type" value={entry.type} />
@@ -75,7 +75,7 @@ export default async function RecurringEntryPage({ params, searchParams }: Recur
     </section>
 
     <section className={styles.ledger + " " + styles.entryEdit}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">Meses lançados</p><h2>Histórico no Financeiro.</h2><small>Os meses futuros aparecem conforme você consulta períodos à frente. Clique em um mês para ajustar só ele.</small></div></div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">Meses lançados</p><h2>Histórico no Financeiro</h2><small>Os meses futuros aparecem conforme você consulta períodos à frente. Clique em um mês para ajustar só ele.</small></div></div>
       {entry.entries.length ? <ul className={styles.occurrenceList}>{entry.entries.map((occurrence) => <li key={occurrence.id}><Link href={`/financeiro/lancamentos/${occurrence.id}`}><span>{date.format(occurrence.dueDate)}</span><b>{money.format(occurrence.amountCents / 100)}</b><i className={styles.status + " " + styles[financeEntryStatusKey(occurrence)]}>{financeEntryStatusLabel(occurrence)}</i></Link></li>)}</ul> : <p className={styles.paymentEmpty}>Nenhum mês lançado ainda.</p>}
     </section>
   </section></div></main>;

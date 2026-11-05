@@ -1003,3 +1003,14 @@ body.sidebar-collapsed .workspace {
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
 }
+
+/* Trilha de navegação das subpáginas: links discretos para a seção-mãe. */
+.page-crumb a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+}
+.page-crumb a:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}

@@ -68,7 +68,7 @@ export function AiConnectionPanel({ settings }: { settings: AiSettingsView | nul
   const connected = aiIsConnected(settings);
   const providerId = settings && isAiProviderId(settings.provider) ? settings.provider : "openrouter";
   return <section className="settings-panel" aria-labelledby="ai-connection-title">
-    <div className="settings-panel-heading"><div><h2 id="ai-connection-title">Provedor e modelo.</h2><p>Escolha o provedor, cole a chave e defina o modelo de cada tarefa: um modelo barato para o atendimento e um mais forte para contratos e orçamentos, por exemplo. Dá para trocar a qualquer momento.</p></div></div>
+    <div className="settings-panel-heading"><div><h2 id="ai-connection-title">Provedor e modelo</h2><p>Escolha o provedor, cole a chave e defina o modelo de cada tarefa: um modelo barato para o atendimento e um mais forte para contratos e orçamentos, por exemplo. Dá para trocar a qualquer momento.</p></div></div>
     <div className="settings-panel-body">
       {connected && settings ? <dl className="settings-facts integration-facts">
         <div><dt>Provedor</dt><dd>{aiProviderLabel(settings)}</dd></div>
@@ -120,7 +120,7 @@ export function AiContextPanel({ settings }: { settings: AiSettingsView | null }
     { id: "portal", label: "Área do cliente", detail: "Clientes logados no portal: gerais e de atendimento.", prompt: promptPreview({ scope: "client", channel: "PORTAL", clientName: "Nome do cliente", assistantName: settings?.assistantName, generalInstructions: general, serviceInstructions: service }) },
   ];
   return <section className="settings-panel" aria-labelledby="ai-context-title">
-    <div className="settings-panel-heading"><div><h2 id="ai-context-title">Contexto.</h2><p>O que a IA precisa saber sobre você e o seu trabalho. As instruções gerais valem em todas as conversas; as de atendimento, só quando ela fala com clientes e visitantes. As regras de segurança (o que cada canal pode ver e alterar) continuam valendo acima destas instruções.</p></div></div>
+    <div className="settings-panel-heading"><div><h2 id="ai-context-title">Contexto</h2><p>O que a IA precisa saber sobre você e o seu trabalho. As instruções gerais valem em todas as conversas; as de atendimento, só quando ela fala com clientes e visitantes. As regras de segurança (o que cada canal pode ver e alterar) continuam valendo acima destas instruções.</p></div></div>
     <div className="settings-panel-body">
       <form className="settings-form" action={saveAiContextAction}>
         <label>Nome da assistente<input name="assistantName" maxLength={40} defaultValue={settings?.assistantName ?? ""} placeholder="Ex.: Eliza" autoComplete="off" /><small className="ai-field-hint">Usado na apresentação, na saudação do site e no cabeçalho do atendimento.</small></label>
@@ -139,7 +139,7 @@ export function AiContextPanel({ settings }: { settings: AiSettingsView | null }
 export function AiRulesPanel({ settings }: { settings: AiSettingsView | null }) {
   const channels = new Set(settings?.channels ?? []);
   return <section className="settings-panel" aria-labelledby="ai-rules-title">
-    <div className="settings-panel-heading"><div><h2 id="ai-rules-title">Canais e regras.</h2><p>Onde a IA atende, quem fala com ela pelo WhatsApp, quanto pode responder por dia e o que precisa da sua confirmação.</p></div></div>
+    <div className="settings-panel-heading"><div><h2 id="ai-rules-title">Canais e regras</h2><p>Onde a IA atende, quem fala com ela pelo WhatsApp, quanto pode responder por dia e o que precisa da sua confirmação.</p></div></div>
     <div className="settings-panel-body">
       <form className="settings-form" action={saveAiRulesAction}>
         <fieldset className="settings-form-wide ai-channels">
@@ -158,7 +158,7 @@ export function AiRulesPanel({ settings }: { settings: AiSettingsView | null }) 
 
 export function AiAccessPanel({ settings }: { settings: AiSettingsView | null }) {
   return <section className="settings-panel" aria-labelledby="ai-access-title">
-    <div className="settings-panel-heading"><div><h2 id="ai-access-title">Acesso externo.</h2><p>Como o site, a ponte do WhatsApp e agentes externos (MCP) falam com a IA da gestão. Cada canal precisa estar liberado em Canais e regras.</p></div></div>
+    <div className="settings-panel-heading"><div><h2 id="ai-access-title">Acesso externo</h2><p>Como o site, a ponte do WhatsApp e agentes externos (MCP) falam com a IA da gestão. Cada canal precisa estar liberado em Canais e regras.</p></div></div>
     <div className="settings-panel-body">
       <div className="ai-embed">
         <div><b>Atendimento no site.</b><p>Cole esta linha no site, antes de fechar o &lt;/body&gt;. Aparece um botão flutuante de atendimento; para conversar, o visitante informa nome, telefone e e-mail, e você recebe um e-mail com o contato. O botão só aparece com o canal Site liberado em Canais e regras{settings?.channels.includes("SITE") ? " (liberado)" : " (hoje está desligado)"}.</p></div>
@@ -211,7 +211,7 @@ export async function AiActivityPanel({ settings, scope, cursor }: { settings: A
   const [summary, sessions, usage] = await Promise.all([getActivitySummary(scope, ownerPhones, price), listActivitySessions(scope, ownerPhones, cursor), getAiUsage()]);
   const current = SCOPES.find((item) => item.id === scope)!;
   return <section className="settings-panel" aria-labelledby="ai-activity-title">
-    <div className="settings-panel-heading"><div><h2 id="ai-activity-title">Atividade.</h2><p>Cada conversa é uma sessão, com as respostas, os tokens e o custo. Abra uma sessão para ver as respostas e as ferramentas que a IA usou em cada uma.</p></div></div>
+    <div className="settings-panel-heading"><div><h2 id="ai-activity-title">Atividade</h2><p>Cada conversa é uma sessão, com as respostas, os tokens e o custo. Abra uma sessão para ver as respostas e as ferramentas que a IA usou em cada uma.</p></div></div>
     <div className="settings-panel-body">
       <nav className="ai-scope-switch" aria-label="Lado da atividade">{SCOPES.map((item) => <Link key={item.id} href={`/integracoes/ia?aba=atividade${item.id === "gestao" ? "" : `&escopo=${item.id}`}`} aria-current={item.id === scope ? "page" : undefined}><b>{item.label}</b><small>{item.detail}</small></Link>)}</nav>
       <dl className="settings-facts integration-facts">

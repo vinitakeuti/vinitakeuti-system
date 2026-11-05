@@ -47,13 +47,13 @@ export default async function AsaasPage({ searchParams }: AsaasPageProps) {
   const webhook = webhookLabel[integration?.webhookStatus ?? "MISSING"] ?? webhookLabel.MISSING;
 
   return <main className="app-shell"><AppSidebar current="integrations" /><div className="workspace"><section className="directory-page settings-page">
-    <IntegrationHeader crumb="ASAAS" title="Asaas." description="Pagamentos online: o cliente paga as parcelas pelo portal (Pix, boleto ou cartão) e o recebimento entra sozinho no Financeiro." badge={{ label: connected ? (production ? "Conectado · produção" : "Conectado · sandbox") : "Não conectado", tone: connected && production ? "is-ok" : "is-warning" }} tabs={TABS} current={tab} basePath="/integracoes/asaas" />
+    <IntegrationHeader crumb="Asaas" title="Asaas" description="Pagamentos online: o cliente paga as parcelas pelo portal (Pix, boleto ou cartão) e o recebimento entra sozinho no Financeiro." badge={{ label: connected ? (production ? "Conectado · produção" : "Conectado · sandbox") : "Não conectado", tone: connected && production ? "is-ok" : "is-warning" }} tabs={TABS} current={tab} basePath="/integracoes/asaas" />
     {params.aviso && notices[params.aviso] ? <p className="form-success" role="status">{notices[params.aviso]}</p> : null}
     {params.erro ? <p className="form-error" role="alert">{params.erro.slice(0, 300)}</p> : null}
 
     {tab === "conexao" ? <>
     <section className="settings-panel" aria-labelledby="asaas-title">
-        <div className="settings-panel-heading"><div><h2 id="asaas-title">Conta e webhook.</h2><p>Chave de API, situação da conta e o webhook que avisa a gestão de cada pagamento.</p></div></div>
+        <div className="settings-panel-heading"><div><h2 id="asaas-title">Conta e webhook</h2><p>Chave de API, situação da conta e o webhook que avisa a gestão de cada pagamento.</p></div></div>
         <div className="settings-panel-body">
           {connected && integration ? <>
             <dl className="settings-facts integration-facts">
@@ -95,7 +95,7 @@ export default async function AsaasPage({ searchParams }: AsaasPageProps) {
 
     </> : events ? <>
     <section className="settings-panel" aria-labelledby="asaas-events-title">
-        <div className="settings-panel-heading"><div><h2 id="asaas-events-title">Eventos recebidos.</h2><p>Avisos do Asaas sobre as cobranças. Os que falham são processados de novo automaticamente (até 5 vezes).</p></div></div>
+        <div className="settings-panel-heading"><div><h2 id="asaas-events-title">Eventos recebidos</h2><p>Avisos do Asaas sobre as cobranças. Os que falham são processados de novo automaticamente (até 5 vezes).</p></div></div>
         {events.data.length ? <ul className="settings-log-list">{events.data.map((event) => <li key={event.id}><details>
           <summary><time>{dateTime.format(event.receivedAt)}</time><span className={`settings-level ${event.processedAt ? "is-info" : event.error ? "is-error" : "is-warning"}`}>{event.processedAt ? "Processado" : event.error ? "Falhou" : "Na fila"}</span><b>{asaasEventLabel[event.eventName] ?? event.eventName}{event.amountCents !== null ? ` · ${money.format(event.amountCents / 100)}` : ""}</b><small>{event.charge ? `${event.charge.client.name} · ${event.charge.description}` : "Cobrança criada fora do VR Gestão"}</small></summary>
           <dl className="settings-log-detail">

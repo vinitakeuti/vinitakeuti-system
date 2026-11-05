@@ -27,7 +27,7 @@ export default async function FixedCostsPage({ searchParams }: FixedCostsPagePro
   const active = (entry: { endsOn: Date | null }) => !entry.endsOn || monthKeyOf(entry.endsOn) >= current;
   const feedback = params.error ?? (params.notice === "created" ? "Recorrência criada. Os meses aparecem sozinhos no Financeiro." : null);
   return <main className="app-shell"><AppSidebar current="finance" /><div className="workspace"><section className={"directory-page " + styles.page + " " + styles.fixedPage}>
-    <header className="directory-header"><div><p className="eyebrow">Gestão / Financeiro / Recorrência</p><h1>Custos fixos.</h1><p>Custos e entradas que se repetem todo mês. Cada mês é lançado sozinho no Financeiro; saídas contam como pagas na data do vencimento.</p></div><div className={"header-actions " + styles.fixedHeaderActions}><div className={styles.fixedHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">Voltar ao financeiro</Link></div><a className="primary-action" href="#nova-recorrencia">Novo custo fixo</a></div></header>
+    <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/financeiro">Financeiro</Link></p><h1>Custos fixos</h1><p>Custos e entradas que se repetem todo mês. Cada mês é lançado sozinho no Financeiro; saídas contam como pagas na data do vencimento.</p></div><div className={"header-actions " + styles.fixedHeaderActions}><div className={styles.fixedHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">Voltar ao financeiro</Link></div><a className="primary-action" href="#nova-recorrencia">Novo custo fixo</a></div></header>
     {feedback ? <p className={params.error ? "form-error" : "form-success"} role={params.error ? "alert" : "status"}>{feedback}</p> : null}
 
     <section className={styles.fixedSummary} aria-label="Resumo mensal das recorrências">
@@ -52,7 +52,7 @@ export default async function FixedCostsPage({ searchParams }: FixedCostsPagePro
     </details>
 
     <section className={styles.ledger}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">Cadastrados</p><h2>Recorrências.</h2><small>Ativas primeiro. Abra uma para mudar valor ou dia, ou para encerrar.</small></div><span>{entries.length} {entries.length === 1 ? "cadastrada" : "cadastradas"}</span></div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">Cadastrados</p><h2>Recorrências</h2><small>Ativas primeiro. Abra uma para mudar valor ou dia, ou para encerrar.</small></div><span>{entries.length} {entries.length === 1 ? "cadastrada" : "cadastradas"}</span></div>
       {entries.length ? <>
         <div className={styles.tableScroll}><table><thead><tr><th>Recorrência</th><th>Categoria</th><th>Vencimento</th><th>Valor mensal</th><th>Situação</th><th /></tr></thead><tbody>{entries.map((entry) => <tr key={entry.id}>
           <td><b className={entry.type === FinancialEntryType.INCOME ? styles.incomeText : styles.expenseText}>{financeTypeLabel[entry.type]}</b><Link className={styles.entryLink} href={`/financeiro/custos-fixos/${entry.id}`}>{entry.description}</Link><small>{entry.counterparty ?? "Sem contraparte"}</small></td>

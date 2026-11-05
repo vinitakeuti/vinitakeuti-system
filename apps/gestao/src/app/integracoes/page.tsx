@@ -44,7 +44,7 @@ export default async function IntegrationsPage() {
   ];
 
   return <main className="app-shell"><AppSidebar current="integrations" /><div className="workspace"><section className="directory-page settings-page">
-    <header className="directory-header"><div><p className="eyebrow">Gestão / Integrações</p><h1>Integrações.</h1><p>Serviços externos conectados à gestão e ao portal do cliente. Cada um tem a própria página; as chaves ficam criptografadas e nunca voltam para a tela.</p></div><div className="header-actions"><SidebarToggle location="header" /></div></header>
+    <header className="directory-header"><div><h1>Integrações</h1><p>Serviços externos conectados à gestão e ao portal do cliente. Cada um tem a própria página; as chaves ficam criptografadas e nunca voltam para a tela.</p></div><div className="header-actions"><SidebarToggle location="header" /></div></header>
     <ul className="integration-list">
       {rows.map((row) => <li key={row.href}>
         <Link href={row.href}>
