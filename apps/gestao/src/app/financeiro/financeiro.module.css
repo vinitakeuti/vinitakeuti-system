@@ -23,28 +23,28 @@
 .summary small {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.59rem;
-  letter-spacing: 0.06em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .summary small {
   font-family: inherit;
   letter-spacing: 0;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   line-height: 1.35;
 }
 .summary strong {
-  font-size: 1.85rem;
-  letter-spacing: -0.06em;
+  font-size: var(--text-3xl);
+  letter-spacing: -0.02em;
 }
 .summary b {
-  font-size: 1.22rem;
-  letter-spacing: -0.04em;
+  font-size: var(--text-xl);
+  letter-spacing: -0.02em;
 }
 .income {
   color: var(--accent);
 }
 .expense {
-  color: #9a5638;
+  color: var(--danger-ink);
 }
 .insights {
   display: grid;
@@ -73,15 +73,15 @@
 .sectionHeading h2,
 .ledgerHeading h2 {
   margin: 0;
-  font-size: 1.08rem;
-  letter-spacing: -0.03em;
+  font-size: var(--text-lg);
+  letter-spacing: -0.02em;
 }
 .sectionHeading > span,
 .ledgerHeading > span {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.06em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .bars {
   display: flex;
@@ -122,14 +122,13 @@
 .barMonth small {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.56rem;
-  text-transform: uppercase;
+  font-size: var(--text-2xs);
 }
 .chartLegend {
   display: flex;
   gap: 18px;
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
 }
 .chartLegend span {
   display: flex;
@@ -157,19 +156,19 @@
   margin: 33px 0 17px;
 }
 .attentionValue strong {
-  color: #9a5638;
-  font-size: 2rem;
-  letter-spacing: -0.06em;
+  color: var(--danger-ink);
+  font-size: var(--text-4xl);
+  letter-spacing: -0.02em;
 }
 .attentionValue span {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
 }
 .attention p {
   max-width: 330px;
   margin: 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 .entryPanel {
@@ -194,18 +193,18 @@
 .entryPanel summary b {
   font-family: var(--mono);
   color: var(--accent);
-  font-size: 0.62rem;
-  letter-spacing: 0.07em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .entryPanel summary small {
   color: var(--muted);
-  font-size: 0.77rem;
+  font-size: var(--text-sm);
 }
 .entryPanel summary strong {
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.61rem;
-  letter-spacing: 0.05em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .entryPanel[open] summary {
   border-bottom: 1px solid var(--finance-line);
@@ -219,22 +218,22 @@
 .entryForm label {
   display: grid;
   gap: 7px;
-  color: #4a4d49;
+  color: var(--gray-600);
   font-family: var(--mono);
-  font-size: 0.63rem;
+  font-size: var(--text-2xs);
 }
 .entryForm input,
 .entryForm select,
 .entryForm textarea {
   min-width: 0;
   width: 100%;
-  border: 1px solid #cfd3cf;
-  border-radius: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
   padding: 9px 10px;
   background: var(--white);
   color: var(--ink);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   outline-color: var(--accent);
 }
 .entryForm textarea {
@@ -272,8 +271,8 @@
   gap: 6px;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.57rem;
-  letter-spacing: 0.05em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .filters .search {
   flex: 1 1 260px;
@@ -282,13 +281,13 @@
 .filters select {
   min-width: 0;
   height: 37px;
-  border: 1px solid #cfd3cf;
-  border-radius: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
   background: var(--white);
   padding: 0 9px;
   color: var(--ink);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   outline-color: var(--accent);
 }
 .filters button {
@@ -298,8 +297,8 @@
   color: var(--white);
   padding: 0 12px;
   font-family: var(--mono);
-  font-size: 0.57rem;
-  letter-spacing: 0.05em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   cursor: pointer;
 }
 .tableScroll {
@@ -316,9 +315,9 @@
   color: var(--muted);
   border-bottom: 1px solid var(--finance-line);
   font-family: var(--mono);
-  font-size: 0.57rem;
+  font-size: var(--text-2xs);
   font-weight: 500;
-  letter-spacing: 0.07em;
+  letter-spacing: 0;
 }
 .tableScroll th,
 .tableScroll td {
@@ -336,8 +335,8 @@
 .tableScroll td {
   height: 68px;
   border-bottom: 1px solid var(--finance-line);
-  color: #353735;
-  font-size: 0.77rem;
+  color: var(--gray-700);
+  font-size: var(--text-sm);
   vertical-align: middle;
 }
 .tableScroll td:first-child {
@@ -347,29 +346,29 @@
 }
 .tableScroll td:first-child b {
   font-family: var(--mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.04em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .tableScroll td:first-child strong {
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 .tableScroll td small {
   color: var(--muted);
-  font-size: 0.69rem;
+  font-size: var(--text-xs);
 }
 .incomeText {
   color: var(--accent);
 }
 .expenseText {
-  color: #9a5638;
+  color: var(--danger-ink);
 }
 .status {
   display: inline-flex;
   padding: 5px 7px;
   border: 1px solid currentColor;
   font-family: var(--mono);
-  font-size: 0.54rem;
-  letter-spacing: 0.03em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   white-space: nowrap;
 }
 .settled {
@@ -377,8 +376,8 @@
   background: var(--accent-light);
 }
 .pending {
-  color: #8a6138;
-  background: #f6f0e8;
+  color: var(--warning-ink);
+  background: var(--warning-bg);
 }
 .cancelled {
   color: var(--muted);
@@ -400,8 +399,8 @@
   background: transparent;
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.54rem;
-  letter-spacing: 0.03em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   cursor: pointer;
 }
 .actions .cancelAction,
@@ -440,13 +439,13 @@
     padding: 16px 14px;
   }
   .summary strong {
-    font-size: 1.45rem;
+    font-size: var(--text-2xl);
   }
   .summary b {
-    font-size: 1.05rem;
+    font-size: var(--text-md);
   }
   .summary small {
-    font-size: 0.66rem;
+    font-size: var(--text-2xs);
   }
   .chart,
   .attention {
@@ -517,25 +516,25 @@
   }
   .mobileTop b {
     font-family: var(--mono);
-    font-size: 0.56rem;
-    letter-spacing: 0.05em;
+    font-size: var(--text-2xs);
+    letter-spacing: 0;
   }
   .mobileList article > strong {
-    font-size: 0.9rem;
+    font-size: var(--text-base);
   }
   .mobileList article > small {
     color: var(--muted);
-    font-size: 0.72rem;
+    font-size: var(--text-xs);
   }
   .mobileBottom {
     padding-top: 4px;
   }
   .mobileBottom b {
-    font-size: 1rem;
+    font-size: var(--text-md);
   }
   .mobileBottom span {
     color: var(--muted);
-    font-size: 0.7rem;
+    font-size: var(--text-xs);
   }
   .mobileActions {
     display: flex;
@@ -555,7 +554,7 @@
   min-height: 39px;
   padding: 0 10px;
   border: 1px solid var(--finance-line);
-  background: #f8faf8;
+  background: var(--gray-25);
   line-height: 1.35;
 }
 .fixedCheck input {
@@ -569,7 +568,7 @@
   display: block;
   margin-top: 6px;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
 }
 .fixedHeaderActions {
   justify-content: space-between;
@@ -618,7 +617,7 @@
     gap: 11px;
   }
   .fixedHeaderNavigation .text-link {
-    font-size: 0.58rem;
+    font-size: var(--text-2xs);
   }
 }
 @media (max-width: 640px) {
@@ -626,7 +625,7 @@
     gap: 11px;
   }
   .financeHeaderNavigation .text-link {
-    font-size: 0.58rem;
+    font-size: var(--text-2xs);
   }
 }
 @media (max-width: 640px) {
@@ -650,21 +649,21 @@
 }
 .fixedIntro h2 {
   margin: 0;
-  font-size: 1.08rem;
-  letter-spacing: -0.03em;
+  font-size: var(--text-lg);
+  letter-spacing: -0.02em;
 }
 .fixedIntro p:not(.eyebrow) {
   max-width: 620px;
   margin: 10px 0 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 .fixedIntro > span {
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.06em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   white-space: nowrap;
 }
 .fixedSummary {
@@ -687,18 +686,18 @@
 .fixedSummary small {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.59rem;
-  letter-spacing: 0.06em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .fixedSummary small {
   font-family: inherit;
   letter-spacing: 0;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   line-height: 1.35;
 }
 .fixedSummary strong {
-  font-size: 1.35rem;
-  letter-spacing: -0.05em;
+  font-size: var(--text-xl);
+  letter-spacing: -0.02em;
 }
 @media (max-width: 860px) {
   .fixedSummary {
@@ -724,10 +723,10 @@
     padding: 16px 14px;
   }
   .fixedSummary strong {
-    font-size: 1.08rem;
+    font-size: var(--text-lg);
   }
   .fixedSummary small {
-    font-size: 0.66rem;
+    font-size: var(--text-2xs);
   }
 }
 .periodFilter {
@@ -737,7 +736,7 @@
   margin-bottom: 10px;
   padding: 13px 15px;
   border: 1px solid var(--finance-line);
-  background: #fbfcfb;
+  background: var(--gray-25);
 }
 .periodFilter > div {
   display: grid;
@@ -747,30 +746,30 @@
 .periodFilter > div span {
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.59rem;
-  letter-spacing: 0.06em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .periodFilter > div small {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
 }
 .periodFilter label {
   display: grid;
   gap: 5px;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.56rem;
-  letter-spacing: 0.05em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .periodFilter input {
   height: 33px;
-  border: 1px solid #cfd3cf;
-  border-radius: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
   padding: 0 8px;
   background: var(--white);
   color: var(--ink);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
 }
 .periodFilter button {
   height: 33px;
@@ -779,8 +778,8 @@
   color: var(--white);
   padding: 0 11px;
   font-family: var(--mono);
-  font-size: 0.56rem;
-  letter-spacing: 0.05em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   cursor: pointer;
 }
 .dashboardHeading {
@@ -794,8 +793,8 @@
 .dashboardHeading small {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.57rem;
-  letter-spacing: 0.06em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .dashboardHeading small {
   color: var(--accent);
@@ -829,7 +828,7 @@
   padding: 15px 17px;
   border: 1px solid #cbd6cf;
   border-left: 3px solid var(--accent);
-  background: linear-gradient(100deg, #f1f6f3 0%, #fbfcfb 48%, #fff 100%);
+  background: linear-gradient(100deg, #f1f6f3 0%, var(--gray-25) 48%, #fff 100%);
 }
 .periodFilter > div {
   display: grid;
@@ -840,14 +839,14 @@
 .periodFilter > div span {
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.57rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 .periodFilter > div small {
   overflow: hidden;
   color: var(--ink);
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   font-weight: 650;
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
@@ -859,20 +858,20 @@
   min-width: 0;
   color: #59635d;
   font-family: var(--mono);
-  font-size: 0.56rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
 }
 .periodFilter input {
   width: 100%;
   height: 39px;
   border: 1px solid #c4cec7;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   padding: 0 9px;
   background: var(--white);
   color: var(--ink);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   outline: 0;
 }
 .periodFilter input:focus {
@@ -886,9 +885,9 @@
   color: var(--white);
   padding: 0 14px;
   font-family: var(--mono);
-  font-size: 0.57rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -899,7 +898,7 @@
 .periodFilter a {
   align-self: end;
   padding-bottom: 10px;
-  font-size: 0.57rem;
+  font-size: var(--text-2xs);
 }
 @media (max-width: 640px) {
   .periodFilter {
@@ -941,14 +940,14 @@
     gap: 3px;
   }
   .periodFilter > div span {
-    font-size: 0.53rem;
+    font-size: var(--text-2xs);
   }
   .periodFilter > div small {
-    font-size: 0.78rem;
+    font-size: var(--text-sm);
   }
   .periodFilter label {
     gap: 3px;
-    font-size: 0.52rem;
+    font-size: var(--text-2xs);
   }
   .periodFilter input,
   .periodFilter button {
@@ -956,14 +955,14 @@
   }
   .periodFilter button {
     padding: 0 9px;
-    font-size: 0.53rem;
+    font-size: var(--text-2xs);
   }
   .periodFilter a {
     grid-column: auto;
     align-self: center;
     justify-self: start;
     padding: 0;
-    font-size: 0.53rem;
+    font-size: var(--text-2xs);
   }
 }
 /* Recebimentos parciais e edição do lançamento. */
@@ -977,7 +976,7 @@
 }
 .entryLink {
   color: var(--ink);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 650;
   text-decoration: none;
 }
@@ -991,8 +990,8 @@
   padding: 4px 0;
   color: var(--ink);
   font-family: var(--mono);
-  font-size: 0.54rem;
-  letter-spacing: 0.03em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   text-decoration: none;
 }
 .mobileActions .editAction {
@@ -1020,17 +1019,17 @@
 .entrySummary small {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.59rem;
-  letter-spacing: 0.06em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .entrySummary small {
   font-family: inherit;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   letter-spacing: 0;
 }
 .entrySummary strong {
-  font-size: 1.45rem;
-  letter-spacing: -0.05em;
+  font-size: var(--text-2xl);
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 .entrySummary .status {
@@ -1053,8 +1052,8 @@
   background: transparent;
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.05em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1077,8 +1076,8 @@
   padding-bottom: 0;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.07em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .paymentRow {
   border-bottom: 1px solid var(--finance-line);
@@ -1092,20 +1091,20 @@
   display: none;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.05em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .paymentRow input {
   width: 100%;
   min-width: 0;
   height: 37px;
-  border: 1px solid #cfd3cf;
-  border-radius: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
   padding: 0 9px;
   background: var(--white);
   color: var(--ink);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   outline-color: var(--accent);
 }
 .paymentActions {
@@ -1121,16 +1120,16 @@
   background: transparent;
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.56rem;
-  letter-spacing: 0.04em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   cursor: pointer;
 }
 .paymentActions .cancelAction {
-  color: #9a5638 !important;
+  color: var(--danger-ink) !important;
 }
 .paymentNew {
   border-bottom: 0;
-  background: #fbfcfb;
+  background: var(--gray-25);
 }
 .paymentNew label > span {
   display: block;
@@ -1140,7 +1139,7 @@
   padding: 16px 22px;
   border-bottom: 1px solid var(--finance-line);
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 .entryEdit {
   margin-top: 20px;
@@ -1152,7 +1151,7 @@
   grid-column: 1 / -1;
 }
 .entryEdit .formActions .cancelAction {
-  color: #9a5638;
+  color: var(--danger-ink);
 }
 @media (max-width: 860px) {
   .entrySummary {
@@ -1170,7 +1169,7 @@
     padding: 15px 14px;
   }
   .entrySummary strong {
-    font-size: 1.1rem;
+    font-size: var(--text-lg);
   }
   .ledgerHeading {
     flex-wrap: wrap;
@@ -1238,9 +1237,9 @@
 .periodRange label {
   color: #59635d;
   font-family: var(--mono);
-  font-size: 0.54rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
   line-height: 1.2;
 }
 .periodShortcuts,
@@ -1252,14 +1251,14 @@
 .periodHead span {
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.57rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 .periodHead small {
   overflow: hidden;
   color: var(--ink);
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   font-weight: 650;
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
@@ -1279,9 +1278,9 @@
   border-right: 1px solid #c4cec7;
   color: #3f4943;
   font-family: var(--mono);
-  font-size: 0.58rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -1306,20 +1305,20 @@
   gap: 4px;
   color: #59635d;
   font-family: var(--mono);
-  font-size: 0.54rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
 }
 .periodRange input {
   width: 138px;
   height: 37px;
   border: 1px solid #c4cec7;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   padding: 0 8px;
   background: var(--white);
   color: var(--ink);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   outline: 0;
 }
 .periodRange input:focus {
@@ -1333,8 +1332,8 @@
   color: var(--white);
   padding: 0 12px;
   font-family: var(--mono);
-  font-size: 0.56rem;
-  letter-spacing: 0.05em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   cursor: pointer;
 }
 .periodRange button[aria-current="true"] {
@@ -1368,8 +1367,8 @@
   }
   .periodShortcuts a {
     padding: 0 4px;
-    font-size: 0.53rem;
-    letter-spacing: 0.03em;
+    font-size: var(--text-2xs);
+    letter-spacing: 0;
   }
   .periodRange {
     display: grid;
@@ -1397,7 +1396,7 @@
   margin: 0 0 20px;
   padding: 18px 22px;
   border: 1px solid var(--finance-line);
-  background: #fbfcfb;
+  background: var(--gray-25);
 }
 .confirmedSales > div {
   display: grid;
@@ -1407,17 +1406,17 @@
 .confirmedSales span {
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.59rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.07em;
+  letter-spacing: 0;
 }
 .confirmedSales strong {
-  font-size: 1.45rem;
-  letter-spacing: -0.05em;
+  font-size: var(--text-2xl);
+  letter-spacing: -0.02em;
 }
 .confirmedSales small {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   line-height: 1.4;
 }
 .confirmedSales dl {
@@ -1432,14 +1431,14 @@
 .confirmedSales dt {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.57rem;
-  letter-spacing: 0.06em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .confirmedSales dd {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 650;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 @media (max-width: 860px) {
   .confirmedSales {
@@ -1457,7 +1456,7 @@
     padding: 15px 14px;
   }
   .confirmedSales strong {
-    font-size: 1.2rem;
+    font-size: var(--text-xl);
   }
   .confirmedSales dl {
     gap: 20px;
@@ -1470,7 +1469,7 @@
 .fieldHint {
   color: var(--muted);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   line-height: 1.35;
 }
 .entrySummaryWide {
@@ -1482,7 +1481,7 @@
   border: 1px solid #cbd6cf;
   background: var(--accent-surface);
   color: #3f4943;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 .recurringNote a {
@@ -1517,13 +1516,13 @@
   text-decoration: none;
 }
 .occurrenceList a:hover {
-  background: #f8faf8;
+  background: var(--gray-25);
 }
 .occurrenceList span {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 .occurrenceList b {
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 .occurrenceList i {
   font-style: normal;
@@ -1562,7 +1561,7 @@
   background: var(--white);
 }
 .upcomingExpense {
-  border-top-color: #9a5638;
+  border-top-color: var(--danger-ink);
 }
 .upcomingIncome {
   border-top-color: var(--accent);
@@ -1573,21 +1572,21 @@
   margin: 22px 0 14px;
 }
 .upcomingValue strong {
-  font-size: 1.75rem;
-  letter-spacing: -0.06em;
+  font-size: var(--text-3xl);
+  letter-spacing: -0.02em;
 }
 .upcomingExpense .upcomingValue strong {
-  color: #9a5638;
+  color: var(--danger-ink);
 }
 .upcomingIncome .upcomingValue strong {
   color: var(--accent);
 }
 .upcomingValue span {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
 }
 .upcomingValue .upcomingOverdue {
-  color: #9a5638;
+  color: var(--danger-ink);
   font-weight: 600;
 }
 .upcomingList {
@@ -1617,22 +1616,22 @@
 .upcomingList span {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.03em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
 }
 .upcomingList .upcomingLate {
-  color: #9a5638;
+  color: var(--danger-ink);
   font-weight: 600;
 }
 .upcomingList b {
   overflow: hidden;
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   font-weight: 550;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .upcomingList em {
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   font-style: normal;
   font-weight: 650;
   white-space: nowrap;
@@ -1653,7 +1652,7 @@
     padding: 17px 15px;
   }
   .upcomingValue strong {
-    font-size: 1.4rem;
+    font-size: var(--text-2xl);
   }
 }
 /* Parcelas de uma entrada. */
@@ -1667,7 +1666,7 @@
 .installmentNumber {
   align-self: center;
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
 }
 .installmentRow > i {
   align-self: center;
@@ -1675,8 +1674,8 @@
   font-style: normal;
 }
 .cancelledLate {
-  color: #9a5638;
-  background: #f8eeea;
+  color: var(--danger-ink);
+  background: var(--danger-bg);
 }
 .installmentPlan {
   border-top: 1px solid var(--finance-line);
@@ -1685,8 +1684,8 @@
   padding: 13px 22px;
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.05em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   cursor: pointer;
   list-style: none;
 }
@@ -1712,10 +1711,10 @@
   min-height: 39px;
   padding: 0 10px;
   border: 1px solid var(--finance-line);
-  background: #f8faf8;
+  background: var(--gray-25);
   color: var(--ink);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 @media (max-width: 640px) {
   .installmentHead {
@@ -1778,9 +1777,9 @@
   background: var(--white);
   color: #3f4943;
   font-family: var(--mono);
-  font-size: 0.6rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-decoration: none;
 }
 .conditionChips a:hover {
@@ -1803,15 +1802,15 @@
   background: var(--accent-surface);
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.56rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 .lateText {
   display: block;
   margin-top: 3px;
-  color: #9a5638 !important;
+  color: var(--danger-ink) !important;
   font-weight: 600;
 }
 .markPaid {
@@ -1823,13 +1822,13 @@
 .markPaid input {
   width: 140px;
   height: 32px;
-  border: 1px solid #cfd3cf;
-  border-radius: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
   padding: 0 7px;
   background: var(--white);
   color: var(--ink);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
 }
 .markPaid button {
   height: 32px;
@@ -1838,8 +1837,8 @@
   color: var(--white);
   padding: 0 10px;
   font-family: var(--mono);
-  font-size: 0.54rem;
-  letter-spacing: 0.04em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1870,17 +1869,17 @@
 .nextInstallment label span {
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.56rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
 }
 .nextInstallment > div b {
-  font-size: 1.05rem;
-  letter-spacing: -0.03em;
+  font-size: var(--text-md);
+  letter-spacing: -0.02em;
 }
 .nextInstallment > div small {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
 }
 .nextInstallment label {
   display: grid;
@@ -1889,13 +1888,13 @@
 .nextInstallment input {
   width: 100%;
   height: 37px;
-  border: 1px solid #cfd3cf;
-  border-radius: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
   padding: 0 9px;
   background: var(--white);
   color: var(--ink);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 @media (max-width: 640px) {
   .nextInstallment {
@@ -1925,10 +1924,10 @@
 }
 @media (max-width: 380px) {
   .summary strong {
-    font-size: 1.2rem;
+    font-size: var(--text-xl);
   }
   .summary b {
-    font-size: 0.98rem;
+    font-size: var(--text-md);
   }
 }
 /* Tela da entrada: condição de pagamento no topo, parcelas e pagamentos abaixo. */
@@ -1949,7 +1948,7 @@
 .quoteImport p {
   margin: 0;
   color: #3f4943;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 .planPanel {
@@ -1969,22 +1968,22 @@
   display: grid;
   align-content: start;
   gap: 7px;
-  color: #4a4d49;
+  color: var(--gray-600);
   font-family: var(--mono);
-  font-size: 0.63rem;
+  font-size: var(--text-2xs);
 }
 .planGrid input,
 .planGrid select {
   width: 100%;
   min-width: 0;
   height: 40px;
-  border: 1px solid #cfd3cf;
-  border-radius: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
   padding: 0 10px;
   background: var(--white);
   color: var(--ink);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   outline-color: var(--accent);
 }
 .planGrid input:disabled {
@@ -1995,9 +1994,9 @@
   margin: 0;
   padding: 11px 14px;
   border: 1px solid var(--finance-line);
-  background: #f8faf8;
+  background: var(--gray-25);
   color: var(--ink);
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 .planActions {
@@ -2025,13 +2024,13 @@
 }
 .scheduleList li > b {
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
 }
 .scheduleList li > span {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 .scheduleList li > strong {
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
 }
 .scheduleList li > i {
   justify-self: start;
@@ -2056,8 +2055,8 @@
 .adjust summary {
   color: var(--ink);
   font-family: var(--mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.04em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   cursor: pointer;
   list-style: none;
 }
@@ -2079,17 +2078,17 @@
   gap: 4px;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.52rem;
+  font-size: var(--text-2xs);
 }
 .adjust input {
   width: 130px;
   height: 32px;
-  border: 1px solid #cfd3cf;
-  border-radius: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
   padding: 0 7px;
   background: var(--white);
   font-family: "Inter Variable", Inter, Arial, sans-serif;
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
 }
 .adjust button {
   height: 32px;
@@ -2098,14 +2097,14 @@
   color: var(--white);
   padding: 0 10px;
   font-family: var(--mono);
-  font-size: 0.53rem;
-  letter-spacing: 0.04em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   cursor: pointer;
 }
 .adjust button.cancelAction {
-  border-color: #9a5638;
+  border-color: var(--danger-ink);
   background: var(--white);
-  color: #9a5638;
+  color: var(--danger-ink);
 }
 .receiptList {
   margin: 0;
@@ -2122,14 +2121,14 @@
   border-bottom: 1px solid var(--finance-line);
 }
 .receiptList li > span {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 .receiptList li > strong {
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
 }
 .receiptList li > small {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
 }
 .receiptList li > details {
   justify-self: end;
@@ -2144,9 +2143,9 @@
   border: 1px solid #b9cfc2;
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.5rem;
+  font-size: var(--text-2xs);
   font-style: normal;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
 }
 @media (max-width: 860px) {
   .planGrid {
@@ -2239,9 +2238,9 @@
   background: var(--accent-surface);
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.5rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
   vertical-align: 1px;
   white-space: nowrap;
 }
@@ -2249,8 +2248,8 @@
 .chargeLink {
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.04em;
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -2260,10 +2259,10 @@
 .chargeWarning {
   margin: 0 22px 12px;
   padding: 10px 12px;
-  border: 1px solid #e3d3bd;
-  background: #fbf6ef;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
   color: #5b4630;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 .chargeWarning a {
@@ -2286,9 +2285,9 @@
   align-content: start;
   gap: 7px;
   min-width: 0;
-  color: #4a4d49;
+  color: var(--gray-600);
   font-family: var(--mono);
-  font-size: 0.63rem;
+  font-size: var(--text-2xs);
 }
 .clientLink {
   color: var(--accent);
