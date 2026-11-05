@@ -2009,3 +2009,102 @@ a:hover > .row-chevron {
 .attendance-thread li.is-person p {
   border-radius: var(--radius-md);
 }
+
+/* ---------- Monitoramento ---------- */
+.monitor-dashboard {
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.monitor-dashboard-total span,
+.monitor-grid-heading > span,
+.monitor-tile small {
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+}
+.monitor-dashboard-total strong {
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.monitor-tile dt {
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-medium);
+}
+.monitor-tile dd {
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.monitor-tile.is-zero dd {
+  color: var(--color-text-disabled);
+}
+.monitor-tile-degraded.needs-attention {
+  background: var(--warning-bg);
+}
+.monitor-tile-down.needs-attention {
+  background: var(--danger-bg);
+}
+.monitor-grid-heading h2 {
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+.monitor-card {
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+.monitor-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm);
+}
+.monitor-card-down {
+  border-color: var(--danger-border);
+}
+.monitor-card-main h3 {
+  font-weight: var(--weight-semibold);
+}
+.monitor-card-main h3 a {
+  color: var(--color-text);
+}
+.monitor-card-foot {
+  background: var(--color-surface-subtle);
+}
+.monitor-check {
+  min-height: 32px;
+  border-color: var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.monitor-check:hover,
+.monitor-check:focus-visible {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.monitor-guide-link {
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.monitor-check-summary {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+}
+.monitor-alert {
+  border-radius: var(--radius-sm);
+}
+.monitor-panel,
+.monitor-facts,
+.monitoring-surface,
+.monitoring-form {
+  border-radius: var(--radius-md);
+}
