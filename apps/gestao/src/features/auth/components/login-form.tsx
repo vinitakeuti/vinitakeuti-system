@@ -18,6 +18,7 @@ export function LoginForm({ portal, error }: { portal: SessionAudience; error?: 
     <section className="auth-surface" aria-labelledby="login-title">
       <header className="auth-header">
         <div className="auth-brand" aria-label="Vinicius Riudi"><img src="/assets/images/logo-vr.svg" alt="" aria-hidden="true" /><span className="auth-brand-copy"><strong>Vinicius Riudi</strong><small>Desenvolvedor de Software</small></span></div>
+        <p className="auth-portal">{client ? "Área do cliente" : "Gestão"}</p>
       </header>
       <div className="auth-copy"><h1 id="login-title">{greeting.title}</h1><p>{greeting.description}</p></div>
       <form className="auth-form" action={loginAction}>
