@@ -2860,3 +2860,90 @@ a:hover > .row-chevron {
     min-height: var(--touch-target);
   }
 }
+
+/* ---------- Projetos ---------- */
+.project-status {
+  align-items: center;
+  min-height: 22px;
+  padding: 1px 9px;
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius-full);
+  background: var(--info-bg);
+  color: var(--info-ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.project-status.is-waiting-client,
+.project-status.is-paused {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+}
+.project-status.is-cancelled {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+.project-status.is-planning,
+.project-status.is-lead,
+.project-status.is-proposal {
+  border-color: var(--neutral-border);
+  background: var(--neutral-bg);
+  color: var(--neutral-ink);
+}
+.project-status.is-delivered {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-ink);
+}
+.project-progress-track {
+  border-radius: var(--radius-full);
+  background: var(--color-surface-sunken);
+}
+.project-progress-track i {
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+}
+.project-progress b {
+  font-family: var(--font-ui);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.project-summary {
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.project-eliza {
+  border-radius: var(--radius-md);
+}
+.project-draft-notes {
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+}
+.project-menu summary {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.project-menu-panel {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+.project-size-legend b {
+  border-radius: var(--radius-xs);
+  font-family: var(--font-ui);
+}
+.project-eliza-form .ai-instructions {
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}

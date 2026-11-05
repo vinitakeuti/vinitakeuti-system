@@ -19,7 +19,7 @@ export function ProjectClient({ project, job, aiReady, updates, hasPortalAccess 
 
   return <>
     <section className="settings-panel" aria-labelledby="project-portal-title">
-      <div className="settings-panel-heading"><div><h2 id="project-portal-title">O que o cliente vê.</h2><p>Na área do cliente, em Projetos: a situação, o percentual e as funcionalidades com o andamento de cada uma. As subatividades e o diário nunca aparecem para ele.</p></div>{hasPortalAccess ? null : <Link className="text-link" href={`/clientes/${project.client?.id ?? ""}`}>CRIAR ACESSO AO PORTAL</Link>}</div>
+      <div className="settings-panel-heading"><div><h2 id="project-portal-title">O que o cliente vê</h2><p>Na área do cliente, em Projetos: a situação, o percentual e as funcionalidades com o andamento de cada uma. As subatividades e o diário nunca aparecem para ele.</p></div>{hasPortalAccess ? null : <Link className="text-link" href={`/clientes/${project.client?.id ?? ""}`}>Criar acesso ao portal</Link>}</div>
       {!hasPortalAccess ? <p className="project-callout">Este cliente ainda não tem acesso à área do cliente. As atualizações publicadas ficam guardadas, mas só chegam a ele (portal e e-mail) depois que o acesso for criado no perfil do cliente.</p> : null}
       {project.features.length ? <ul className="project-portal-preview">{project.features.map((feature) => {
         const total = feature.tasks.reduce((sum, task) => sum + task.weight, 0);
@@ -29,29 +29,29 @@ export function ProjectClient({ project, job, aiReady, updates, hasPortalAccess 
     </section>
 
     <section className="settings-panel" aria-labelledby="project-updates-title">
-      <div className="settings-panel-heading"><div><h2 id="project-updates-title">Atualizações.</h2><p>Nada chega ao cliente sem a sua aprovação. Toda sexta, a partir das 16 h, a Eliza prepara um rascunho com o que entrou no diário na semana.</p></div></div>
+      <div className="settings-panel-heading"><div><h2 id="project-updates-title">Atualizações</h2><p>Nada chega ao cliente sem a sua aprovação. Toda sexta, a partir das 16 h, a Eliza prepara um rascunho com o que entrou no diário na semana.</p></div></div>
       {working ? <div className="project-callout is-working" aria-live="polite"><JobRefresher /><span className="project-working" aria-hidden="true"><i /><i /><i /></span>A Eliza está escrevendo a atualização a partir do diário. Em instantes ela aparece aqui como rascunho.</div> : null}
       {job?.status === "FAILED" ? <p className="form-error project-callout">A Eliza não concluiu a última atualização: {job.error ?? "erro desconhecido"}.</p> : null}
 
       {drafts.map((update) => <form key={update.id} action={saveUpdateAction} className="project-update-draft">
         <input type="hidden" name="projectId" value={project.id} /><input type="hidden" name="updateId" value={update.id} />
-        <p className="eyebrow">RASCUNHO · {dateTime.format(update.createdAt).toUpperCase()}</p>
+        <p className="eyebrow">Rascunho · {dateTime.format(update.createdAt)}</p>
         <label>Título<input name="title" defaultValue={update.title} required maxLength={160} /></label>
         <label>Texto para o cliente<textarea name="body" defaultValue={update.body} required maxLength={4_000} rows={7} /></label>
-        <div className="project-form-actions"><ConfirmSubmitButton className="text-link project-danger-link" formAction={deleteUpdateAction} message="Excluir este rascunho?">EXCLUIR</ConfirmSubmitButton><span><button className="secondary-action" type="submit">SALVAR RASCUNHO</button><button className="primary-action" type="submit" name="publish" value="1">{hasPortalAccess ? "PUBLICAR E AVISAR O CLIENTE" : "PUBLICAR"}</button></span></div>
+        <div className="project-form-actions"><ConfirmSubmitButton className="text-link project-danger-link" formAction={deleteUpdateAction} message="Excluir este rascunho?">Excluir</ConfirmSubmitButton><span><button className="secondary-action" type="submit">Salvar rascunho</button><button className="primary-action" type="submit" name="publish" value="1">{hasPortalAccess ? "Publicar e avisar o cliente" : "PUBLICAR"}</button></span></div>
       </form>)}
 
       {!working && !drafts.length ? <div className="project-update-new">
-        {aiReady ? <form action={requestUpdateAction} className="project-inline-form"><input type="hidden" name="projectId" value={project.id} /><label>Orientação para a Eliza (opcional)<input name="guidance" maxLength={1_000} placeholder="Ex.: destacar que o painel já pode ser testado" /></label><button className="primary-action" type="submit">GERAR COM A ELIZA</button></form> : null}
+        {aiReady ? <form action={requestUpdateAction} className="project-inline-form"><input type="hidden" name="projectId" value={project.id} /><label>Orientação para a Eliza (opcional)<input name="guidance" maxLength={1_000} placeholder="Ex.: destacar que o painel já pode ser testado" /></label><button className="primary-action" type="submit">Gerar com a Eliza</button></form> : null}
         <details className="project-eliza-more"><summary><span><b>Escrever a atualização</b><small>Sem a Eliza: você escreve e publica quando quiser.</small></span><i aria-hidden="true" /></summary>
-          <form action={createUpdateAction} className="project-update-draft"><input type="hidden" name="projectId" value={project.id} /><label>Título<input name="title" required maxLength={160} placeholder="Ex.: Cadastro de clientes concluído" /></label><label>Texto para o cliente<textarea name="body" required maxLength={4_000} rows={6} /></label><div className="project-form-actions"><span /><button className="secondary-action" type="submit">SALVAR RASCUNHO</button></div></form>
+          <form action={createUpdateAction} className="project-update-draft"><input type="hidden" name="projectId" value={project.id} /><label>Título<input name="title" required maxLength={160} placeholder="Ex.: Cadastro de clientes concluído" /></label><label>Texto para o cliente<textarea name="body" required maxLength={4_000} rows={6} /></label><div className="project-form-actions"><span /><button className="secondary-action" type="submit">Salvar rascunho</button></div></form>
         </details>
       </div> : null}
 
       {published.length ? <ol className="project-updates">{published.map((update) => <li key={update.id}>
         <div className="project-diary-meta"><b>{update.title}</b><span>{update.publishedAt ? dateTime.format(update.publishedAt) : ""}{update.progressPercent !== null ? ` · ${update.progressPercent}% concluído` : ""} · {update.emailedAt ? "e-mail enviado" : "sem e-mail"}</span></div>
         <p>{update.body}</p>
-        <form><input type="hidden" name="projectId" value={project.id} /><input type="hidden" name="updateId" value={update.id} /><ConfirmSubmitButton className="text-link project-danger-link" formAction={deleteUpdateAction} message="Excluir esta atualização? Ela some da área do cliente (o e-mail já enviado não volta).">EXCLUIR</ConfirmSubmitButton></form>
+        <form><input type="hidden" name="projectId" value={project.id} /><input type="hidden" name="updateId" value={update.id} /><ConfirmSubmitButton className="text-link project-danger-link" formAction={deleteUpdateAction} message="Excluir esta atualização? Ela some da área do cliente (o e-mail já enviado não volta).">Excluir</ConfirmSubmitButton></form>
       </li>)}</ol> : !drafts.length ? <p className="settings-empty">Nenhuma atualização publicada ainda.</p> : null}
     </section>
   </>;

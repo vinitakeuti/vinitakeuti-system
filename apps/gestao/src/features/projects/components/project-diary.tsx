@@ -19,7 +19,7 @@ export function ProjectDiary({ project, job, aiReady, logs, nextHref }: { projec
   const working = job && (job.status === "PENDING" || job.status === "RUNNING");
 
   let review = null;
-  if (working) review = <section className="settings-panel project-eliza is-working" aria-live="polite"><JobRefresher /><div className="settings-panel-heading"><div><h2>A Eliza está lendo o seu dia.</h2><p>Ela compara o resumo com as subatividades em aberto. Em instantes as marcações aparecem aqui para você confirmar.</p></div><span className="project-working" aria-hidden="true"><i /><i /><i /></span></div></section>;
+  if (working) review = <section className="settings-panel project-eliza is-working" aria-live="polite"><JobRefresher /><div className="settings-panel-heading"><div><h2>A Eliza está lendo o seu dia</h2><p>Ela compara o resumo com as subatividades em aberto. Em instantes as marcações aparecem aqui para você confirmar.</p></div><span className="project-working" aria-hidden="true"><i /><i /><i /></span></div></section>;
   else if (job?.status === "READY") {
     const draft = job.result as DayDraft;
     const row = (id: string, name: string) => {
@@ -27,7 +27,7 @@ export function ProjectDiary({ project, job, aiReady, logs, nextHref }: { projec
       return task ? <li key={`${name}-${id}`}><label><input type="checkbox" name={`${name}-${id}`} defaultChecked /><span>{task.title}<small>{task.feature}</small></span></label></li> : null;
     };
     review = <section className="settings-panel project-eliza is-draft">
-      <div className="settings-panel-heading"><div><p className="eyebrow">MARCAÇÕES PROPOSTAS PELA ELIZA</p><h2>Confirme o seu dia.</h2><p>Desmarque o que não estiver certo. Ao confirmar, as subatividades são atualizadas e o dia entra no diário.</p></div></div>
+      <div className="settings-panel-heading"><div><p className="eyebrow">Marcações propostas pela Eliza</p><h2>Confirme o seu dia</h2><p>Desmarque o que não estiver certo. Ao confirmar, as subatividades são atualizadas e o dia entra no diário.</p></div></div>
       <form action={applyDayAction} className="project-draft-form">
         <input type="hidden" name="jobId" value={job.id} />
         <div className="project-day-review">
@@ -36,7 +36,7 @@ export function ProjectDiary({ project, job, aiReady, logs, nextHref }: { projec
         </div>
         {draft.notFound.length ? <div className="project-draft-notes"><b>Citado no resumo, mas sem subatividade no plano</b><ul>{draft.notFound.map((item) => <li key={item}>{item}</li>)}</ul><p>Se for trabalho do projeto, crie a subatividade no Plano.</p></div> : null}
         <div className="project-day-fields"><label className="project-field-wide">Resumo do dia<textarea name="summary" defaultValue={job.input} maxLength={PROJECT_LIMITS.summary} rows={4} /></label><label>Horas<input name="hours" defaultValue={hoursInput(job.minutes)} inputMode="decimal" placeholder="Ex.: 3,5" /></label></div>
-        <div className="project-form-actions"><ConfirmSubmitButton className="text-link project-danger-link" formAction={discardJobAction} message="Descartar as marcações da Eliza? O dia não é registrado.">DESCARTAR</ConfirmSubmitButton><button className="primary-action" type="submit">CONFIRMAR E REGISTRAR O DIA</button></div>
+        <div className="project-form-actions"><ConfirmSubmitButton className="text-link project-danger-link" formAction={discardJobAction} message="Descartar as marcações da Eliza? O dia não é registrado.">Descartar</ConfirmSubmitButton><button className="primary-action" type="submit">Confirmar e registrar o dia</button></div>
       </form>
     </section>;
   }
@@ -44,7 +44,7 @@ export function ProjectDiary({ project, job, aiReady, logs, nextHref }: { projec
   return <>
     {review}
     {!working && job?.status !== "READY" ? <section className="settings-panel" aria-labelledby="project-day-title">
-      <div className="settings-panel-heading"><div><h2 id="project-day-title">Registrar o dia.</h2><p>Escreva o que fez hoje neste projeto. {aiReady ? "A Eliza pode identificar quais subatividades você terminou e propor as marcações." : "As subatividades que você marcou como feitas hoje entram junto no registro."}</p></div></div>
+      <div className="settings-panel-heading"><div><h2 id="project-day-title">Registrar o dia</h2><p>Escreva o que fez hoje neste projeto. {aiReady ? "A Eliza pode identificar quais subatividades você terminou e propor as marcações." : "As subatividades que você marcou como feitas hoje entram junto no registro."}</p></div></div>
       <form action={registerDayAction} className="project-day-form">
         <input type="hidden" name="projectId" value={project.id} />
         {job?.status === "FAILED" ? <p className="form-error">A Eliza não concluiu a leitura do último resumo: {job.error ?? "erro desconhecido"}.</p> : null}
@@ -53,12 +53,12 @@ export function ProjectDiary({ project, job, aiReady, logs, nextHref }: { projec
           <label>Dia<input name="day" type="date" defaultValue={todayKey()} max={todayKey()} /></label>
           <label>Horas<input name="hours" inputMode="decimal" placeholder="Ex.: 3,5" defaultValue={job?.status === "FAILED" ? hoursInput(job.minutes) : ""} /></label>
         </div>
-        <div className="project-eliza-options">{aiReady && hasOpenTasks ? <label className="project-check-option"><input type="checkbox" name="withEliza" defaultChecked />Pedir para a Eliza marcar as subatividades</label> : <span />}<button className="primary-action" type="submit">REGISTRAR O DIA</button></div>
+        <div className="project-eliza-options">{aiReady && hasOpenTasks ? <label className="project-check-option"><input type="checkbox" name="withEliza" defaultChecked />Pedir para a Eliza marcar as subatividades</label> : <span />}<button className="primary-action" type="submit">Registrar o dia</button></div>
       </form>
     </section> : null}
 
     <section className="settings-panel" aria-labelledby="project-diary-title">
-      <div className="settings-panel-heading"><div><h2 id="project-diary-title">Diário.</h2><p>O histórico do projeto, dia a dia. É a base das atualizações para o cliente.</p></div></div>
+      <div className="settings-panel-heading"><div><h2 id="project-diary-title">Diário</h2><p>O histórico do projeto, dia a dia. É a base das atualizações para o cliente.</p></div></div>
       {logs.length ? <ol className="project-diary">{logs.map((log) => {
         const tasks = Array.isArray(log.tasks) ? log.tasks as { id: string; title: string; feature?: string }[] : [];
         return <li key={log.id}>
@@ -67,7 +67,7 @@ export function ProjectDiary({ project, job, aiReady, logs, nextHref }: { projec
           {tasks.length ? <ul className="project-diary-tasks">{tasks.map((task) => <li key={task.id}>{task.title}{task.feature ? <small>{task.feature}</small> : null}</li>)}</ul> : null}
         </li>;
       })}</ol> : <p className="settings-empty">Nenhum dia registrado ainda.</p>}
-      {nextHref ? <div className="table-footer"><Link className="text-link" href={nextHref}>CARREGAR DIAS ANTERIORES</Link></div> : null}
+      {nextHref ? <div className="table-footer"><Link className="text-link" href={nextHref}>Carregar dias anteriores</Link></div> : null}
     </section>
   </>;
 }

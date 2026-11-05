@@ -17,8 +17,8 @@ export function ProjectFields({ values, quotes, lockedQuote }: { values: Values;
     <label className="form-wide">Nome do projeto<input name="name" required maxLength={PROJECT_LIMITS.title} defaultValue={values.name} placeholder="Ex.: Sistema de gestão da Pacelab" /></label>
     {lockedQuote ? <>
       <input type="hidden" name="clientId" value={values.client?.id ?? ""} /><input type="hidden" name="quoteId" value={lockedQuote.id} />
-      <div className="project-locked-field form-wide"><span>CLIENTE E ORÇAMENTO</span><b>{values.client?.name}</b><small>{lockedQuote.code} · {lockedQuote.title}</small></div>
-    </> : <div className="form-wide"><ClientPicker name="clientId" label="Cliente" hint="Deixe vazio para um projeto pessoal (não aparece em nenhuma área do cliente)." initialClient={values.client} removeLabel="TORNAR PESSOAL" /></div>}
+      <div className="project-locked-field form-wide"><span>Cliente e orçamento</span><b>{values.client?.name}</b><small>{lockedQuote.code} · {lockedQuote.title}</small></div>
+    </> : <div className="form-wide"><ClientPicker name="clientId" label="Cliente" hint="Deixe vazio para um projeto pessoal (não aparece em nenhuma área do cliente)." initialClient={values.client} removeLabel="Tornar pessoal" /></div>}
     <label>Situação<select name="status" defaultValue={values.status}>{statuses.map((status) => <option key={status} value={status}>{projectStatusLabel[status]}</option>)}</select></label>
     {!lockedQuote && quotes?.length ? <label>Orçamento vinculado<select name="quoteId" defaultValue={values.quoteId ?? ""}><option value="">Nenhum</option>{quotes.map((quote) => <option key={quote.id} value={quote.id}>{quote.code} · {quote.title}</option>)}</select></label> : <span />}
     <label>Início<input name="startedAt" type="date" defaultValue={dateValue(values.startedAt)} /></label>

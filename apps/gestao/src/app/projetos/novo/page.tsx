@@ -15,14 +15,14 @@ export default async function NewProjectPage({ searchParams }: { searchParams: P
   const fromQuote = quote && !quote.projectId ? quote : null;
 
   return <main className="app-shell"><AppSidebar current="projects" /><div className="workspace"><section className="directory-page form-page">
-    <header className="directory-header"><div><p className="eyebrow">PROJETOS / NOVO</p><h1>Novo projeto.</h1><p>Depois de criar, cole a descrição completa no Plano e a Eliza destrincha em funcionalidades e subatividades.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href="/projetos">VOLTAR PARA PROJETOS</Link></div></header>
+    <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/projetos">Projetos</Link></p><h1>Novo projeto</h1><p>Depois de criar, cole a descrição completa no Plano e a Eliza destrincha em funcionalidades e subatividades.</p></div><div className="header-actions"><SidebarToggle location="header" /><Link className="text-link" href="/projetos">Voltar para projetos</Link></div></header>
     {linked ? <p className="form-error">O orçamento {linked.code} já tem um projeto. <Link className="text-link-inline" href={`/projetos/${linked.projectId}`}>Abrir o projeto</Link>.</p> : null}
     <form className="client-form" action={createProjectAction}>
       {erro ? <p className="form-error">{erro}</p> : null}
-      <section><p className="eyebrow">{fromQuote ? `A PARTIR DO ORÇAMENTO ${fromQuote.code}` : "DADOS DO PROJETO"}</p>
+      <section><p className="eyebrow">{fromQuote ? `A partir do orçamento ${fromQuote.code}` : "Dados do projeto"}</p>
         <ProjectFields values={{ name: fromQuote?.title ?? "", description: fromQuote?.scope.slice(0, 600) ?? null, status: "PLANNING", startedAt: null, deliveryAt: fromQuote?.estimatedDays ? new Date(Date.now() + fromQuote.estimatedDays * 86_400_000) : null, client: fromQuote?.client ?? null, quoteId: fromQuote?.id ?? null }} lockedQuote={fromQuote} />
       </section>
-      <div className="form-actions"><Link className="text-link" href="/projetos">CANCELAR</Link><button className="primary-action" type="submit">CRIAR PROJETO</button></div>
+      <div className="form-actions"><Link className="text-link" href="/projetos">Cancelar</Link><button className="primary-action" type="submit">Criar projeto</button></div>
     </form>
   </section></div></main>;
 }
