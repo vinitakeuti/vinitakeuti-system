@@ -2204,3 +2204,229 @@ a:hover > .row-chevron {
     grid-column: 1;
   }
 }
+
+/* ---------- Área do cliente ---------- */
+.portal-welcome {
+  gap: 10px;
+  padding: 4px 0 28px;
+}
+.portal-welcome-top .eyebrow {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.portal-welcome h1 {
+  color: var(--color-text);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+.portal-welcome > p {
+  max-width: 60ch;
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
+}
+.portal-alert {
+  border-radius: var(--radius-md);
+}
+.portal-alert-mark {
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 4px rgba(178, 73, 44, 0.16);
+}
+.portal-alert p {
+  color: var(--danger-ink);
+}
+/* Pagamento em questão: a peça mais importante da área do cliente. */
+.portal-due {
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-lg);
+  background: var(--green-25);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.portal-due.is-late {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+.portal-due-eyebrow {
+  color: var(--green-700);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.portal-due.is-late .portal-due-eyebrow {
+  color: var(--danger-ink);
+}
+.portal-due-amount {
+  color: var(--color-text);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+.portal-due-when {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.portal-due-pay {
+  min-height: 48px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-sm);
+}
+.portal-due-footer {
+  border-top-color: var(--color-accent-border);
+}
+.portal-due.is-late .portal-due-footer {
+  border-top-color: var(--danger-border);
+}
+.portal-due-progress i {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--green-100);
+  overflow: hidden;
+}
+.portal-due-progress b {
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+}
+.portal-due.is-late .portal-due-progress i {
+  background: var(--danger-border);
+}
+.portal-due-all {
+  border-bottom: 0;
+  color: var(--color-accent);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.portal-due-all:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+.portal-journey-steps li::before {
+  border-radius: var(--radius-full);
+}
+.portal-journey-dot {
+  border-radius: var(--radius-full);
+  font-family: var(--font-ui);
+  font-weight: var(--weight-semibold);
+}
+.portal-journey-steps li.is-current .portal-journey-dot {
+  border: 2px solid var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--green-700);
+}
+.portal-journey-steps b,
+.portal-todo-text b,
+.portal-row-main b {
+  font-weight: var(--weight-semibold);
+}
+.portal-todo-meta {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.portal-todo-list li.is-soon .portal-todo-meta i {
+  background: var(--warning-mark);
+}
+.portal-contact-card {
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+.portal-contact-mark {
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft-strong);
+  color: var(--green-700);
+  font-family: var(--font-ui);
+  font-weight: var(--weight-semibold);
+}
+.portal-contact-card dt {
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.portal-row-amount strong {
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .portal-welcome h1 {
+    font-size: var(--text-3xl);
+  }
+  .portal-due {
+    border-radius: var(--radius-md);
+  }
+  .portal-due-amount {
+    font-size: var(--text-3xl);
+  }
+  .portal-due-pay {
+    width: 100%;
+  }
+}
+/* Cronograma de parcelas: situação no texto com cor de estado, sem filete lateral. */
+.portal-schedule li,
+.portal-schedule li.is-paid,
+.portal-schedule li.is-partial,
+.portal-schedule li.is-late {
+  border-left: 0;
+  padding-left: 0;
+}
+.portal-schedule li.is-paid .portal-schedule-state {
+  color: var(--success-ink);
+}
+.portal-schedule li.is-partial .portal-schedule-state {
+  color: var(--warning-ink);
+}
+.portal-schedule li.is-late .portal-schedule-state {
+  color: var(--danger-ink);
+  font-weight: var(--weight-medium);
+}
+.portal-schedule li span:nth-child(2),
+.portal-plan summary dt,
+.portal-picker-title,
+.portal-picker-main small,
+.portal-docs-group-title,
+.portal-pix span,
+.portal-sign-upload label {
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.portal-feedback,
+.portal-doc-note {
+  border-radius: var(--radius-sm);
+}
+.portal-doc-kind {
+  border-color: var(--color-accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+.portal-doc-steps a {
+  border-color: var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.portal-doc-steps a:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.portal-doc-links .portal-sign-upload {
+  border-radius: var(--radius-sm);
+}
+.portal-docs-count {
+  border-radius: var(--radius-full);
+}
