@@ -1,83 +1,95 @@
 # Redesign da interface — apps/gestao
 
-Branch: `design/redesign-geral`. Escopo: somente interface e experiência de `apps/gestao`. `apps/site` não é tocado.
+Branch: `design/redesign-geral` (16 commits sobre a `main`, nada enviado ao remoto). Escopo: somente interface e experiência de `apps/gestao`. `apps/site` não foi tocado.
 
-> Status: plano (escrito antes de qualquer alteração de código). O relatório final substitui esta seção ao término.
+## Skill Impeccable
 
-## 1. Inventário
+A skill Impeccable foi carregada no início do trabalho, antes de qualquer alteração, e guiou todas as decisões. Referências consultadas:
 
-### Áreas
+- `SKILL.md` e o script de contexto (`impeccable context`): modos (Operate para gestão e área do cliente), princípios e roteamento.
+- `reference/init.md`: registro do produto. Resultado em `apps/gestao/PRODUCT.md`.
+- `reference/new-work.md`: decisão entre estender, expandir ou substituir o mundo visual; estratégia de cor (§4); calibração contra os visuais padrão de IA.
+- `reference/operate.md` e `reference/mode-operate.md`: **tipografia** (uma família, escala fixa em rem, razão 1,125 a 1,2), **cor** (estratégia contida, vocabulário de estados), **layout** (responsividade estrutural), **componentes** (todos os estados), **movimento** (150 a 250 ms, só para estado).
+- `reference/craft-floor.md`: piso de qualidade (contraste, foco, seleção, barras de rolagem, algarismos tabulares) e proibições (kicker acima de título, filete lateral colorido, numeração decorativa, mono como fantasia, glifo Unicode no lugar de ícone).
+- `reference/document.md`: formato do `apps/gestao/DESIGN.md`.
+- Detector `impeccable detect`, rodado sobre o código e a tela de entrada ao final.
 
-| Área | Domínio | Rotas | Shell |
-|---|---|---|---|
-| Acesso | gestão e clientes | `/entrar` | `auth-shell` próprio |
-| Gestão | gestao.viniciusriudi.com | 50 páginas (abaixo) | `app-shell` + `AppSidebar` |
-| Área do cliente | clientes.viniciusriudi.com | `/portal`, `/portal/servicos`, `/portal/pagamentos`, `/portal/documentos`, `/portal/configuracoes` | `app-shell` + `PortalSidebar` via `PortalShell` |
-| Landing mínima (encontrada no código) | viniciusriudi.com quando servido por este app | `/` (host landing) | `landing-shell` |
-| Widget de atendimento (encontrado no código) | embutido no site | `/widget/atendimento.js` | estilos próprios no script, fora do escopo visual desta etapa |
-| E-mails e PDFs (encontrados no código) | saída, não tela | `features/notifications/templates`, `features/quotes/services/*pdf*` | fora do escopo: são documentos com medidas próprias |
+O comando `polish` não foi executado.
 
-### Telas da gestão
+Substituições registradas, conforme a própria skill exige:
 
-- Visão geral: `/`
-- Eliza (assistente): `/assistente`
-- Atendimentos: `/atendimentos`, `/atendimentos/[id]`
-- Agenda: `/agenda` (semana, mês, arquivo, pop-up de evento)
-- Clientes: `/clientes`, `/clientes/novo`, `/clientes/[id]` (abas), `/clientes/[id]/editar`, `/clientes/[id]/assinaturas/nova`
-- Financeiro: `/financeiro`, `/financeiro/lancamentos/[id]`, `/financeiro/custos-fixos`, `/financeiro/custos-fixos/[id]`, `/financeiro/condicoes`
-- Documentos: `/documentos`, `/documentos/novo`, `/documentos/[id]/editor`, `/documentos/texto-padrao`
-- Orçamentos: `/orcamentos`, `/orcamentos/novo`, `/orcamentos/[id]`, `/orcamentos/[id]/editar`, `/orcamentos/[id]/editor`, `/orcamentos/parametros`, `/orcamentos/pendentes`, `/orcamentos/texto-padrao`
-- Vendas: `/vendas`, `/vendas/nova`
-- Serviços: `/servicos`, `/servicos/novo`, `/servicos/[id]`, `/servicos/categorias`
-- Monitoramento: `/monitoramento`, `/monitoramento/novo`, `/monitoramento/[id]`, `/monitoramento/guia`
-- Integrações: `/integracoes`, `/integracoes/asaas`, `/integracoes/ia`
-- Configurações: `/configuracoes` (e-mail, senha, logs), `/configuracoes/profissional`
+- **Entrevista de produto:** não houve, porque você avisou que ninguém estaria disponível. `PRODUCT.md` foi inferido do código e do seu pedido, com os itens inferidos marcados.
+- **Rodada de conceitos visuais (`concept-seed`):** não executada. O brief fixa a identidade (logo, verde e nome), então o caso é o de "mundo estabelecido": evoluir, não substituir. A construção foi direta em código, como a skill indica para telas de trabalho.
 
-### Componentes compartilhados
+## Como foi verificado
 
-`app-sidebar`, `sidebar-toggle`, `logo`, `notification-list`, `copy-text-button`, `document-input`, `rich-text-content`, `budget-calculator`, `client-picker`, `phone-input`, `confirm-submit-button`, `counterparty-field`, `portal-shell`, `portal-sidebar`, `portal-due-card`, `installment-picker`, abas (`client-tabs`, `settings-tabs`, `quote-tabs`, `monitor-tabs`), painéis (`settings-panel`, `directory-surface`, `client-panel`, `monitor-panel`), ações (`primary-action`, `secondary-action`, `danger-action`, `text-link`, `table-link`), mensagens (`form-error`, `form-success`, `directory-empty`, `settings-empty`, `list-empty`).
+- Depois de cada commit: `npm run lint` (é o `tsc --noEmit`, a checagem de tipos do projeto; não há ESLint configurado) e `npm run build`. **Todos passaram em todos os commits.** Nada precisou ser revertido.
+- Visual: o app depende de banco e sessão em quase todas as telas, e não havia banco nem permissão para criar um. Verifiquei de duas formas:
+  - a tela real `/entrar`, pelo servidor de produção local, sem banco;
+  - páginas de amostra com as classes reais dos componentes e o CSS compilado do build, no Chrome em 1440, 900 e 375 px. Foram amostradas: Clientes (lista, perfil e formulário), Visão geral, Financeiro, Documentos, Nova proposta, Vendas, Monitoramento, Integrações com logs e a área do cliente. Nenhuma teve rolagem horizontal.
+- Telas que **não** foram verificadas visualmente (só build e tipos): Agenda, Eliza, Atendimentos, editor de PDF (barra e painéis), Pagamentos e Documentos do portal, landing mínima.
 
-Estilos: um único `src/app/globals.css` (2.654 linhas compactadas, ~72 mil tokens) e `financeiro.module.css`. Não há Tailwind nem biblioteca de componentes.
+## O que mudou, por área
 
-### Diagnóstico do visual atual
+| Commit | Área | Resumo |
+|---|---|---|
+| `a7f6274` | Plano | Inventário, direção e plano (versão anterior deste arquivo) e `PRODUCT.md`. |
+| `75f838b` | Preparação | `globals.css` e `financeiro.module.css` formatados com uma regra por linha. Mudança só de formato: comparei o CSS compilado antes e depois e ele é idêntico. |
+| `7bfde73` | Base | `tokens.css` (cores, estados, tipografia, espaço, raios, sombras, movimento). Normalização por script: 844 tamanhos de fonte passados para a escala (mínimo de 12px), 248 cores fixas trocadas por tokens, caixa alta e espaçamento largo removidos dos rótulos. `system.css` com shell, navegação, cabeçalhos, botões, campos, tabelas, abas, superfícies, mensagens, foco, seleção e barras de rolagem. Ícones SVG próprios no lugar de 01 a 12. Barra de progresso entre rotas e páginas de erro e de não encontrado. |
+| `61518c6` | Base | 867 textos digitados em caixa alta passados para caixa normal, preservando siglas e nomes próprios. Frases que citavam botões em maiúsculas passam a citá-los entre aspas. |
+| `662ae27` | Base | Kickers decorativos removidos. Subpáginas ganharam trilha com link para a seção-mãe. Títulos sem ponto final. Blocos pretos viraram verde de ação. Filetes laterais viraram borda de 1px. |
+| `32b8d18` | Acesso | Login com selo "Gestão" ou "Área do cliente", superfície e campos de 44px, versão de celular sem bordas. Landing mínima com título controlado. |
+| `2bf721d` | Visão geral | Valor do mês sem quebra de linha, sinais com cor semântica. As linhas de monitoramento e de próximos pagamentos agora abrem o sistema ou o lançamento (antes mostravam › sem serem clicáveis). |
+| `824ce28` | Clientes | Perfil, abas e fichas. Selos de situação de 8 classes diferentes unificados em um só desenho. |
+| `03cbcdf` | Financeiro | Superfícies do módulo, botões, situação em pílula. Corrigida a barra lateral que encolhia em telas largas com tabela. |
+| `e7250c9` | Documentos | Seletor de tipo como controle segmentado (rolável no celular), filtros, busca de cliente, etapas da proposta. |
+| `4ca83a6` | Vendas e serviços | Resumo comercial, filtro de período, menus de ação, grupos do catálogo. |
+| `90f73cd` | Agenda, atendimentos, Eliza | Eventos sem filete lateral, modal e conversa no padrão do sistema. Código volta para fonte mono. A prévia do PDF mantém a fonte mono original. |
+| `aab12c6` | Monitoramento | Painel de situação, cartões de sistema, ação Verificar. |
+| `f8edf2f` | Integrações e configurações | Lista sem a numeração 01, 02 e 03; modelos de e-mail; logs. |
+| `121e771` | Área do cliente | Boas-vindas, pagamento em destaque (verde, ou vermelho quando atrasado), jornada, pendências, contato, cronograma de parcelas, documentos. |
+| `50759a2` | Agenda | Filetes coloridos restantes, apontados pelo detector, removidos. |
+| (este commit) | Relatório | `REDESIGN.md` final e `apps/gestao/DESIGN.md`. |
 
-- Mundo "editorial": barra lateral preta, verde `#4b6156`, cantos retos, rótulos em JetBrains Mono maiúsculo com espaçamento largo (321 usos de mono, 46 `uppercase`, ~1.000 textos digitados em caixa alta nos componentes).
-- Kickers acima de todo título ("GESTÃO / OPERAÇÃO / 01", 97 ocorrências) e números de seção na navegação (01 a 12).
-- Escala tipográfica sem sistema: mais de 50 tamanhos distintos, muitos entre 8px e 10px (`.5rem` a `.62rem`), abaixo do mínimo legível.
-- ~200 cores fixas espalhadas, sem tokens semânticos de estado.
-- Sem `loading.tsx`, `error.tsx` ou `not-found.tsx`: navegação lenta não mostra nada e erros caem na página padrão do Next.
+## Decisões de design e motivos
 
-## 2. Direção
+1. **Evoluir a identidade em vez de trocá-la.** Ficaram o logo, o verde `#4b6156` e o nome. O preto puro da barra lateral virou um verde muito escuro (`#141a17`): mantém o contraste e o logo invertido, mas liga a barra à cor da marca.
+2. **O verde passou a ser a cor de ação.** Antes os botões primários eram pretos e o verde aparecia solto. Agora o verde marca ação, seleção e foco, e só isso. O visual fica mais calmo e o próximo passo fica mais óbvio.
+3. **Inter em toda a interface; mono só para código.** O visual antigo usava JetBrains Mono em caixa alta em 321 lugares, como fantasia de "técnico". Isso cansa a leitura e é um padrão típico de interface gerada por IA. Mantive a Inter, que o projeto já carregava (sem dependência nova). O detector da skill sinaliza a Inter como fonte "batida". Mantive mesmo assim: em tela de trabalho a skill recomenda uma fonte de interface consolidada, e trocar a fonte é decisão de marca (está nos pontos para você decidir).
+4. **Escala fixa com mínimo de 12px.** Havia mais de 50 tamanhos, vários entre 8 e 10px. Agora são 10 passos fixos.
+5. **Caixa normal em todos os textos.** A caixa alta digitada foi convertida, com siglas preservadas. Nenhum texto com informação foi removido.
+6. **Kickers e numeração.** Saíram as trilhas que só repetiam a área ("Gestão / Operação / 01", "Monitoramento / Live") e os números 01 a 12 e 01 a 03. As que carregam informação viraram trilha com link (subpáginas) ou ficaram como legenda discreta (por exemplo "Próximos 7 dias" e "Seu projeto · código"). A numeração de 01 a 05 das etapas da proposta ficou, porque a sequência importa.
+7. **Selos de situação unificados.** Oito desenhos diferentes viraram uma pílula com quatro tons semânticos, sempre com texto.
+8. **Raios discretos (6, 8 e 12px) e sombra mínima.** Os cantos retos combinavam com o visual editorial antigo. Raios pequenos deixam a interface mais acolhedora para o cliente sem perder a sobriedade.
+9. **Prévias do PDF intactas.** O editor espelha o PDF em medidas próprias (`cqw`, pontos). Todas as normalizações excluíram essas regras, e a fonte mono foi restaurada nos rótulos da prévia que dependiam dela.
+10. **Carregamento: barra de progresso no topo em vez de `loading.tsx`.** Cada página monta a própria barra lateral. Um `loading.tsx` trocaria a página inteira, barra lateral incluída, por um esqueleto a cada clique, e a navegação ia piscar. A barra no topo dá retorno imediato sem esse efeito. Os estilos de esqueleto (`.skeleton`, `.route-loading-*`) ficaram prontos em `system.css`, para uso futuro dentro das páginas.
+11. **Cartões do monitoramento mantidos.** O padrão do repositório desaconselha cartões para listas grandes, mas a lista é paginada de 50 em 50 e a troca por tabela mudaria a estrutura da tela. Melhorei o visual e deixei a mudança de estrutura como ponto para você decidir.
+12. **Nenhuma dependência nova.** Prettier e Playwright foram usados como ferramentas temporárias via `npx`, fora do projeto. O `package.json` não mudou.
 
-Modo **Operate** (a skill Impeccable classifica as duas áreas como superfícies de trabalho). O brief fixa a identidade (logo, verde, nome), então o mundo é **evoluído, não substituído**; não há rodada de conceitos.
+## O que ficou de fora
 
-- **Cor (estratégia contida):** verde `#4b6156` como cor de ação, seleção e marca. Barra lateral escura puxada para o verde (em vez de preto puro), mantendo o logo invertido. Neutros levemente esverdeados. Tokens de estado: sucesso, atenção, crítico, informação, neutro, cada um com fundo, traço e texto.
-- **Tipografia:** Inter para toda a interface, com algarismos tabulares em dados. JetBrains Mono só para código, URLs, chaves e identificadores. Escala fixa em rem (12, 13, 14, 15, 16, 18, 20, 24, 30), mínimo de 12px. Rótulos em caixa normal, peso 500.
-- **Forma:** raio de 6px em controles e 8px em superfícies; traço de 1px; sombra discreta só em sobreposições e na superfície principal.
-- **Navegação:** ícones desenhados (SVG próprio, traço único) no lugar dos números 01 a 12; item ativo com fundo tingido.
-- **Cabeçalhos:** kicker vira trilha de navegação discreta quando indica caminho; kickers decorativos saem; título sem ponto final.
-- **Estados:** foco visível em todos os controles, alvos de 44px no celular, esqueleto de carregamento, página de erro e de não encontrado.
+- **Nada foi revertido.** Todos os commits passaram em build e tipos.
+- Folhas e capas que espelham o PDF, e-mails (`features/notifications/templates`) e o widget de atendimento embutido no site (`attendance-widget.ts`) não foram alterados. São saídas com medidas próprias, fora da interface.
+- Ainda há cores fixas pontuais fora das prévias do PDF: 161 ocorrências (138 valores) no `globals.css` e 37 (18 valores) no `financeiro.module.css`, quase todas tons muito próximos dos tokens, em regras específicas de Agenda, editor e IA. Não mudam a percepção, mas ficaram fora dos tokens.
+- O `globals.css` continua sendo um arquivo grande com camadas de sobrescrita. O `system.css` vem por cima dele. A limpeza estrutural (separar por domínio e remover regras mortas, como `.nav-code` e `.profile`) ficou para depois, porque mexer na ordem da cascata sem ver as telas reais é arriscado.
+- O detector ainda aponta "card dentro de card" na tela de entrada, que sem `AUTH_SECRET` local exibe o aviso de configuração dentro da superfície. A causa mais provável é esse aviso com borda e raio dentro do formulário, mas não confirmei qual elemento o detector apontou. Mantive, porque mensagem de erro com borda dentro do formulário é o padrão esperado.
 
-## 3. Plano de execução
+## Pontos que precisam da sua decisão
 
-1. Documentos de contexto: `apps/gestao/PRODUCT.md` e este plano. Commit.
-2. Formatação mecânica do `globals.css` (uma regra por linha, sem mudança de valor) para que os diffs seguintes sejam legíveis. Commit.
-3. Base compartilhada: tokens (`tokens.css`), mapeamento das variáveis antigas para os tokens, normalização da escala tipográfica e das cores fixas, componentes base (shell, barra lateral com ícones, cabeçalhos, botões, campos, tabelas, abas, painéis, mensagens), estados globais (carregamento, erro, não encontrado). Commit.
-4. Caixa de texto: textos digitados em maiúsculas viram caixa normal, preservando siglas. Commit.
-5. Áreas, um commit cada, com build e checagem de tipos após cada um:
-   - Acesso e landing mínima
-   - Visão geral
-   - Clientes
-   - Financeiro
-   - Documentos e orçamentos (sem alterar a prévia que espelha o PDF)
-   - Vendas e serviços
-   - Agenda, atendimentos e Eliza
-   - Monitoramento
-   - Integrações e configurações
-   - Área do cliente
-6. `apps/gestao/DESIGN.md` com o sistema entregue e relatório final neste arquivo. Commit.
+1. **Fonte.** Manter a Inter (atual, segura e neutra) ou escolher uma fonte de interface com mais personalidade para a marca. É o único item em que o detector discorda da minha escolha.
+2. **Monitoramento em tabela?** Os cartões funcionam até algumas dezenas de sistemas. Se a lista crescer, vale trocar por tabela, que é o padrão do repositório.
+3. **Legendas acima de títulos de seção.** Várias seções ainda têm uma legenda curta acima do título (por exemplo "Fluxo realizado", "Próximos 7 dias", "Propostas em aberto"). Mantive por carregarem algum contexto. Eliminar todas deixaria a interface mais limpa, mas exige reescrever títulos.
+4. **Cor dos tipos de evento da Agenda.** "Atendimento" usa quase preto (`#111`) e "Tarefa" um azul acinzentado. Hoje o tipo aparece como fundo tingido e marcador; talvez você queira uma paleta de tipos pensada junto com o verde.
+5. **Selo "Gestão" ou "Área do cliente" no login.** É texto novo, adicionado para o cliente saber onde está. Confirme se deseja manter.
+6. **Linhas clicáveis na Visão geral.** Agora abrem o sistema monitorado e o lançamento correspondentes. Confirme se esse é o destino desejado.
 
-## 4. Verificação
+## Sugestões para a etapa final de polish
 
-- Após cada commit: `npm run build` (inclui `prisma generate`, sem acesso a banco) e `npm run lint` (`tsc --noEmit`, que é a checagem de tipos do projeto; não há ESLint configurado).
-- Visual: o app depende de banco e sessão para quase todas as telas, e não há banco disponível nem permissão para escrever em um. A verificação visual usa o `/entrar` real e páginas de amostra (HTML estático com as classes reais e o CSS compilado) renderizadas no Chromium em 1440px e 375px.
+- Revisar com dados reais e logado: Agenda (semana, mês, arquivo, pop-up), Eliza, Atendimentos, editor de PDF e o fluxo de assinatura do portal, as telas que eu não pude ver renderizadas.
+- Passar as cores fixas restantes para tokens: `grep -nE "#[0-9a-f]{6}" apps/gestao/src/app/globals.css`, excluindo as regras do PDF.
+- Unificar os rótulos de campo restantes em uma classe utilitária (`.field-label`) e remover as variações por tela.
+- Usar o esqueleto (`.skeleton`) nos trechos que carregam no cliente: busca de cliente, modelos de IA e propostas de referência.
+- Conferir contraste das legendas de 12px sobre superfícies tingidas (pagamento atrasado, painel de atenção do monitoramento).
+- Dividir o `globals.css` por domínio (shell, clientes, financeiro, documentos, agenda, IA, portal), mantendo a ordem da cascata.
+- Avaliar uma variação de cor da barra lateral para a área do cliente (por exemplo, o mesmo verde mais claro). Hoje ela é idêntica à da gestão, o que reforça o "mesmo sistema", mas uma leve diferença ajudaria você a nunca confundir as duas abas abertas.
+- Revisar as frases de estado vazio, para que cada uma ensine o próximo passo com um botão.
