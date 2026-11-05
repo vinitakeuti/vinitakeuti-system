@@ -101,3 +101,15 @@ Ajustes pedidos depois de rodar o app com dados reais:
 1. **Botão de exibir a navegação encostava nos títulos.** Com a barra recolhida, a área de trabalho agora reserva espaço à esquerda para o botão fixo.
 2. **Movimentações do Financeiro espremidas.** A tabela ganhou respiro vertical nas linhas e largura mínima (rola dentro da superfície em telas estreitas). Vencimento, valor e situação não quebram mais linha; o texto de pagamento parcial quebra só entre "Recebido ... ·" e "falta ...". "Parcial" e "Programado" passaram a usar os tons de informação e neutro.
 3. **Ícone da Eliza deformado.** Era um bug do script de caixa de texto: ele passou para minúsculas os comandos do desenho SVG do logo VR (`H`/`L` viraram `h`/`l`, que têm outro significado no SVG). O desenho foi restaurado exatamente como estava na `main` e agora aparece numa placa escura com cantos suaves, igual à barra lateral. Conferi todos os outros SVGs e atributos técnicos alterados pela branch; nenhum outro foi afetado.
+
+## Nova Visão geral
+
+A estrutura saiu de uma rodada de decisão da Impeccable: três propostas sorteadas entre sete candidatas, e você escolheu **Indicadores e três colunas**.
+
+- **Faixa de indicadores:** recebido no mês (com o percentual do previsto e um mini-histórico de 6 meses), a receber no mês, em atraso e saldo realizado.
+- **Hoje:** a agenda do dia, cada item abrindo o evento, e o que vence hoje.
+- **Próximos 7 dias:** o que entra e o que sai, com as atrasadas primeiro e o total de entradas e saídas.
+- **Operação:** sistemas fora do ar ou lentos, atendimentos novos, propostas aguardando decisão e orçamentos por concluir, cada um com o atalho para resolver. Quando não há nada, aparece "Tudo em ordem".
+- **Olho de ocultar valores:** botão pequeno, só ícone, no cabeçalho. Troca todos os valores em dinheiro por "R$ •••••" e esconde as barras do histórico. A escolha fica num cookie de preferência, então a tela já abre no estado escolhido, sem piscar os valores.
+- **Dados:** só consultas já existentes nas telas de cada área (agenda, financeiro, atendimentos, orçamentos, monitoramento). Nenhuma mudança de banco ou API. O componente antigo de notificações descartáveis (`notification-list.tsx`) saiu, porque a coluna Operação cobre o que ele mostrava.
+- **Ficou de fora:** "Via assinada para conferir". Contar isso pede uma consulta por `reviewStatus`, que não tem índice; criar o índice exige migration.

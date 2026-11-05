@@ -1,8 +1,12 @@
-import { DocumentStatus, FinancialEntryStatus, FinancialEntryType } from "@prisma/client";
+import { DocumentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getFinanceSummary } from "@/features/finance/queries/finance-queries";
+import { getFinanceSummary, getUpcomingCommitments, getUpcomingReceivables } from "@/features/finance/queries/finance-queries";
 import { getMonitoringSummary } from "@/features/monitoring/queries/monitoring-queries";
 import { ensureRecurringEntries } from "@/features/finance/services/recurring-entries";
+import { listEventsBetween } from "@/features/agenda/queries/agenda-queries";
+import { todayKey } from "@/features/agenda/types/agenda";
+import { countAttendances } from "@/features/attendance/queries/attendance-queries";
+import { countPendingQuotes } from "@/features/quotes/queries/quote-queries";
 
 function currentMonthRange() {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Maceio", year: "numeric", month: "numeric" }).formatToParts(new Date());
@@ -17,31 +21,46 @@ function currentMonthRange() {
   };
 }
 
+/**
+ * Dados da Visão geral: os números do mês, o dia (agenda e vencimentos), os próximos 7 dias de caixa e o que pede
+ * atenção na operação. Todas as consultas são as mesmas usadas nas telas de cada área, com limites pequenos.
+ */
 export async function getOverviewData() {
   const period = currentMonthRange();
-  const now = new Date();
+  const today = todayKey();
   // Os custos fixos do mês precisam existir antes do resumo.
   await ensureRecurringEntries();
-  const [finance, payments, monitoredApps, monitoring, openQuotes] = await Promise.all([
+  const [finance, receivables, commitments, events, attentionApps, monitoring, openQuotes, pendingQuotes, attendances] = await Promise.all([
     getFinanceSummary({ from: period.from, to: period.to }),
-    prisma.financialEntry.findMany({
-      where: { type: FinancialEntryType.INCOME, status: FinancialEntryStatus.PENDING, dueDate: { gte: now } },
-      take: 5,
-      orderBy: [{ dueDate: "asc" }, { id: "asc" }],
-      select: { id: true, description: true, counterparty: true, amountCents: true, paidCents: true, dueDate: true },
-    // Recebimentos parciais: mostra só o que ainda falta.
-    }).then((entries) => entries.map(({ paidCents, ...entry }) => ({ ...entry, amountCents: entry.amountCents - paidCents }))),
+    getUpcomingReceivables(6),
+    getUpcomingCommitments(6),
+    listEventsBetween(today, today, { take: 8 }),
     prisma.monitoredApp.findMany({
-      take: 6,
-      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-      select: { id: true, name: true, status: true, lastCheckedAt: true, lastResponseMs: true, healthEndpoint: true },
+      where: { status: { in: ["DOWN", "DEGRADED"] } },
+      take: 3,
+      orderBy: [{ status: "asc" }, { updatedAt: "desc" }, { id: "desc" }],
+      select: { id: true, name: true, status: true, lastIncidentAt: true, lastResponseMs: true },
     }),
     getMonitoringSummary(),
     prisma.quote.aggregate({
       where: { status: { in: [DocumentStatus.DRAFT, DocumentStatus.SENT] }, sale: null, lostAt: null },
       _count: { _all: true },
     }),
+    countPendingQuotes(),
+    countAttendances({}),
   ]);
 
-  return { period, finance, payments, monitoredApps, monitoring, openQuotes: openQuotes._count._all };
+  return {
+    period,
+    today,
+    finance,
+    receivables,
+    commitments,
+    events,
+    attentionApps,
+    monitoring,
+    openQuotes: openQuotes._count._all,
+    pendingQuotes,
+    newAttendances: attendances.NEW,
+  };
 }
