@@ -1285,3 +1285,247 @@ a:hover > .row-chevron {
     gap: 16px;
   }
 }
+
+/* ---------- Selos de situação ---------- */
+/* Um só desenho para todos os selos: pílula, texto 12px, tom semântico com fundo, traço e texto. */
+.doc-pill,
+.settings-badge,
+.settings-level,
+.portal-tag,
+.agenda-status,
+.client-finance-status,
+.client-finance .table-scroll td .client-finance-status,
+.sales-table .sale-status,
+.documents-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 1px 9px;
+  border: 1px solid var(--neutral-border);
+  border-radius: var(--radius-full);
+  background: var(--neutral-bg);
+  color: var(--neutral-ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.doc-pill.is-signed,
+.doc-pill.is-done,
+.settings-badge.is-ok,
+.portal-tag.is-ok,
+.agenda-status.is-done,
+.client-finance-status.is-settled,
+.client-finance .table-scroll td .client-finance-status.is-settled,
+.sales-table .sale-status-paid,
+.sales-table .sale-status-confirmed,
+.documents-status.is-done {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-ink);
+}
+.doc-pill.is-waiting,
+.doc-pill.is-review,
+.settings-badge.is-warning,
+.settings-level.is-warning,
+.portal-tag.is-soon,
+.client-finance-status.is-pending,
+.client-finance-status.is-partial,
+.client-finance .table-scroll td .client-finance-status.is-pending,
+.client-finance .table-scroll td .client-finance-status.is-partial,
+.sales-table .sale-status-sent,
+.sales-table .sale-status-pending,
+.documents-status:not(.is-done) {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+}
+.doc-pill.is-rejected,
+.settings-level.is-error,
+.portal-tag.is-late,
+.agenda-status.is-cancelled,
+.sales-table .sale-status-cancelled {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+.settings-level.is-info,
+.agenda-status:not(.is-done):not(.is-cancelled):not(.is-archived) {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+  color: var(--info-ink);
+}
+.portal-due .portal-tag {
+  background: var(--color-surface);
+}
+.monitoring-status {
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.monitoring-status i {
+  width: 8px;
+  height: 8px;
+}
+.attendance-status button {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+/* ---------- Clientes ---------- */
+.client-hero {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom-color: var(--color-border);
+}
+.client-hero-bar {
+  min-height: 32px;
+  margin-bottom: 12px;
+}
+.client-hero-bar nav {
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.client-hero-bar nav a {
+  color: var(--color-text-secondary);
+}
+.client-hero-bar nav a:hover {
+  color: var(--color-accent);
+}
+.client-hero-main {
+  gap: 16px;
+}
+.client-hero-mark {
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft-strong);
+  color: var(--green-700);
+  font-family: var(--font-ui);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+.client-hero-identity h1 {
+  color: var(--color-text);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+}
+.client-hero-identity p {
+  color: var(--color-text-secondary);
+}
+.client-hero-actions {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.client-panel {
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  overflow: clip;
+}
+.client-panel-heading {
+  padding: 18px 20px 14px;
+}
+.client-panel-heading h2,
+.client-block h2 {
+  color: var(--color-text);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+}
+.client-panel-heading p {
+  color: var(--color-text-secondary);
+}
+.client-panel-body {
+  padding: 0 20px 8px;
+}
+.client-panel-body > .table-scroll {
+  margin: 0 -20px;
+}
+.client-panel-empty {
+  color: var(--color-text-secondary);
+}
+.client-stat {
+  gap: 6px;
+  padding: 16px 20px;
+  transition: background var(--duration-fast) ease;
+}
+.client-stat:hover {
+  background: var(--color-surface-subtle);
+}
+.client-stat b {
+  color: var(--color-text);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.client-stat span {
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.client-block {
+  padding: 20px;
+}
+.client-facts dt,
+.client-notes-block h3 {
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.client-facts dd.is-empty {
+  color: var(--color-text-muted);
+}
+.client-facts dd a.client-fact-action {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.client-recent li a b {
+  font-weight: var(--weight-medium);
+}
+.client-recent li a small {
+  color: var(--color-text-secondary);
+}
+.client-mobile-row b {
+  color: var(--color-text);
+}
+.client-mobile-counts b {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.client-mobile-counts span {
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+@media (max-width: 640px) {
+  .client-hero-mark {
+    width: 44px;
+    height: 44px;
+    font-size: var(--text-md);
+  }
+  .client-hero-identity h1 {
+    font-size: var(--text-2xl);
+  }
+  .client-panel {
+    border-radius: 0;
+  }
+}
+.table-scroll td:first-child,
+.table-scroll td:first-child > span:first-child {
+  color: var(--color-text);
+}

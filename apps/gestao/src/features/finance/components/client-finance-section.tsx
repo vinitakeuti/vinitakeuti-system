@@ -50,7 +50,7 @@ export function ClientFinanceSection({ clientId, clientName, data, cursor }: { c
 
       {data.recurring.length ? <section className="client-finance-recurring" aria-label="Recorrências">
         <h3>Recorrências deste cliente</h3>
-        <ul>{data.recurring.map((item) => <li key={item.id}><Link href={`/financeiro/custos-fixos/${item.id}`}><span className={item.type === FinancialEntryType.INCOME ? "is-income" : "is-expense"}>{item.type === FinancialEntryType.INCOME ? "ENTRADA" : "Saída"}</span><b>{item.description}</b><small>todo dia {item.dayOfMonth}</small><em>{brl(item.amountCents)}</em></Link></li>)}</ul>
+        <ul>{data.recurring.map((item) => <li key={item.id}><Link href={`/financeiro/custos-fixos/${item.id}`}><span className={item.type === FinancialEntryType.INCOME ? "is-income" : "is-expense"}>{item.type === FinancialEntryType.INCOME ? "Entrada" : "Saída"}</span><b>{item.description}</b><small>todo dia {item.dayOfMonth}</small><em>{brl(item.amountCents)}</em></Link></li>)}</ul>
       </section> : null}
 
       <section className="client-finance-entries" aria-label="Lançamentos">
@@ -58,7 +58,7 @@ export function ClientFinanceSection({ clientId, clientName, data, cursor }: { c
         <div className="table-scroll"><table><thead><tr><th>Vencimento</th><th>Lançamento</th><th>Valor</th><th>Situação</th></tr></thead>
           <tbody>{data.entries.map((entry) => <tr key={entry.id}>
             <td>{date.format(entry.dueDate)}</td>
-            <td><span className={`client-finance-type ${entry.type === FinancialEntryType.INCOME ? "is-income" : "is-expense"}`}>{entry.type === FinancialEntryType.INCOME ? "ENTRADA" : "Saída"}</span><Link href={`/financeiro/lancamentos/${entry.id}`}>{entry.description}</Link><small>{entry.category}{entry.paymentCondition ? ` · ${entry.paymentCondition}` : ""}</small></td>
+            <td><span className={`client-finance-type ${entry.type === FinancialEntryType.INCOME ? "is-income" : "is-expense"}`}>{entry.type === FinancialEntryType.INCOME ? "Entrada" : "Saída"}</span><Link href={`/financeiro/lancamentos/${entry.id}`}>{entry.description}</Link><small>{entry.category}{entry.paymentCondition ? ` · ${entry.paymentCondition}` : ""}</small></td>
             <td><b>{brl(entry.amountCents)}</b>{entry.type === FinancialEntryType.INCOME && entry.paidCents > 0 && entry.paidCents < entry.amountCents ? <small>recebido {brl(entry.paidCents)}</small> : null}</td>
             <td><span className={`client-finance-status is-${financeEntryStatusKey(entry)}`}>{financeEntryStatusLabel(entry)}</span></td>
           </tr>)}</tbody>
