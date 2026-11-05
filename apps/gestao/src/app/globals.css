@@ -16093,7 +16093,6 @@ html:has(.agenda-strip) {
 }
 .agenda-day.is-today .agenda-day-head {
   background: var(--accent-surface);
-  box-shadow: inset 0 3px 0 var(--accent);
 }
 .agenda-day.is-today .agenda-day-num {
   color: var(--accent);
@@ -16154,7 +16153,6 @@ html:has(.agenda-strip) {
   display: grid;
   min-width: 0;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--k);
   background: var(--white);
   animation: agenda-rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: calc(var(--i, 0) * 45ms + 140ms);
@@ -16419,7 +16417,7 @@ html:has(.agenda-strip) {
   color: var(--white);
 }
 .agenda-cell.is-today {
-  box-shadow: inset 0 3px 0 var(--accent);
+  background: var(--green-25);
 }
 .agenda-cell-add {
   display: inline-grid;
@@ -16864,17 +16862,6 @@ html:has(.agenda-strip) {
   gap: 6px;
   padding: 28px 70px 20px 28px;
   border-bottom: 1px solid var(--line);
-}
-.agenda-sheet-head[class*="is-"]::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 4px;
-  background: var(--k);
-  transform-origin: left;
-  animation: agenda-grow 0.5s 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 @keyframes agenda-grow {
   from {

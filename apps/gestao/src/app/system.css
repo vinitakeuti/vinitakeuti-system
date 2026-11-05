@@ -1905,7 +1905,7 @@ a:hover > .row-chevron {
   font-size: var(--text-xs);
 }
 .agenda-day.is-today .agenda-day-head {
-  box-shadow: inset 0 2px 0 var(--color-accent);
+  box-shadow: none;
 }
 @media (hover: hover) {
   .agenda-move-button:hover,
