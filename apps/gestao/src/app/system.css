@@ -2108,3 +2108,99 @@ a:hover > .row-chevron {
 .monitoring-form {
   border-radius: var(--radius-md);
 }
+
+/* ---------- Integrações e configurações ---------- */
+.settings-email-models nav a {
+  margin: 0 8px;
+  padding: 10px 12px;
+  border-left: 0;
+  border-radius: var(--radius-sm);
+}
+.settings-email-models nav a:hover {
+  background: var(--color-surface-sunken);
+}
+.settings-email-models nav a[aria-current="true"] {
+  background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--color-accent-border);
+}
+.settings-note {
+  border-radius: var(--radius-sm);
+  color: var(--warning-ink);
+}
+.settings-log-summary dt,
+.settings-log-filters label {
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.settings-log-summary dd {
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.settings-log-filters {
+  padding: 14px 20px;
+  background: var(--color-surface-subtle);
+}
+.settings-log-filters button {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.settings-log-list summary {
+  padding: 12px 20px;
+}
+.settings-log-list summary:hover {
+  background: var(--color-surface-subtle);
+}
+.settings-log-list time {
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+}
+.ai-model-list {
+  border-radius: var(--radius-sm);
+}
+.ai-model-list label {
+  font-family: var(--font-ui);
+}
+.integration-list a {
+  border-radius: 0;
+}
+.integration-list {
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.integration-list a:hover .text-link {
+  color: var(--color-accent-hover);
+}
+.integration-disconnect {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+/* Integrações sem numeração decorativa: a lista começa pelo nome. */
+.integration-list a {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.35fr) 270px;
+}
+@media (max-width: 1100px) {
+  .integration-list a {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .integration-list dl,
+  .integration-pending {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 640px) {
+  .integration-list a {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .integration-list dl,
+  .integration-pending {
+    grid-column: 1;
+  }
+}

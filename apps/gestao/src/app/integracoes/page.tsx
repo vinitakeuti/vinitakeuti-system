@@ -48,7 +48,7 @@ export default async function IntegrationsPage() {
     <ul className="integration-list">
       {rows.map((row) => <li key={row.href}>
         <Link href={row.href}>
-          <span className="integration-code">{row.code}</span>
+          
           <span className="integration-main"><b>{row.name}</b><small>{row.description}</small>{row.alert ? <em>{row.alert}</em> : null}</span>
           {row.facts.length ? <dl>{row.facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl> : <span className="integration-pending">{row.pending}</span>}
           <span className="integration-side"><span className={`settings-badge ${row.status.tone}`}>{row.status.label}</span><span className="text-link">Abrir</span></span>
