@@ -18,7 +18,7 @@ type Price = { input: string; output: string };
 export const TASKS: Array<{ id: Task; label: string; detail: string }> = [
   { id: "gestao", label: "Gestão", detail: "Sua conversa com a Eliza e no seu WhatsApp. Obrigatório." },
   { id: "attendance", label: "Atendimento", detail: "Site, WhatsApp de clientes e área do cliente." },
-  { id: "document", label: "Documentos e contratos", detail: "Criar e revisar contratos, cessões, memoriais e documentos." },
+  { id: "document", label: "Documentos e contratos", detail: "A Eliza no editor de PDF (escrever e aperfeiçoar propostas, contratos, cessões, memoriais e documentos) e os documentos criados na conversa." },
   { id: "quote", label: "Orçamentos", detail: "Montar e alterar orçamentos com os serviços do catálogo." },
 ];
 
@@ -35,13 +35,13 @@ function modelMeta(model: AiModelInfo) {
 
 const priceText = (dollars: number) => String(Math.round(dollars * 10_000) / 10_000).replace(".", ",");
 
-export function AiModelPicker({ providers, initial }: { providers: ProviderOption[]; initial: { provider: string; baseUrl: string; keyHint: string | null; connected: boolean; usdBrl: string; models: Record<Task, string>; prices: Record<Task, Price> } }) {
+export function AiModelPicker({ providers, initial, initialTask = "gestao" }: { providers: ProviderOption[]; initial: { provider: string; baseUrl: string; keyHint: string | null; connected: boolean; usdBrl: string; models: Record<Task, string>; prices: Record<Task, Price> }; initialTask?: Task }) {
   const [provider, setProvider] = useState(initial.provider);
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl);
   const [chosen, setChosen] = useState<Record<Task, string>>(initial.models);
   const [prices, setPrices] = useState<Record<Task, Price>>(initial.prices);
-  const [task, setTask] = useState<Task>("gestao");
+  const [task, setTask] = useState<Task>(initialTask);
   const [models, setModels] = useState<AiModelInfo[] | null>(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);

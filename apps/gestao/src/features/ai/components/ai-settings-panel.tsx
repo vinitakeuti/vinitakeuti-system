@@ -64,7 +64,10 @@ function taskPrices(settings: AiSettingsView | null) {
   return { gestao: priceOf(models.gestao), attendance: priceOf(models.attendance || models.gestao), document: priceOf(models.document || models.gestao), quote: priceOf(models.quote || models.gestao) };
 }
 
-export function AiConnectionPanel({ settings }: { settings: AiSettingsView | null }) {
+/** Tarefa aberta no seletor de modelos quando o link pede uma (ex.: ?tarefa=documentos, vindo do editor de PDF). */
+const TASK_LINKS = { gestao: "gestao", atendimento: "attendance", documentos: "document", orcamentos: "quote" } as const;
+
+export function AiConnectionPanel({ settings, task }: { settings: AiSettingsView | null; task?: string }) {
   const connected = aiIsConnected(settings);
   const providerId = settings && isAiProviderId(settings.provider) ? settings.provider : "openrouter";
   return <section className="settings-panel" aria-labelledby="ai-connection-title">
@@ -85,7 +88,7 @@ export function AiConnectionPanel({ settings }: { settings: AiSettingsView | nul
       </ol>}
       {settings?.lastError ? <p className="settings-result is-error">{settings.lastError}</p> : null}
       <form className="settings-form" action={saveAiConnectionAction}>
-        <AiModelPicker providers={providerOptions} initial={{ provider: providerId, baseUrl: settings?.baseUrl ?? "", keyHint: settings?.keyHint ?? null, connected, usdBrl: settings?.usdBrlCents ? (settings.usdBrlCents / 100).toFixed(2).replace(".", ",") : "", models: taskModels(settings), prices: taskPrices(settings) }} />
+        <AiModelPicker providers={providerOptions} initialTask={task && task in TASK_LINKS ? TASK_LINKS[task as keyof typeof TASK_LINKS] : undefined} initial={{ provider: providerId, baseUrl: settings?.baseUrl ?? "", keyHint: settings?.keyHint ?? null, connected, usdBrl: settings?.usdBrlCents ? (settings.usdBrlCents / 100).toFixed(2).replace(".", ",") : "", models: taskModels(settings), prices: taskPrices(settings) }} />
         <div className="settings-form-actions">
           <button className="primary-action" type="submit">{connected ? "Salvar" : "Conectar"}</button>
           {connected ? <button className="secondary-action" type="submit" formAction={testAiConnectionAction} formNoValidate>Testar conexão</button> : null}

@@ -56,26 +56,33 @@ const DAY = 24 * 60 * 60 * 1000;
 export async function getActivitySummary(scope: ActivityScope, ownerPhones: string[], price: ModelPrice) {
   const since = new Date(Date.now() - 30 * DAY);
   const where = { createdAt: { gte: since }, conversation: scopeWhere(scope, ownerPhones) };
-  // Os trabalhos da Eliza nos projetos (plano, dia, atualização) contam do lado da Gestão.
+  // Os trabalhos da Eliza nos projetos e no editor de documentos contam do lado da Gestão.
+  const gestao = scope === "gestao";
   const jobsWhere = { createdAt: { gte: since }, status: { notIn: ["PENDING" as const, "RUNNING" as const] } };
-  const [runs, unpriced, sessions, today, jobs, unpricedJobs, jobsToday] = await Promise.all([
+  const jobSums = { _count: { _all: true as const }, _sum: { inputTokens: true as const, outputTokens: true as const, costMicros: true as const } };
+  const [runs, unpriced, sessions, today, projectJobs, unpricedProjectJobs, documentJobs, unpricedDocumentJobs, jobsToday] = await Promise.all([
     prisma.aiRun.aggregate({ where, _count: { _all: true }, _sum: { inputTokens: true, outputTokens: true, costMicros: true } }),
     prisma.aiRun.aggregate({ where: { ...where, costMicros: null }, _count: { _all: true }, _sum: { inputTokens: true, outputTokens: true } }),
     prisma.aiConversation.count({ where: { AND: [scopeWhere(scope, ownerPhones), { runs: { some: { createdAt: { gte: since } } } }] } }),
     prisma.aiRun.count({ where: { createdAt: { gte: startOfToday() }, conversation: scopeWhere(scope, ownerPhones) } }),
-    scope === "gestao" ? prisma.projectAiJob.aggregate({ where: jobsWhere, _count: { _all: true }, _sum: { inputTokens: true, outputTokens: true, costMicros: true } }) : null,
-    scope === "gestao" ? prisma.projectAiJob.aggregate({ where: { ...jobsWhere, costMicros: null, inputTokens: { gt: 0 } }, _count: { _all: true }, _sum: { inputTokens: true, outputTokens: true } }) : null,
-    scope === "gestao" ? prisma.projectAiJob.count({ where: { createdAt: { gte: startOfToday() } } }) : 0,
+    gestao ? prisma.projectAiJob.aggregate({ where: jobsWhere, ...jobSums }) : null,
+    gestao ? prisma.projectAiJob.aggregate({ where: { ...jobsWhere, costMicros: null, inputTokens: { gt: 0 } }, ...jobSums }) : null,
+    gestao ? prisma.documentAiJob.aggregate({ where: jobsWhere, ...jobSums }) : null,
+    gestao ? prisma.documentAiJob.aggregate({ where: { ...jobsWhere, costMicros: null, inputTokens: { gt: 0 } }, ...jobSums }) : null,
+    gestao ? Promise.all([prisma.projectAiJob.count({ where: { createdAt: { gte: startOfToday() } } }), prisma.documentAiJob.count({ where: { createdAt: { gte: startOfToday() } } })]).then(([projects, documents]) => projects + documents) : 0,
   ]);
-  const unpricedCount = unpriced._count._all + (unpricedJobs?._count._all ?? 0);
-  const estimate = unpricedCount ? costFromPrice((unpriced._sum.inputTokens ?? 0) + (unpricedJobs?._sum.inputTokens ?? 0), (unpriced._sum.outputTokens ?? 0) + (unpricedJobs?._sum.outputTokens ?? 0), price) : 0;
-  const known = (runs._sum.costMicros ?? 0) + (jobs?._sum.costMicros ?? 0);
+  const jobs = [projectJobs, documentJobs];
+  const unpricedJobs = [unpricedProjectJobs, unpricedDocumentJobs];
+  const sum = (items: typeof jobs, pick: (item: NonNullable<(typeof jobs)[number]>) => number | null | undefined) => items.reduce((total, item) => total + (item ? pick(item) ?? 0 : 0), 0);
+  const unpricedCount = unpriced._count._all + sum(unpricedJobs, (item) => item._count._all);
+  const estimate = unpricedCount ? costFromPrice((unpriced._sum.inputTokens ?? 0) + sum(unpricedJobs, (item) => item._sum.inputTokens), (unpriced._sum.outputTokens ?? 0) + sum(unpricedJobs, (item) => item._sum.outputTokens), price) : 0;
+  const known = (runs._sum.costMicros ?? 0) + sum(jobs, (item) => item._sum.costMicros);
   return {
     sessions,
-    runs: runs._count._all + (jobs?._count._all ?? 0),
+    runs: runs._count._all + sum(jobs, (item) => item._count._all),
     today: today + jobsToday,
-    inputTokens: (runs._sum.inputTokens ?? 0) + (jobs?._sum.inputTokens ?? 0),
-    outputTokens: (runs._sum.outputTokens ?? 0) + (jobs?._sum.outputTokens ?? 0),
+    inputTokens: (runs._sum.inputTokens ?? 0) + sum(jobs, (item) => item._sum.inputTokens),
+    outputTokens: (runs._sum.outputTokens ?? 0) + sum(jobs, (item) => item._sum.outputTokens),
     costMicros: estimate === null ? (known || null) : known + estimate,
     estimated: unpricedCount > 0 && estimate !== null && estimate > 0,
     unpricedRuns: estimate === null ? unpricedCount : 0,

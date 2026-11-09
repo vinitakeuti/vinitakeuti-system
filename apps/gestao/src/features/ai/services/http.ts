@@ -4,11 +4,12 @@ import { AiUnavailableError } from "@/features/ai/services/ai-runs";
 
 const MAX_BODY_BYTES = 32 * 1024;
 
-export async function readJson(request: Request): Promise<Record<string, unknown> | null> {
+/** Corpo JSON até `maxBytes` (32 KB por padrão; o editor de documentos envia o texto inteiro e usa mais). */
+export async function readJson(request: Request, maxBytes = MAX_BODY_BYTES): Promise<Record<string, unknown> | null> {
   const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > MAX_BODY_BYTES) return null;
+  if (length > maxBytes) return null;
   const text = await request.text().catch(() => "");
-  if (!text || text.length > MAX_BODY_BYTES) return null;
+  if (!text || text.length > maxBytes) return null;
   try {
     const value: unknown = JSON.parse(text);
     return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;

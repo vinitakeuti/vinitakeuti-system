@@ -1,12 +1,12 @@
 import { after } from "next/server";
 import { Prisma, ProjectAiJobKind, ProjectTaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { AiProviderError, type AiCompletion, type AiToolSpec, type JsonSchema } from "@/lib/integrations/ai/types";
+import { AiProviderError, type AiToolSpec, type JsonSchema } from "@/lib/integrations/ai/types";
 import { logEvent } from "@/features/system-logs/services/system-log";
 import { loadAiRuntime } from "@/features/ai/services/ai-settings";
-import { costOf } from "@/features/ai/services/agent";
+import { aiUsageToday, completeWithTool } from "@/features/ai/services/ai-structured";
 import type { PlanDraft } from "@/features/projects/services/project-service";
-import { PROJECT_LIMITS, percentOf, projectStatusLabel, taskStatusLabel, todayKey, weightOfSize } from "@/features/projects/types/project";
+import { PROJECT_LIMITS, percentOf, projectStatusLabel, taskStatusLabel, weightOfSize } from "@/features/projects/types/project";
 
 /**
  * A Eliza nos projetos, sempre fora da requisição (fila própria, com novas tentativas pelo agendador):
@@ -24,19 +24,12 @@ const WEEK = 7 * 24 * 60 * 60 * 1000;
 
 export class ProjectAiError extends Error {}
 
-function startOfToday() {
-  return new Date(`${todayKey()}T00:00:00.000-03:00`);
-}
 
 /** Põe um trabalho na fila. Recusa com a IA desligada, no limite diário ou com outro do mesmo tipo em andamento. */
 export async function enqueueProjectAiJob(input: { projectId: string; kind: ProjectAiJobKind; input: string; day?: string; minutes?: number | null }) {
   const loaded = await loadAiRuntime();
   if (!loaded.ok) throw new ProjectAiError(loaded.error);
-  if (loaded.runtime.dailyRunLimit !== null) {
-    const since = startOfToday();
-    const [runs, jobs] = await Promise.all([prisma.aiRun.count({ where: { createdAt: { gte: since } } }), prisma.projectAiJob.count({ where: { createdAt: { gte: since } } })]);
-    if (runs + jobs >= loaded.runtime.dailyRunLimit) throw new ProjectAiError("O limite diário de uso da IA foi atingido. Tente amanhã.");
-  }
+  if (loaded.runtime.dailyRunLimit !== null && await aiUsageToday() >= loaded.runtime.dailyRunLimit) throw new ProjectAiError("O limite diário de uso da IA foi atingido. Tente amanhã.");
   const job = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`project-ai:${input.projectId}`}))`;
     const busy = await tx.projectAiJob.findFirst({ where: { projectId: input.projectId, kind: input.kind, status: { in: ["PENDING", "RUNNING", "READY"] } }, select: { status: true } });
@@ -72,18 +65,17 @@ type Call = { system: string; user: string; tool: AiToolSpec; maxTokens: number;
 
 /** Chama o modelo pedindo uma ferramenta e devolve a entrada dela (ou o JSON do texto, se o modelo responder em texto). */
 async function callForTool(jobId: string, call: Call) {
-  const loaded = await loadAiRuntime();
-  if (!loaded.ok) throw new AiProviderError(loaded.error);
-  const runtime = loaded.runtime;
-  const model = runtime.models.gestao;
-  const completion: AiCompletion = await runtime.providerFor(model).complete({ system: call.system, messages: [{ role: "user", content: call.user }], tools: [call.tool], maxTokens: call.maxTokens, temperature: 0.2, timeoutMs: call.timeoutMs });
-  const cost = completion.usage.costUsd !== null ? Math.round(completion.usage.costUsd * 1_000_000) : costOf(completion.usage, runtime.priceFor(model), runtime.providerId === "anthropic");
-  await prisma.projectAiJob.update({ where: { id: jobId }, data: { model: completion.model || model, inputTokens: { increment: completion.usage.inputTokens }, outputTokens: { increment: completion.usage.outputTokens }, ...(cost !== null ? { costMicros: cost } : {}) } });
-  const fromTool = completion.toolCalls.find((item) => item.name === call.tool.name)?.input;
-  if (fromTool && Object.keys(fromTool).length) return fromTool;
-  const json = completion.text.match(/\{[\s\S]*\}/)?.[0];
-  if (json) { try { return JSON.parse(json) as Record<string, unknown>; } catch { /* segue para o erro */ } }
-  throw new Error(completion.stopReason === "length" ? "A resposta ficou longa demais e foi cortada. Divida a descrição em partes menores." : "A Eliza não devolveu o resultado no formato esperado.");
+  const record = (usage: { model: string; inputTokens: number; outputTokens: number; costMicros: number | null }) => prisma.projectAiJob.update({ where: { id: jobId }, data: { model: usage.model, inputTokens: { increment: usage.inputTokens }, outputTokens: { increment: usage.outputTokens }, ...(usage.costMicros !== null ? { costMicros: usage.costMicros } : {}) } });
+  try {
+    const result = await completeWithTool({ task: "gestao", ...call });
+    await record(result);
+    return result.input;
+  } catch (error) {
+    // Resposta fora do formato também custou: o uso é registrado antes de o erro seguir.
+    const usage = (error as { usage?: Parameters<typeof record>[0] }).usage;
+    if (usage) await record(usage);
+    throw error;
+  }
 }
 
 async function runJob(id: string) {

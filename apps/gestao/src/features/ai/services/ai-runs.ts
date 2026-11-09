@@ -5,6 +5,7 @@ import { logEvent } from "@/features/system-logs/services/system-log";
 import { executeRun } from "@/features/ai/services/agent";
 import { loadAiRuntime } from "@/features/ai/services/ai-settings";
 import { MAX_USER_MESSAGE } from "@/features/ai/services/conversations";
+import { aiUsageToday } from "@/features/ai/services/ai-structured";
 
 /**
  * Fila das respostas da IA. A mensagem da pessoa é gravada e a resposta é gerada fora da requisição (after), com
@@ -25,11 +26,6 @@ export class AiUnavailableError extends Error {
   }
 }
 
-function startOfToday() {
-  const today = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "America/Maceio" }).format(new Date());
-  return new Date(`${today}T00:00:00.000-03:00`);
-}
-
 /**
  * Grava a mensagem da pessoa e põe a resposta na fila. Recusa se o canal estiver desligado, se o limite diário
  * acabou ou se a resposta anterior desta conversa ainda não saiu.
@@ -41,7 +37,7 @@ export async function sendAiMessage({ conversationId, channel, text }: { convers
   if (!loaded.ok) throw new AiUnavailableError(loaded.error, 503);
   if (channel !== "SISTEMA" && !loaded.runtime.channels.has(channel)) throw new AiUnavailableError("A IA não está liberada neste canal.", 403);
   if (loaded.runtime.dailyRunLimit !== null) {
-    const used = await prisma.aiRun.count({ where: { createdAt: { gte: startOfToday() } } });
+    const used = await aiUsageToday();
     if (used >= loaded.runtime.dailyRunLimit) throw new AiUnavailableError("O limite diário de uso da IA foi atingido. Tente amanhã.", 429);
   }
   const run = await prisma.$transaction(async (tx) => {

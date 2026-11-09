@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   clientInfoKicker: { color: colors.accent, fontFamily: "Courier", fontSize: 7, letterSpacing: 0.9, marginBottom: 4 },
   clientInfoName: { color: colors.black, fontSize: 9.5, fontWeight: 700, marginBottom: 2, textAlign: "right" },
   clientInfoLine: { color: colors.charcoal, fontSize: 7.3, lineHeight: 1.38, textAlign: "right" },
-  documentContent: { marginTop: 5 },
+  documentContent: { height: 5 },
   editorHeading: { color: colors.black, fontSize: 20, letterSpacing: -0.5, lineHeight: 1.18, marginBottom: 12 },
   editorParagraph: { color: colors.charcoal, fontSize: 10, lineHeight: 1.65, marginBottom: 9 },
   editorSmall: { fontSize: 8.5 },
@@ -407,9 +407,9 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
           </View>
         </View>
 
-        <View style={styles.documentContent}>
-          {contentBlocks.map((block, index) => <DocumentBlock key={block.id} block={block} previous={contentBlocks[index - 1]} images={quote.images} />)}
-        </View>
+        {/* Os blocos ficam direto na folha: dentro de outra View, o react-pdf ignora as quebras de página. */}
+        <View style={styles.documentContent} />
+        {contentBlocks.map((block, index) => <DocumentBlock key={block.id} block={block} previous={contentBlocks[index - 1]} images={quote.images} />)}
 
         <View style={styles.footer} fixed><Text style={styles.footerDetails} /><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
       </Page>

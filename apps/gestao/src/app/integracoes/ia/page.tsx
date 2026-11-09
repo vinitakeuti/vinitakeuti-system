@@ -17,7 +17,7 @@ const notices: Record<string, string> = {
   "token-revogado": "Token de acesso externo revogado.",
 };
 
-type AiPageProps = { searchParams: Promise<{ aba?: string; escopo?: string; aviso?: string; erro?: string; cursor?: string; resultado?: string }> };
+type AiPageProps = { searchParams: Promise<{ aba?: string; escopo?: string; aviso?: string; erro?: string; cursor?: string; resultado?: string; tarefa?: string }> };
 
 /** Inteligência artificial: conexão com o provedor, canais e regras, acesso externo (site, WhatsApp, MCP) e atividade. */
 export default async function AiIntegrationPage({ searchParams }: AiPageProps) {
@@ -31,7 +31,7 @@ export default async function AiIntegrationPage({ searchParams }: AiPageProps) {
     {params.aviso && notices[params.aviso] ? <p className="form-success" role="status">{notices[params.aviso]}</p> : null}
     {params.aviso === "teste" ? <p className="form-success" role="status">Conexão funcionando: {params.resultado?.slice(0, 700)}. <Link className="text-link" href="/assistente">Abrir o assistente</Link></p> : null}
     {params.erro ? <p className="form-error" role="alert">{params.erro.slice(0, 300)}</p> : null}
-    {tab === "conexao" ? <AiConnectionPanel settings={settings} /> : null}
+    {tab === "conexao" ? <AiConnectionPanel settings={settings} task={params.tarefa} /> : null}
     {tab === "contexto" ? <AiContextPanel settings={settings} /> : null}
     {tab === "regras" ? <AiRulesPanel settings={settings} /> : null}
     {tab === "acesso" ? <AiAccessPanel settings={settings} /> : null}

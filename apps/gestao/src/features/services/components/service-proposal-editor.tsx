@@ -88,6 +88,11 @@ function documentToHtml(document: RichTextDocument) {
   }).join("");
 }
 
+/** HTML do texto formatado, com as mesmas tags e atributos do editor (para prévias com o estilo da folha). */
+export function richTextToHtml(value: string) {
+  return documentToHtml(parseRichText(value));
+}
+
 function sameMarks(left: RichTextMark, right: RichTextMark) {
   return left.bold === right.bold && left.italic === right.italic && left.underline === right.underline && left.size === right.size && left.color === right.color;
 }

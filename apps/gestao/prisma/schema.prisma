@@ -481,6 +481,7 @@ model Quote {
   documents       ClientDocument[]
   sale            Sale?
   signedCopies    SignedDocument[]
+  aiJobs          DocumentAiJob[]
 
   @@index([status, validUntil])
   @@index([status, createdAt, id])
@@ -546,6 +547,7 @@ model ClientDocument {
   quote           Quote?             @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   images          QuoteImage[]
   signedCopies    SignedDocument[]
+  aiJobs          DocumentAiJob[]
 
   @@index([clientId, kind, createdAt])
   @@index([kind, updatedAt, id])
@@ -1234,4 +1236,48 @@ model AgendaSettings {
   /// A IA do atendimento pode marcar reuniões.
   aiBooking      Boolean  @default(true)
   updatedAt      DateTime @updatedAt
+}
+
+enum DocumentAiMode {
+  WRITE
+  IMPROVE
+}
+
+enum DocumentAiJobStatus {
+  PENDING
+  RUNNING
+  READY
+  FAILED
+}
+
+/// Pedido à Eliza feito no editor de PDF (proposta ou documento): escrever o texto a partir de um prompt (WRITE) ou
+/// analisar e aperfeiçoar o texto atual (IMPROVE). Roda fora da requisição; o resultado só entra no documento quando
+/// você aplica no editor. Apagado depois de 30 dias.
+model DocumentAiJob {
+  id           String              @id @default(cuid())
+  quoteId      String?
+  documentId   String?
+  mode         DocumentAiMode
+  status       DocumentAiJobStatus @default(PENDING)
+  prompt       String
+  /// IMPROVE: os textos do documento no momento do pedido (id do bloco e Markdown).
+  source       Json?
+  result       Json?
+  error        String?
+  attempts     Int                 @default(0)
+  model        String?
+  inputTokens  Int                 @default(0)
+  outputTokens Int                 @default(0)
+  /// Custo em micro-dólares, como em AiRun.
+  costMicros   Int?
+  createdAt    DateTime            @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  quote        Quote?              @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  document     ClientDocument?     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([quoteId, createdAt])
+  @@index([documentId, createdAt])
+  @@index([createdAt])
 }

@@ -14,6 +14,7 @@ import { checkStackUpdates, type StackUpdate } from "@/features/monitoring/servi
 import { sendOwnerEmail } from "@/features/notifications/services/owner-email";
 import { processAiRuns, pruneAiHistory } from "@/features/ai/services/ai-runs";
 import { enqueueWeeklyProjectUpdates, processProjectAiJobs } from "@/features/projects/services/project-ai";
+import { processDocumentAiJobs, pruneDocumentAiJobs } from "@/features/documents/services/document-ai";
 
 const TICK_MS = 60_000;
 const CONCURRENCY = 4;
@@ -54,6 +55,9 @@ export function startMonitoringScheduler() {
     // Trabalhos da Eliza nos projetos (plano, dia e atualização ao cliente) que ainda estão na fila.
     try { await processProjectAiJobs(); }
     catch (error) { await logEvent({ source: "sistema", level: "error", event: "project.ai.queue.failed", message: `Falha na fila da Eliza nos projetos: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
+    // Pedidos à Eliza no editor de documentos (escrever e aperfeiçoar).
+    try { await processDocumentAiJobs(); }
+    catch (error) { await logEvent({ source: "sistema", level: "error", event: "document.ai.queue.failed", message: `Falha na fila da Eliza nos documentos: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
     // O mesmo ciclo cuida dos pagamentos do Asaas (eventos que falharam e sincronização a cada 30 minutos).
     try { await runAsaasCycle(); }
     catch (error) { await logEvent({ source: "sistema", level: "error", event: "asaas.scheduler.failed", message: `Falha no ciclo do Asaas: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500) }); }
@@ -175,6 +179,7 @@ async function runDailyTasks(now: Date) {
   if (hourOf(now) >= SUMMARY_HOUR && await claimDaily("monitoring-daily-summary", today)) await sendDailySummary(now);
   if (hourOf(now) >= SUMMARY_HOUR && await claimDaily("stack-updates", today)) await checkAllStackUpdates();
   if (await claimDaily("ai-retention", today)) {
+    await pruneDocumentAiJobs(now);
     const removed = await pruneAiHistory(now);
     if (removed) await logEvent({ source: "sistema", event: "ai.retention", message: `${removed} ${removed === 1 ? "conversa antiga da IA removida" : "conversas antigas da IA removidas"}.` });
   }

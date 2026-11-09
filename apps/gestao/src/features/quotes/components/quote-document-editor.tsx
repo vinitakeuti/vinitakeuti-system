@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { SidebarToggle } from "@/components/sidebar-toggle";
+import { DocumentAssistant, type AssistantSourceBlock } from "@/features/ai/components/document-assistant";
+import type { EditorPart } from "@/features/ai/services/document-markdown";
 import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest, type RichTextListChoice, type RichTextSelectionFormat } from "@/features/services/components/service-proposal-editor";
 import { DocumentSignaturePreview, QuoteClosingPreview, QuoteCoverPreview, type DocumentCoverData, type QuotePreviewData, type SignaturePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
 import { COVER_LABEL_MAX_LENGTH, COVER_TITLE_MAX_LENGTH, defaultFreeCover, type DocumentCoverSettings, hasQuoteServicesComponent, type QuoteDividerStyle, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
-import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, RICH_TEXT_COLORS, RICH_TEXT_SIZES, serializeRichText, type RichTextAlign, type RichTextBlock, type RichTextBox, type RichTextColor, type RichTextParagraphStyle } from "@/lib/rich-text";
+import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, richTextHasContent, RICH_TEXT_COLORS, RICH_TEXT_SIZES, serializeRichText, type RichTextAlign, type RichTextBlock, type RichTextBox, type RichTextColor, type RichTextParagraphStyle } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
   name: string;
@@ -95,6 +97,15 @@ function isBlankAtom(atom: RichTextBlock) {
 
 function newTextBlock(text: string, id = `${CONTINUATION_TEXT_PREFIX}${crypto.randomUUID().slice(0, 8)}`): QuoteDocumentBlock {
   return { id, type: "rich-text", text, fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
+}
+
+/** Linha divisória ou quebra de página, com id novo. */
+function componentBlock(type: "divider" | "page-break", divider?: QuoteDividerStyle): QuoteDocumentBlock {
+  return { id: `${type}-${crypto.randomUUID().slice(0, 8)}`, type, ...(divider ? { divider } : {}), text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
+}
+
+function isServiceBlock(block: QuoteDocumentBlock) {
+  return block.id === "services-label" || block.id.startsWith("service-");
 }
 
 /** Textos livres do documento: a apresentação e os textos criados ao inserir componentes. */
@@ -510,6 +521,8 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
   const layoutRef = useRef(layout);
   const [showClosing, setShowClosing] = useState(false);
   const [imageUpload, setImageUpload] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const closeAssistant = useCallback(() => setAssistantOpen(false), []);
   const sheetRef = useRef<HTMLElement>(null);
   const flowRef = useRef<HTMLDivElement>(null);
   const flowEndRef = useRef<HTMLDivElement>(null);
@@ -702,6 +715,82 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     setContent(next);
   }
 
+  /*
+   * Eliza: lê os textos do documento e aplica o que ela escreveu ou aperfeiçoou. Cada aplicação devolve como
+   * desfazer (volta os blocos de antes, pelo mesmo caminho das mudanças de estrutura).
+   */
+  function assistantBlocks(): AssistantSourceBlock[] {
+    return contentRef.current.blocks.map((block): AssistantSourceBlock => {
+      if (block.type === "rich-text") return { id: block.id, tipo: "texto", texto: block.text };
+      if (block.type === "divider") return { id: block.id, tipo: block.divider === "accent" ? "destaque" : "linha" };
+      if (block.type === "page-break") return { id: block.id, tipo: "quebra" };
+      if (block.type === "image") return { id: block.id, tipo: "imagem" };
+      return { id: block.id, tipo: "fixo", texto: block.text };
+    });
+  }
+
+  /**
+   * Blocos do editor a partir do que a Eliza escreveu. O primeiro texto pode assumir o id de um bloco existente;
+   * {serviços incluídos} usa o grupo recebido (o componente atual ou um novo), uma vez só.
+   */
+  function blocksFromParts(parts: EditorPart[], options: { firstTextId?: string; servicesGroup: QuoteDocumentBlock[] | null }) {
+    const blocks: QuoteDocumentBlock[] = [];
+    let firstTextId = options.firstTextId;
+    let servicesPlaced = false;
+    const pushText = (text: string) => {
+      blocks.push(newTextBlock(text, firstTextId));
+      firstTextId = undefined;
+    };
+    for (const part of parts) {
+      if (part.type === "text") pushText(part.text);
+      else if (part.type === "template") { if (templateText) pushText(serializeAtoms(richTextAtoms(templateText))); }
+      else if (part.type === "divider") blocks.push(componentBlock("divider", part.style));
+      else if (part.type === "page-break") blocks.push(componentBlock("page-break"));
+      else if (part.type === "services" && !servicesPlaced && options.servicesGroup?.length) {
+        blocks.push(...options.servicesGroup);
+        servicesPlaced = true;
+      }
+    }
+    return { blocks, servicesPlaced };
+  }
+
+  function documentHasText() {
+    return contentRef.current.blocks.some((block) => block.type === "rich-text" && richTextHasContent(block.text));
+  }
+
+  function applyAssistantWrite(parts: EditorPart[], placement: "replace" | "append") {
+    const before = contentRef.current.blocks;
+    const currentServices = before.filter(isServiceBlock);
+    if (placement === "append") {
+      // No fim: os serviços só entram se ainda não estiverem no documento.
+      const { blocks } = blocksFromParts(parts, { servicesGroup: currentServices.length ? null : quoteServiceComponentBlocks(services) });
+      const last = before.at(-1);
+      applyBlocks([...(isFreeText(last) && !richTextHasContent(last!.text) ? before.slice(0, -1) : before), ...blocks]);
+    } else {
+      // Substituir: o documento novo toma o lugar dos textos, linhas e quebras de página. Os serviços vão para onde a
+      // Eliza os pôs (ou para depois do texto); imagens continuam, depois dele.
+      const built = blocksFromParts(parts, { firstTextId: QUOTE_INTRO_BLOCK_ID, servicesGroup: currentServices.length ? currentServices : quoteServiceComponentBlocks(services) });
+      const kept = before.filter((block) => !isFreeText(block) && block.type !== "divider" && block.type !== "page-break" && !(built.servicesPlaced && isServiceBlock(block)));
+      applyBlocks([...(built.blocks[0]?.type === "rich-text" ? [] : [newTextBlock("", QUOTE_INTRO_BLOCK_ID)]), ...built.blocks, ...kept]);
+    }
+    return () => applyBlocks(before);
+  }
+
+  function applyAssistantImprove(changes: { id: string; parts: EditorPart[] }[]) {
+    const before = contentRef.current.blocks;
+    const byId = new Map(changes.map((change) => [change.id, change.parts]));
+    let servicesGroup = before.some(isServiceBlock) ? null : quoteServiceComponentBlocks(services);
+    // Cada trecho alterado dá lugar aos pedaços novos; o primeiro texto continua sendo o bloco original.
+    applyBlocks(before.flatMap((block) => {
+      const parts = byId.get(block.id);
+      if (!parts) return [block];
+      const built = blocksFromParts(parts, { firstTextId: block.id, servicesGroup });
+      if (built.servicesPlaced) servicesGroup = null;
+      return built.blocks.map((item) => item.id === block.id ? { ...block, text: item.text } : item);
+    }));
+    return () => applyBlocks(before);
+  }
+
   function updateBlock(id: string, patch: Partial<QuoteDocumentBlock>) {
     applyBlocks(contentRef.current.blocks.map((block) => block.id === id ? { ...block, ...patch } : block));
   }
@@ -804,7 +893,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
 
   /** Linha divisória no ponto do cursor; o texto continua logo abaixo dela. */
   function insertDivider(point: InsertionPoint | null, style: QuoteDividerStyle) {
-    const divider: QuoteDocumentBlock = { id: `divider-${crypto.randomUUID().slice(0, 8)}`, type: "divider", divider: style, text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
+    const divider = componentBlock("divider", style);
     const slot = insertionSlot(point);
     slot.blocks.splice(slot.index, 0, divider);
     const following = slot.blocks[slot.index + 1];
@@ -813,7 +902,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
   }
 
   function insertPageBreak(point: InsertionPoint | null) {
-    const pageBreak: QuoteDocumentBlock = { id: `page-break-${crypto.randomUUID().slice(0, 8)}`, type: "page-break", text: "", fontSize: "medium", bold: false, italic: false, underline: false, align: "left" };
+    const pageBreak = componentBlock("page-break");
     const slot = insertionSlot(point);
     slot.blocks.splice(slot.index, 0, pageBreak);
     // O cursor segue para o texto da nova página (criado pela normalização quando a quebra fica no fim).
@@ -1036,7 +1125,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     <input ref={documentContentFieldRef} type="hidden" name="documentContent" defaultValue={JSON.stringify(content)} />
     <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; void uploadImages(files); }} />
     <section className="quote-docs-toolbar" aria-label="Ferramentas do editor">
-      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{kindInfo.shortName} · {documentCode} · {isCompleted ? "Concluído" : "Pendente de conclusão"}</span><strong>{coverSettings?.title || documentTitle}</strong><small className={`quote-docs-saved is-${saveState}`} role="status" aria-live="polite">{saveLabel}</small></div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">Texto padrão</button><Link className="quote-docs-back-link" href={backHref}>Voltar</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">Salvar</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "Salvar e sair" : "Concluir"}</button></div></div>
+      <div className="quote-docs-toolbar-meta"><div className="quote-docs-toolbar-title"><span>{kindInfo.shortName} · {documentCode} · {isCompleted ? "Concluído" : "Pendente de conclusão"}</span><strong>{coverSettings?.title || documentTitle}</strong><small className={`quote-docs-saved is-${saveState}`} role="status" aria-live="polite">{saveLabel}</small></div><div className="quote-docs-toolbar-actions"><SidebarToggle location="header" hideWhenOpen /><button className="quote-docs-back-link quote-docs-eliza" type="button" aria-expanded={assistantOpen} title="Pedir para a Eliza escrever ou aperfeiçoar o texto" onClick={() => setAssistantOpen((value) => !value)}><span className="quote-docs-eliza-mark" aria-hidden="true" />Eliza</button><button className="quote-docs-back-link quote-docs-template-link" type="submit" name="intent" value="template" title="Salva este PDF e abre o texto padrão">Texto padrão</button><Link className="quote-docs-back-link" href={backHref}>Voltar</Link><button className="secondary-action quote-docs-save-draft" type="submit" name="intent" value="save">Salvar</button><button className="primary-action quote-docs-save" type="submit" name="intent" value="complete">{isCompleted ? "Salvar e sair" : "Concluir"}</button></div></div>
       <div className="quote-docs-toolbar-tools">
         <ComponentsMenu options={componentOptions} onOpen={() => { insertionPointRef.current = currentInsertionPoint(); }} onSelect={selectComponent} />
         {imageUpload.busy ? <span className="quote-docs-tool-context">Enviando imagens...</span> : null}
@@ -1112,5 +1201,6 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
         {showClosing ? closing.type === "investment" ? <QuoteClosingPreview quote={closing.quote} professional={professional} pageNumber={totalPages} /> : <DocumentSignaturePreview document={closing.document} professional={professional} kind={kind} pageNumber={totalPages} /> : null}</>}
       </div>
     </section>
+    <DocumentAssistant open={assistantOpen} onClose={closeAssistant} target={{ alvo: kind === "proposal" ? "proposta" : "documento", id: documentId }} kindName={kindInfo.shortName} readBlocks={assistantBlocks} hasText={documentHasText} onWrite={applyAssistantWrite} onImprove={applyAssistantImprove} />
   </form>;
 }
