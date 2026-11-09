@@ -689,6 +689,7 @@ p { margin:0; }
   .site-header-actions { margin-left:auto; }
 }
 @media (max-width:960px) {
+  .pf-closing nav { flex-direction:column; align-items:flex-start; }
   .pf-mark { width:min(96vw, 640px); }
   .pf-skills-board { grid-template-columns:repeat(3,minmax(0,1fr)); }
   .pf-panel { grid-template-columns:minmax(0,1fr); gap:28px; padding:48px 0; }
