@@ -1,5 +1,5 @@
 /**
- * Conteúdo da página /portfolio: a história e os projetos.
+ * Conteúdo da página /portfolio: os projetos e as habilidades.
  *
  * Mídias: cada projeto tem a sua pasta em public/portfolio/<id-do-projeto>/ (ex.: public/portfolio/pacelab/).
  * - `media`: as telas do projeto (uma ou mais; com mais de uma, a janela ganha abas). `src` vazio = tela ilustrativa desenhada a partir de `screen`.
@@ -20,18 +20,12 @@ export type SkillGroup = { label: string; items: readonly string[] };
 export const portfolio = {
   seo: {
     title: "Portfólio · Vinicius Riudi",
-    description: "A história de Vinicius Riudi e os projetos entregues: sistemas, portais, sites e integrações sob medida.",
+    description: "Projetos entregues por Vinicius Riudi: sistemas, portais, sites e integrações sob medida.",
   },
   hero: {
     eyebrow: "PORTFÓLIO",
     name: "Vinicius Riudi",
   },
-  /** A história em parágrafos simples, lidos em sequência. */
-  story: [
-    "Tudo começa com um problema real. Antes de escrever uma linha de código, entendo a rotina, o que trava e o que precisa mudar. A tecnologia vem depois.",
-    "Para organizar o meu próprio trabalho, construí um sistema de gestão com clientes, propostas, contratos e cobranças num só lugar. Depois veio a área do cliente, para que cada cliente acompanhe o projeto, assine documentos e pague as parcelas sem precisar perguntar nada.",
-    "Hoje desenvolvo sites, sistemas sob medida, integrações e estruturas de tráfego pago para negócios de áreas diferentes, sempre do planejamento à entrega e com acompanhamento depois.",
-  ],
   /**
    * Habilidades por área. Só tecnologias que compõem um stack (linguagens, frameworks, bancos, plataformas),
    * sem bibliotecas. Cada área vira uma aba; para uma nova área, adicione outro item com os seus grupos.

@@ -29,7 +29,7 @@ export const site = {
   ],
   hero: {
     eyebrow: "ESTRATÉGIA · TECNOLOGIA · OPERAÇÃO",
-    title: "Sites, sistemas e tráfego pago para vender mais.",
+    title: "Sites, sistemas e tráfego para vender mais.",
     text: "Software sob medida, apps, landing pages e funis de venda para o seu negócio, do planejamento à entrega.",
     primary: "Conversar",
     secondary: "Entenda os processos",
@@ -79,7 +79,7 @@ export const site = {
       description: "Anúncios, páginas e funis para transformar visitas em clientes.",
       services: [
         {
-          id: "gestao-trafego", title: "Gestão de Tráfego Pago", demo: "ads", billing: "Gestão mensal",
+          id: "gestao-trafego", title: "Gestão de Tráfego", demo: "ads", billing: "Gestão mensal",
           summary: "Campanhas no Google Ads e no Meta Ads (Instagram e Facebook) para levar as pessoas certas até você.",
           detail: "Planejamento, criação e otimização das campanhas, com relatório do que o investimento trouxe de volta.",
           includes: ["Planejamento de público e orçamento", "Criação e configuração das campanhas", "Otimização contínua dos anúncios", "Relatório mensal de resultados"],
@@ -114,7 +114,7 @@ export const site = {
   process: [
     { title: "Conversa", text: "Entendimento do problema, do objetivo e do que já existe hoje." },
     { title: "Proposta", text: "Escopo, prazos e valores claros, por escrito." },
-    { title: "Contrato", text: "Assinado digitalmente pelo gov.br, sem papel." },
+    { title: "Contrato", text: "Assinado digitalmente, sem papel." },
     { title: "Desenvolvimento", text: "Etapas visíveis na área do cliente, com entregas parciais." },
     { title: "Entrega e suporte", text: "Publicação, monitoramento e evolução contínua." },
   ],

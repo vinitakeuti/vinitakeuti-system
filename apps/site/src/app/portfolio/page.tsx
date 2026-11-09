@@ -16,18 +16,11 @@ export const metadata: Metadata = {
 };
 
 export default function Portfolio() {
-  const { hero, story, skills, closing } = portfolio;
+  const { hero, skills, closing } = portfolio;
   return <>
     <SiteHeader current="/portfolio" minimal />
     <main id="inicio" className="pf-page">
       <PortfolioHero eyebrow={hero.eyebrow} name={hero.name} />
-
-      <section className="pf-story" id="trajetoria" aria-labelledby="trajetoria-title">
-        <h2 className="site-tag" id="trajetoria-title">TRAJETÓRIA</h2>
-        <div>{story.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
-      </section>
-
-      <PortfolioSkills skills={skills} />
 
       <PortfolioGallery projects={portfolio.projects} />
 
@@ -40,6 +33,8 @@ export default function Portfolio() {
           <a href={site.clientAreaUrl}>Área do cliente<Arrow /></a>
         </nav>
       </section>
+
+      <PortfolioSkills skills={skills} />
     </main>
     <SiteFooter />
   </>;

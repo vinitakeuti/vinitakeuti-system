@@ -116,11 +116,13 @@ function PaymentDemo() {
   </div>;
 }
 
-/* Tráfego pago: resultados por plataforma e período, com leads por dia e as campanhas ativas. */
+/* Tráfego: resultados por plataforma e período, com leads por dia e as campanhas ativas. */
 type Platform = "google" | "meta";
-const PLATFORMS: Record<Platform, { label: string; seed: number; spend: number; cpc: number; leads: number; campaigns: [string, string, Tone][] }> = {
-  google: { label: "Google Ads", seed: 11, spend: 48, cpc: 1.9, leads: 3.4, campaigns: [["Pesquisa · seu serviço + cidade", "Ativa", "ok"], ["Pesquisa · nome da empresa", "Ativa", "ok"], ["Remarketing · visitantes", "Em aprendizado", "wait"]] },
-  meta: { label: "Meta Ads", seed: 23, spend: 39, cpc: 0.8, leads: 4.1, campaigns: [["Instagram · cadastro", "Ativa", "ok"], ["Facebook · público semelhante", "Ativa", "ok"], ["Stories · remarketing", "Pausada", "muted"]] },
+type Period = 7 | 30;
+/** Resultados de exemplo: cliques por período, parte dos cliques que vira lead e custo por lead (o investimento sai daí). */
+const PLATFORMS: Record<Platform, { label: string; seed: number; clicks: Record<Period, number>; leadRate: number; costPerLead: number; campaigns: [string, string, Tone][] }> = {
+  google: { label: "Google Ads", seed: 11, clicks: { 7: 13104, 30: 55278 }, leadRate: 0.1, costPerLead: 4, campaigns: [["Pesquisa · seu serviço + cidade", "Ativa", "ok"], ["Pesquisa · nome da empresa", "Ativa", "ok"], ["Remarketing · visitantes", "Em aprendizado", "wait"]] },
+  meta: { label: "Meta Ads", seed: 23, clicks: { 7: 14587, 30: 61842 }, leadRate: 0.095, costPerLead: 3.7, campaigns: [["Instagram · cadastro", "Ativa", "ok"], ["Facebook · público semelhante", "Ativa", "ok"], ["Stories · remarketing", "Pausada", "muted"]] },
 };
 /** Formatação fixa (sem Intl) para o texto ser idêntico no servidor e no navegador. */
 const thousands = (text: string) => text.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -128,15 +130,19 @@ const money = (value: number) => `R$ ${thousands(value.toFixed(2).replace(".", "
 
 function AdsDemo() {
   const [platform, setPlatform] = useState<Platform>("google");
-  const [days, setDays] = useState<7 | 30>(30);
+  const [days, setDays] = useState<Period>(30);
   const config = PLATFORMS[platform];
+  const clicks = config.clicks[days];
+  const leads = Math.round(clicks * config.leadRate);
+  const spend = leads * config.costPerLead;
+  // Leads por dia: variação aleatória fixa com leve tendência de alta (as campanhas melhoram com a otimização), somando o total.
   const next = seeded(config.seed + days);
-  const series = Array.from({ length: days }, () => Math.max(1, Math.round(config.leads * (0.55 + next() * 0.9))));
-  const leads = series.reduce((sum, value) => sum + value, 0);
-  const spend = config.spend * days * (0.92 + next() * 0.16);
-  const clicks = Math.round(spend / config.cpc);
+  const weights = Array.from({ length: days }, (_, index) => (0.8 + (index / days) * 0.35) * (0.7 + next() * 0.6));
+  const scale = leads / weights.reduce((sum, value) => sum + value, 0);
+  const series = weights.map((value) => Math.floor(value * scale));
+  for (let index = 0, rest = leads - series.reduce((sum, value) => sum + value, 0); rest > 0; index++, rest--) series[index % days]++;
   const peak = Math.max(...series);
-  const kpis = [["Investimento", money(spend)], ["Cliques", thousands(String(clicks))], ["Leads", String(leads)], ["Custo por lead", money(spend / leads)]];
+  const kpis = [["Investimento", money(spend)], ["Cliques", thousands(String(clicks))], ["Leads", thousands(String(leads))], ["Custo por lead", money(spend / leads)]];
   return <div className="site-demo-ads">
     <div className="site-demo-ads-controls">
       <div className="site-demo-segment" role="group" aria-label="Plataforma">{(Object.keys(PLATFORMS) as Platform[]).map((item) => <button key={item} type="button" aria-pressed={platform === item} onClick={() => setPlatform(item)}>{PLATFORMS[item].label}</button>)}</div>

@@ -59,7 +59,7 @@ export default function Home() {
 
       <section className="site-band" id="servicos" aria-labelledby="servicos-title">
         <div className="site-band-inner">
-        <div className="site-heading is-center reveal"><p className="site-tag">SERVIÇOS</p><h2 id="servicos-title">Servicos Disponíveis.</h2><p>Software sob medida, tráfego pago e ferramentas prontas. Escolha uma área e veja na prática como cada serviço funciona.</p></div>
+        <div className="site-heading is-center reveal"><p className="site-tag">SERVIÇOS</p><h2 id="servicos-title">Serviços Disponíveis.</h2><p>Software sob medida, tráfego e ferramentas prontas. Escolha uma área e veja na prática como cada serviço funciona.</p></div>
         <div className="reveal"><ServicesExplorer categories={explorerCategories()} /></div>
         </div>
       </section>

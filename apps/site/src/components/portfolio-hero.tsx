@@ -52,7 +52,7 @@ export function PortfolioHero({ eyebrow, name }: { eyebrow: string; name: string
     <div className="pf-hero-top"><p className="site-tag">{eyebrow}</p></div>
     <h1 className="pf-hero-name"><span>{first}</span><span>{rest.join(" ")}</span></h1>
     <div className="pf-hero-bottom">
-      <a className="pf-scroll" href="#trajetoria"><span>CONHEÇA</span><i aria-hidden="true" /></a>
+      <a className="pf-scroll" href="#projetos"><span>CONHEÇA</span><i aria-hidden="true" /></a>
     </div>
   </section>;
 }
