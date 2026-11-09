@@ -47,8 +47,10 @@ export const portfolio = {
     {
       area: "Inteligência Artificial",
       groups: [
-        { label: "Agentes de IA", items: ["Claude Code", "Codex"] },
-        { label: "Integrações", items: ["APIs de IA"] },
+        { label: "Agentes", items: ["Tool use", "Saída estruturada", "Ações com confirmação"] },
+        { label: "Modelos e dados", items: ["RAG", "Fine tuning", "Embeddings"] },
+        { label: "Integrações nativas", items: ["API da Anthropic", "OpenRouter", "MCP (Model Context Protocol)"] },
+        { label: "Operação", items: ["Modelo por tarefa", "Custo por uso", "Filas de processamento"] },
       ],
     },
   ],
