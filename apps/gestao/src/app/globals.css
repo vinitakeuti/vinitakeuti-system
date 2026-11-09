@@ -20136,6 +20136,35 @@ a.attendance-row:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* Editor de PDF no celular: tipo, código, título e status ocupam a largura toda, cada um numa linha; as ações descem para a
+   linha de baixo, com a Eliza à esquerda e Salvar à direita. Antes o título ficava espremido numa coluna estreita ao lado dos botões. */
+@media (max-width: 760px) {
+  .quote-docs-toolbar-meta {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 16px;
+  }
+  .quote-docs-toolbar-meta .quote-docs-toolbar-title {
+    flex: 1 1 100%;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .quote-docs-toolbar-title span,
+  .quote-docs-toolbar-title strong,
+  .quote-docs-toolbar-title .quote-docs-saved:not(.is-error) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .quote-docs-toolbar-actions {
+    flex: 1 1 100%;
+    gap: 8px;
+  }
+  .quote-docs-toolbar-actions .quote-docs-eliza {
+    margin-right: auto;
+  }
+}
 .doc-ai-panel {
   position: fixed;
   top: 0;
