@@ -22,6 +22,7 @@ export const site = {
   },
   nav: [
     { href: "#servicos", label: "Serviços" },
+    { href: "/trafego", label: "Tráfego" },
     { href: "#processo", label: "Como funciona" },
     { href: "#area-do-cliente", label: "Área do cliente" },
     { href: "#perguntas", label: "Perguntas" },
@@ -76,6 +77,7 @@ export const site = {
     },
     {
       id: "trafego", title: "Tráfego pago e funis de venda", label: "Tráfego e funis", short: "TRÁFEGO E FUNIS",
+      page: { href: "/trafego", label: "Ver como funciona o tráfego" },
       description: "Anúncios, páginas e funis para transformar visitas em clientes.",
       services: [
         {

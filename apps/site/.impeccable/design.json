@@ -1,0 +1,519 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-11T12:00:00Z",
+  "title": "Design System: Vinicius Riudi, site",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Verde Identidade",
+        "canonical": "#4b6156",
+        "tonalRamp": [
+          "#1a231e",
+          "#26322b",
+          "#33433b",
+          "#4b6156",
+          "#6a8476",
+          "#9fbcab",
+          "#d3e3d8",
+          "#edf2ef"
+        ]
+      },
+      "accent-light": {
+        "role": "primary",
+        "displayName": "Verde Sinal",
+        "canonical": "#9fbcab",
+        "tonalRamp": [
+          "#1a231e",
+          "#33433b",
+          "#4b6156",
+          "#6a8476",
+          "#86a493",
+          "#9fbcab",
+          "#c4d6ca",
+          "#e6efe9"
+        ]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Verde Névoa",
+        "canonical": "#d3e3d8",
+        "tonalRamp": [
+          "#33433b",
+          "#4b6156",
+          "#6a8476",
+          "#9fbcab",
+          "#bcd2c3",
+          "#d3e3d8",
+          "#e3ede6",
+          "#f2f7f3"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Preto",
+        "canonical": "#000000",
+        "tonalRamp": [
+          "#000000",
+          "#0a0a0a",
+          "#111111",
+          "#1f1f1f",
+          "#2e2e2e",
+          "#646a65",
+          "#8b918c",
+          "#d2d5d2"
+        ]
+      },
+      "depth": {
+        "role": "neutral",
+        "displayName": "Profundidade",
+        "canonical": "#0a0a0a",
+        "tonalRamp": [
+          "#000000",
+          "#0a0a0a",
+          "#111111",
+          "#1f1f1f",
+          "#2e2e2e",
+          "#646a65",
+          "#8b918c",
+          "#d2d5d2"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Superfície",
+        "canonical": "#111111",
+        "tonalRamp": [
+          "#000000",
+          "#0a0a0a",
+          "#111111",
+          "#1f1f1f",
+          "#2e2e2e",
+          "#646a65",
+          "#8b918c",
+          "#d2d5d2"
+        ]
+      },
+      "charcoal": {
+        "role": "neutral",
+        "displayName": "Grafite",
+        "canonical": "#1f1f1f",
+        "tonalRamp": [
+          "#000000",
+          "#0a0a0a",
+          "#111111",
+          "#1f1f1f",
+          "#2e2e2e",
+          "#646a65",
+          "#8b918c",
+          "#d2d5d2"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Linha",
+        "canonical": "#1f1f1f",
+        "tonalRamp": [
+          "#000000",
+          "#0a0a0a",
+          "#111111",
+          "#1f1f1f",
+          "#2e2e2e",
+          "#646a65",
+          "#8b918c",
+          "#d2d5d2"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Linha Forte",
+        "canonical": "#2e2e2e",
+        "tonalRamp": [
+          "#000000",
+          "#0a0a0a",
+          "#111111",
+          "#1f1f1f",
+          "#2e2e2e",
+          "#646a65",
+          "#8b918c",
+          "#d2d5d2"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "Branco",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#1f1f1f",
+          "#2e2e2e",
+          "#646a65",
+          "#8b918c",
+          "#d2d5d2",
+          "#eceeeb",
+          "#f5f6f4",
+          "#ffffff"
+        ]
+      },
+      "cloud": {
+        "role": "neutral",
+        "displayName": "Nuvem",
+        "canonical": "#d2d5d2",
+        "tonalRamp": [
+          "#1f1f1f",
+          "#2e2e2e",
+          "#646a65",
+          "#8b918c",
+          "#d2d5d2",
+          "#eceeeb",
+          "#f5f6f4",
+          "#ffffff"
+        ]
+      },
+      "ash": {
+        "role": "neutral",
+        "displayName": "Cinza",
+        "canonical": "#8b918c",
+        "tonalRamp": [
+          "#1f1f1f",
+          "#2e2e2e",
+          "#646a65",
+          "#8b918c",
+          "#d2d5d2",
+          "#eceeeb",
+          "#f5f6f4",
+          "#ffffff"
+        ]
+      },
+      "pewter": {
+        "role": "neutral",
+        "displayName": "Estanho",
+        "canonical": "#646a65",
+        "tonalRamp": [
+          "#1f1f1f",
+          "#2e2e2e",
+          "#646a65",
+          "#8b918c",
+          "#d2d5d2",
+          "#eceeeb",
+          "#f5f6f4",
+          "#ffffff"
+        ]
+      },
+      "band-bg": {
+        "role": "neutral",
+        "displayName": "Papel da Faixa Clara",
+        "canonical": "#f5f6f4",
+        "tonalRamp": [
+          "#2a2f2b",
+          "#5f655f",
+          "#7a807b",
+          "#c3cac4",
+          "#d9ded9",
+          "#eceeeb",
+          "#f5f6f4",
+          "#ffffff"
+        ]
+      },
+      "band-surface": {
+        "role": "neutral",
+        "displayName": "Superfície da Faixa Clara",
+        "canonical": "#eceeeb",
+        "tonalRamp": [
+          "#2a2f2b",
+          "#5f655f",
+          "#7a807b",
+          "#c3cac4",
+          "#d9ded9",
+          "#eceeeb",
+          "#f5f6f4",
+          "#ffffff"
+        ]
+      },
+      "band-line": {
+        "role": "neutral",
+        "displayName": "Linha da Faixa Clara",
+        "canonical": "#d9ded9",
+        "tonalRamp": [
+          "#2a2f2b",
+          "#5f655f",
+          "#7a807b",
+          "#c3cac4",
+          "#d9ded9",
+          "#eceeeb",
+          "#f5f6f4",
+          "#ffffff"
+        ]
+      },
+      "band-line-strong": {
+        "role": "neutral",
+        "displayName": "Linha Forte da Faixa Clara",
+        "canonical": "#c3cac4",
+        "tonalRamp": [
+          "#2a2f2b",
+          "#5f655f",
+          "#7a807b",
+          "#c3cac4",
+          "#d9ded9",
+          "#eceeeb",
+          "#f5f6f4",
+          "#ffffff"
+        ]
+      },
+      "band-cloud": {
+        "role": "neutral",
+        "displayName": "Texto de Lista na Faixa Clara",
+        "canonical": "#2a2f2b",
+        "tonalRamp": [
+          "#000000",
+          "#2a2f2b",
+          "#5f655f",
+          "#7a807b",
+          "#c3cac4",
+          "#d9ded9",
+          "#eceeeb",
+          "#f5f6f4"
+        ]
+      },
+      "band-ash": {
+        "role": "neutral",
+        "displayName": "Apoio na Faixa Clara",
+        "canonical": "#5f655f",
+        "tonalRamp": [
+          "#000000",
+          "#2a2f2b",
+          "#5f655f",
+          "#7a807b",
+          "#c3cac4",
+          "#d9ded9",
+          "#eceeeb",
+          "#f5f6f4"
+        ]
+      },
+      "band-pewter": {
+        "role": "neutral",
+        "displayName": "Metadado na Faixa Clara",
+        "canonical": "#7a807b",
+        "tonalRamp": [
+          "#000000",
+          "#2a2f2b",
+          "#5f655f",
+          "#7a807b",
+          "#c3cac4",
+          "#d9ded9",
+          "#eceeeb",
+          "#f5f6f4"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Título de abertura de cada página, com text-wrap balance."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Título de seção e do convite final."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Título de bloco dentro de uma seção."
+      },
+      "title-sm": {
+        "displayName": "Title pequeno",
+        "purpose": "Etapas, itens de acompanhamento, perguntas (18 a 20px)."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "Parágrafo de apoio de um título, em cinza, até cerca de 600px."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texto corrido e listas."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Conteúdo das janelas de demonstração e da janela de eventos."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Barra das janelas, cabeçalho de colunas de dados, numeração de etapas, rodapé."
+      }
+    },
+    "shadows": [
+      {
+        "name": "status-ring",
+        "value": "0 0 0 4px rgba(159,188,171,.16)",
+        "purpose": "Anel do ponto de status confirmado dentro das demonstrações. Estado, não elevação."
+      },
+      {
+        "name": "selected-inset",
+        "value": "inset 0 0 0 2px var(--bg)",
+        "purpose": "Anel interno do marcador redondo da categoria selecionada."
+      },
+      {
+        "name": "header-scrolled",
+        "value": "background: rgba(0,0,0,.88); backdrop-filter: blur(12px)",
+        "purpose": "Fundo do cabeçalho fixo depois de 160px de rolagem. Não é sombra."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(.2,.7,.2,1)",
+        "purpose": "Curva padrão de todas as transições e entradas."
+      },
+      {
+        "name": "rise",
+        "value": "site-rise .9s var(--ease): opacity 0 e translateY(20px) até o lugar",
+        "purpose": "Entrada da abertura e revelação ao rolar (animation-timeline: view())."
+      },
+      {
+        "name": "type",
+        "value": "site-type .35s var(--ease): opacity 0 e translateX(-6px)",
+        "purpose": "Linhas que chegam dentro das janelas."
+      },
+      {
+        "name": "pulse",
+        "value": "site-stream 9s linear infinite",
+        "purpose": "Pulsos de luz nas linhas do desenho da abertura; somem com movimento reduzido."
+      },
+      {
+        "name": "underline",
+        "value": "scaleX 0 a 1 em .7s var(--ease)",
+        "purpose": "Sublinhado verde de aba ou categoria selecionada."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "nav-tight",
+        "value": "1180px"
+      },
+      {
+        "name": "nav-hidden",
+        "value": "1080px"
+      },
+      {
+        "name": "single-column",
+        "value": "960px"
+      },
+      {
+        "name": "mobile",
+        "value": "640px"
+      },
+      {
+        "name": "narrow",
+        "value": "360px"
+      },
+      {
+        "name": "short-desktop",
+        "value": "min-width 961px and max-height 820px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Pílula branca para a ação principal; inverte para preto na faixa clara.",
+      "html": "<a class=\"ds-btn\" href=\"#\">Conversar sobre tráfego<svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" class=\"ds-arrow\"><path d=\"M3 8h10M9 4l4 4-4 4\"/></svg></a>",
+      "css": ".ds-btn { display:inline-flex; align-items:center; gap:10px; min-height:44px; padding:0 20px; border:1px solid var(--white,#fff); border-radius:9999px; background:var(--white,#fff); color:#111; font-family:'Inter Variable',Inter,system-ui,sans-serif; font-size:15px; font-weight:500; letter-spacing:-.01em; text-decoration:none; transition:background .2s, border-color .2s; } .ds-btn:hover { background:var(--cloud,#d2d5d2); border-color:var(--cloud,#d2d5d2); } .ds-btn:focus-visible { outline:2px solid var(--accent-light,#9fbcab); outline-offset:3px; } .ds-arrow { transition:transform .2s cubic-bezier(.2,.7,.2,1); } .ds-btn:hover .ds-arrow { transform:translateX(3px); }"
+    },
+    {
+      "name": "Botão ghost",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Ação secundária em pílula transparente com borda linha forte.",
+      "html": "<a class=\"ds-btn-ghost\" href=\"#\">Como eu trabalho</a>",
+      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; min-height:44px; padding:0 20px; border:1px solid var(--line-strong,#2e2e2e); border-radius:9999px; background:transparent; color:var(--white,#fff); font-family:'Inter Variable',Inter,system-ui,sans-serif; font-size:15px; font-weight:500; text-decoration:none; transition:background .2s, border-color .2s; } .ds-btn-ghost:hover { border-color:var(--ash,#8b918c); background:var(--surface,#111); } .ds-btn-ghost:focus-visible { outline:2px solid var(--accent-light,#9fbcab); outline-offset:3px; }"
+    },
+    {
+      "name": "Seletor segmentado",
+      "kind": "chip",
+      "refersTo": "demo-segment-active",
+      "description": "Escolha de opção dentro de janelas (origem da visita, período).",
+      "html": "<div class=\"ds-seg\" role=\"group\"><button aria-pressed=\"true\">Google</button><button aria-pressed=\"false\">Meta</button><button aria-pressed=\"false\">Orgânico</button></div>",
+      "css": ".ds-seg { display:inline-flex; gap:4px; padding:3px; border:1px solid var(--line-strong,#2e2e2e); border-radius:9999px; background:var(--depth,#0a0a0a); font-family:'JetBrains Mono',ui-monospace,monospace; } .ds-seg button { padding:6px 14px; border:0; border-radius:9999px; background:transparent; color:var(--ash,#8b918c); font:inherit; font-size:12px; cursor:pointer; transition:background .2s, color .2s; } .ds-seg button:hover { color:var(--white,#fff); } .ds-seg button[aria-pressed=\"true\"] { background:var(--white,#fff); color:#111; } .ds-seg button:focus-visible { outline:2px solid var(--accent-light,#9fbcab); outline-offset:3px; }"
+    },
+    {
+      "name": "Navegação do cabeçalho",
+      "kind": "nav",
+      "description": "Links em cinza que vão ao branco; página atual em branco.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\">Serviços</a><a href=\"#\" aria-current=\"page\">Tráfego</a><a href=\"#\">Portfólio</a><a href=\"#\">Perguntas</a></nav>",
+      "css": ".ds-nav { display:flex; gap:28px; padding:24px; border-bottom:1px solid var(--line,#1f1f1f); background:rgba(0,0,0,.88); font-family:'Inter Variable',Inter,system-ui,sans-serif; } .ds-nav a { color:var(--ash,#8b918c); font-size:14px; text-decoration:none; transition:color .15s; } .ds-nav a:hover, .ds-nav a[aria-current=\"page\"] { color:var(--white,#fff); } .ds-nav a:focus-visible { outline:2px solid var(--accent-light,#9fbcab); outline-offset:3px; }"
+    },
+    {
+      "name": "Janela de demonstração",
+      "kind": "card",
+      "refersTo": "demo-window",
+      "description": "A única superfície de uma área: barra de três pontos, título em mono e a marca EXEMPLO.",
+      "html": "<div class=\"ds-win\"><div class=\"ds-win-bar\"><span class=\"ds-dots\"><i></i><i></i><i></i></span><span>Campanhas</span><small>EXEMPLO</small></div><div class=\"ds-win-body\"><ul><li><span>Pesquisa / marca</span><em class=\"is-ok\">ativa</em></li><li><span>Remarketing</span><em>pausada</em></li></ul></div></div>",
+      "css": ".ds-win { border:1px solid var(--line-strong,#2e2e2e); border-radius:4px; background:var(--depth,#0a0a0a); color:var(--white,#fff); overflow:hidden; font-family:'JetBrains Mono',ui-monospace,monospace; } .ds-win-bar { display:flex; align-items:center; gap:14px; height:40px; padding:0 16px; border-bottom:1px solid var(--line,#1f1f1f); } .ds-win-bar > span:nth-child(2) { flex:1; color:var(--ash,#8b918c); font-size:12px; text-align:center; } .ds-win-bar small { color:var(--pewter,#646a65); font-size:11px; letter-spacing:.08em; } .ds-dots { display:flex; gap:6px; } .ds-dots i { width:9px; height:9px; border-radius:50%; background:var(--line-strong,#2e2e2e); } .ds-win-body { padding:24px; font-size:13px; letter-spacing:-.02em; } .ds-win-body ul { margin:0; padding:0; list-style:none; } .ds-win-body li { display:flex; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px dashed var(--line,#1f1f1f); color:var(--cloud,#d2d5d2); } .ds-win-body em { padding:3px 9px; border:1px solid var(--line-strong,#2e2e2e); border-radius:9999px; color:var(--ash,#8b918c); font-size:11px; font-style:normal; } .ds-win-body em.is-ok { border-color:rgba(159,188,171,.4); color:var(--accent-light,#9fbcab); }"
+    },
+    {
+      "name": "Faixa clara",
+      "kind": "custom",
+      "refersTo": "light-band",
+      "description": "A única seção clara da página; redefine os tokens para o papel #f5f6f4 e devolve as janelas ao escuro.",
+      "html": "<section class=\"ds-band\"><h2>Na prática</h2><p>As campanhas e o funil, como você vai acompanhar.</p><a class=\"ds-band-btn\" href=\"#\">Ver exemplo</a></section>",
+      "css": ".ds-band { padding:64px 32px; background:#f5f6f4; color:#000; font-family:'Inter Variable',Inter,system-ui,sans-serif; } .ds-band h2 { margin:0 0 16px; font-size:40px; font-weight:500; letter-spacing:-.025em; line-height:1.1; } .ds-band p { margin:0 0 24px; max-width:600px; color:#5f655f; font-size:18px; line-height:1.6; } .ds-band-btn { display:inline-flex; align-items:center; min-height:44px; padding:0 20px; border:1px solid #000; border-radius:9999px; background:#000; color:#fff; font-size:15px; font-weight:500; text-decoration:none; transition:background .2s, border-color .2s; } .ds-band-btn:hover { background:#2a2f2b; border-color:#2a2f2b; } .ds-band-btn:focus-visible { outline:2px solid #4b6156; outline-offset:3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A bancada de quem faz",
+    "overview": "O site é uma sala escura com instrumentos ligados. O fundo é preto puro, o texto é branco em Inter com espaçamento negativo, e tudo o que é prova (eventos, UTMs, métricas, etapas de um sistema) aparece dentro de janelas escuras com borda de 1px, barra de três pontos e texto em JetBrains Mono. A página explica com prática, não com adjetivo: cada serviço tem uma janela que funciona, marcada como EXEMPLO na própria barra.\n\nA densidade é editorial nas seções e técnica dentro das janelas. Fora delas, a hierarquia vem de tamanho de tipo, linhas finas e espaço vertical generoso (seções a cerca de 96 a 128px uma da outra); dentro delas, de colunas, linhas tracejadas e mono pequena. Não há card dentro de card: a janela é a única superfície de uma área, e agrupamentos internos usam divisórias.\n\nO verde da marca não decora. O verde escuro marca o que foi confirmado ou atribuído (a venda atribuída, o pagamento aprovado, a etapa ativa); o verde claro é o sinal ao vivo (pulsos, marcadores, números de etapa, destino que recebeu o evento). Cada página tem no máximo uma faixa clara, papel quase branco, onde as janelas escuras das demonstrações se destacam.",
+    "keyCharacteristics": [
+      "Preto puro com uma única superfície elevada por tom (#0a0a0a), nunca por sombra.",
+      "Inter branca em display com tracking apertado; mono só para dados e rótulos técnicos.",
+      "Janelas de demonstração com barra de três pontos e marca EXEMPLO como assinatura.",
+      "Verde escuro para confirmado, verde claro para ao vivo; nada mais é verde.",
+      "Linhas de 1px, contínuas entre blocos e tracejadas entre registros de dados.",
+      "Botões em pílula branca; tudo o mais em cantos de 4px ou menos."
+    ],
+    "rules": [
+      {
+        "name": "The Two Greens Rule",
+        "body": "Verde escuro significa confirmado; verde claro significa ao vivo. Uma terceira função para o verde (decoração, fundo de seção, ícone ilustrativo) é proibida.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Light Band Rule",
+        "body": "Cada página tem no máximo uma faixa clara, e ela existe para receber demonstrações ou o catálogo de serviços. Ela redefine os tokens no próprio escopo; não cria cores novas.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Means Data Rule",
+        "body": "JetBrains Mono só aparece em dado, código, número de etapa, rótulo de coluna ou barra de janela. Nunca em título nem em frase de marketing.",
+        "section": "typography"
+      },
+      {
+        "name": "The 500 Ceiling Rule",
+        "body": "Títulos são peso 500. Peso 600 é reservado ao nome no portfólio e à marca no cabeçalho.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tone Not Shadow Rule",
+        "body": "Uma superfície se separa do fundo por tom e borda de 1px. Sombra projetada não existe neste sistema.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do colocar toda prova em uma janela de demonstração com barra de três pontos e EXEMPLO quando os dados forem ilustrativos.",
+      "Do usar verde identidade (#4b6156) só para estado confirmado e verde sinal (#9fbcab) só para o que está ao vivo ou em foco.",
+      "Do separar superfícies por tom (#000, #0a0a0a, #111) e borda de 1px.",
+      "Do agrupar conteúdo em linhas com divisórias de 1px, tracejadas entre registros de dados.",
+      "Do manter títulos em Inter 500 com tracking negativo e reservar a mono para dados e rótulos técnicos.",
+      "Do abrir cada página com o título e o parágrafo de apoio, sem rótulo acima, nas páginas novas.",
+      "Do desligar animações contínuas e mostrar o estado final quando prefers-reduced-motion: reduce."
+    ],
+    "donts": [
+      "Don't usar sombra projetada para elevar superfícies.",
+      "Don't colocar card dentro de card nem transformar listas em grades de cards.",
+      "Don't usar mais de uma faixa clara por página.",
+      "Don't usar o verde como decoração, fundo de seção ou cor de título.",
+      "Don't escrever títulos ou frases de marketing em mono.",
+      "Don't usar pílula fora de botões, seletores e selos.",
+      "Don't usar emojis; indicadores são quadrados, círculos e linhas desenhados em CSS."
+    ]
+  }
+}

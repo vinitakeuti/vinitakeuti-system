@@ -5,7 +5,7 @@ import { Arrow, ArrowDown } from "@/components/arrow";
 import { ServiceDemo, type DemoKind } from "@/components/service-demos";
 
 export type ExplorerService = { id: string; title: string; summary: string; detail: string; demo: DemoKind; billing: string; includes: readonly string[]; href: string };
-export type ExplorerCategory = { id: string; title: string; label: string; short: string; description: string; services: readonly ExplorerService[] };
+export type ExplorerCategory = { id: string; title: string; label: string; short: string; description: string; page?: { href: string; label: string }; services: readonly ExplorerService[] };
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
@@ -99,7 +99,7 @@ export function ServicesExplorer({ categories }: { categories: readonly Explorer
       </div>
       <div className="site-explorer-panel" role="tabpanel" id="servico-painel" aria-labelledby={`servico-${service.id}`} key={service.id}>
         <div className="site-explorer-head">
-          <div><p className="site-tag">{category.short} · {service.billing.toUpperCase()}</p><h3>{service.title}</h3><p>{service.summary} {service.detail}</p></div>
+          <div><p className="site-tag">{category.short} · {service.billing.toUpperCase()}</p><h3>{service.title}</h3><p>{service.summary} {service.detail}</p>{category.page ? <a className="site-explorer-more" href={category.page.href}>{category.page.label}<Arrow /></a> : null}</div>
           <div className="site-explorer-price"><small>Orçamento sem compromisso</small><div><a className="site-button" href={service.href}>Solicitar orçamento<Arrow /></a><a className="site-button is-ghost" href="#servico-demo">Ver demonstração<ArrowDown /></a></div></div>
         </div>
         <div className="site-explorer-demo" id="servico-demo">
