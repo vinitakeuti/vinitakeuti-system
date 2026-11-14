@@ -18737,6 +18737,16 @@ a.attendance-row:hover {
 .client-finance-entries {
   padding: 18px 24px 18px;
 }
+/* Parcelas a receber: a lista ocupa a largura do painel (cada linha tem o próprio recuo); título e paginação alinhados. */
+.client-finance-installments {
+  padding-right: 0;
+  padding-left: 0;
+  border-bottom: 1px solid var(--line);
+}
+.client-finance-installments > header,
+.client-finance-installments > .client-finance-pages {
+  padding: 0 24px;
+}
 .client-finance-entries td:nth-child(2) {
   width: 100%;
   white-space: normal;
@@ -18833,6 +18843,14 @@ a.attendance-row:hover {
   .client-finance-entries {
     padding-right: 16px;
     padding-left: 16px;
+  }
+  .client-finance-installments {
+    padding-right: 0;
+    padding-left: 0;
+  }
+  .client-finance-installments > header,
+  .client-finance-installments > .client-finance-pages {
+    padding: 0 16px;
   }
   .client-finance-bars {
     height: 130px;

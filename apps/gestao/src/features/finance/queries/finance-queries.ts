@@ -152,6 +152,86 @@ export async function getFinanceSummary(filters: Pick<FinanceFilters, "from" | "
 
 type UpcomingReceivableRow = { entryId: string; number: number; total: bigint | number; dueDate: Date; remaining: bigint | number; description: string; counterparty: string | null };
 
+export const OPEN_INSTALLMENTS_PAGE = 50;
+
+/** Parcela a receber, uma por linha. `isNext`: é a próxima em aberto da venda (só ela pode ser confirmada, porque os recebimentos quitam as parcelas em ordem). */
+export type OpenInstallment = {
+  entryId: string; number: number; total: number; dueDate: Date; amountCents: number; remaining: number;
+  description: string; counterparty: string | null; clientId: string | null; isNext: boolean; overdue: boolean;
+  /** Cobrança aberta no Asaas que inclui esta parcela. */
+  charge: { invoiceUrl: string | null } | null;
+};
+
+type OpenInstallmentRow = { entryId: string; number: number; total: bigint | number; dueDate: Date; amount: bigint | number; remaining: bigint | number; firstOpen: number | null; description: string; counterparty: string | null; clientId: string | null };
+
+/** Cursor da lista de parcelas: vencimento, lançamento e número da última linha mostrada. */
+function installmentCursor(row: { dueDate: Date; entryId: string; number: number }) {
+  return `${row.dueDate.toISOString()}~${row.entryId}~${row.number}`;
+}
+
+function parseInstallmentCursor(value?: string) {
+  const [iso, entryId, number] = (value ?? "").slice(0, 120).split("~");
+  const dueDate = iso ? new Date(iso) : null;
+  if (!dueDate || Number.isNaN(dueDate.getTime()) || !entryId || !/^[\w-]{1,50}$/.test(entryId) || !/^\d{1,3}$/.test(number ?? "")) return null;
+  return { dueDate, entryId, number: Number(number) };
+}
+
+/**
+ * Filtros da lista de parcelas. O cliente vale pelo cadastro do lançamento e, para lançamentos antigos sem cliente,
+ * pela proposta de origem (o mesmo critério do portal).
+ */
+function openInstallmentFilters({ clientId, query }: { clientId?: string; query?: string }) {
+  const conditions: Prisma.Sql[] = [Prisma.sql`r.remaining > 0`];
+  if (clientId) conditions.push(Prisma.sql`(e."clientId" = ${clientId} OR e."sourceKey" IN (SELECT 'quote:' || q."id" FROM "Quote" q WHERE q."clientId" = ${clientId}))`);
+  const search = query?.trim().slice(0, 120);
+  if (search) {
+    const pattern = `%${search.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+    conditions.push(Prisma.sql`(e."description" ILIKE ${pattern} OR e."counterparty" ILIKE ${pattern})`);
+  }
+  return conditions;
+}
+
+/**
+ * Parcelas a receber, uma por linha (as atrasadas primeiro, pela data), com a cobrança aberta no Asaas de cada uma.
+ * Sem parcelas, o lançamento aparece como cobrança única. Paginação por cursor; os totais consideram todos os filtros.
+ */
+export async function listOpenInstallments({ clientId, query, cursor, limit = OPEN_INSTALLMENTS_PAGE }: { clientId?: string; query?: string; cursor?: string; limit?: number } = {}) {
+  const { start } = todayBounds();
+  const filters = openInstallmentFilters({ clientId, query });
+  const after = parseInstallmentCursor(cursor);
+  const pageFilters = after ? [...filters, Prisma.sql`(r."dueDate", r."entryId", r."number") > (${after.dueDate}, ${after.entryId}, ${after.number})`] : filters;
+  const take = Math.min(Math.max(1, limit), 100);
+  const [rows, [totals]] = await Promise.all([
+    prisma.$queryRaw<OpenInstallmentRow[]>`${OPEN_RECEIVABLES}, ranked AS (
+        SELECT r.*, MIN(r."number") FILTER (WHERE r.remaining > 0) OVER (PARTITION BY r."entryId") AS "firstOpen" FROM receivables r
+      )
+      SELECT r."entryId", r."number", r.total, r."dueDate", r.amount, r.remaining, r."firstOpen", e."description", e."counterparty", e."clientId"
+      FROM ranked r JOIN "FinancialEntry" e ON e."id" = r."entryId"
+      WHERE ${Prisma.join(pageFilters, " AND ")}
+      ORDER BY r."dueDate" ASC, r."entryId" ASC, r."number" ASC
+      LIMIT ${take + 1}`,
+    prisma.$queryRaw<Array<{ overdue: bigint | number | null; overdueCount: bigint | number; open: bigint | number | null; openCount: bigint | number }>>`${OPEN_RECEIVABLES}
+      SELECT SUM(r.remaining) FILTER (WHERE r."dueDate" < ${start}) AS overdue, COUNT(*) FILTER (WHERE r."dueDate" < ${start}) AS "overdueCount", SUM(r.remaining) AS open, COUNT(*) AS "openCount"
+      FROM receivables r JOIN "FinancialEntry" e ON e."id" = r."entryId"
+      WHERE ${Prisma.join(filters, " AND ")}`,
+  ]);
+  const page = rows.slice(0, take);
+  const entryIds = [...new Set(page.map((row) => row.entryId))];
+  const charges = entryIds.length ? await prisma.charge.findMany({ where: { financialEntryId: { in: entryIds }, status: { in: ["PENDING", "OVERDUE"] } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 200, select: { financialEntryId: true, installmentNumber: true, installmentThrough: true, invoiceUrl: true } }) : [];
+  const data: OpenInstallment[] = page.map((row) => {
+    const total = Number(row.total);
+    const number = Number(row.number);
+    // Cobrança única (sem parcelas) é registrada no Asaas com o número 0.
+    const charge = charges.find((item) => item.financialEntryId === row.entryId && (total > 1 || item.installmentNumber ? number >= (item.installmentNumber ?? 0) && number <= (item.installmentThrough ?? item.installmentNumber ?? 0) : true)) ?? null;
+    return { entryId: row.entryId, number, total, dueDate: new Date(row.dueDate), amountCents: Number(row.amount), remaining: Number(row.remaining), description: row.description, counterparty: row.counterparty, clientId: row.clientId, isNext: row.firstOpen !== null && Number(row.firstOpen) === number, overdue: new Date(row.dueDate) < start, charge: charge ? { invoiceUrl: charge.invoiceUrl } : null };
+  });
+  return {
+    data,
+    nextCursor: rows.length > take && page.length ? installmentCursor(page.at(-1)!) : null,
+    totals: { overdue: Number(totals?.overdue ?? 0), overdueCount: Number(totals?.overdueCount ?? 0), open: Number(totals?.open ?? 0), openCount: Number(totals?.openCount ?? 0) },
+  };
+}
+
 /** Cobranças próximas: parcelas a receber nos próximos 7 dias e as que já venceram (atrasadas primeiro). */
 export async function getUpcomingReceivables(limit = 6) {
   const { start, end } = todayBounds();

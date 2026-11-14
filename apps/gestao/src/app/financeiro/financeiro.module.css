@@ -2450,3 +2450,235 @@
   color: var(--neutral-ink);
   background: var(--neutral-bg);
 }
+
+/*
+ * Parcelas a receber (perfil do cliente e Financeiro > Parcelas a receber): uma linha por parcela.
+ * Usa a cor de borda global (e não --finance-line) porque também aparece fora das páginas do Financeiro.
+ */
+.receivableList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+.receivableList li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 140px 160px minmax(170px, auto);
+  align-items: center;
+  gap: 8px 14px;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--color-border);
+}
+.receivableList li:last-child {
+  border-bottom: 0;
+}
+.receivableNext {
+  background: var(--accent-surface);
+}
+.receivableDate {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+}
+.receivableWhat {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.receivableWhat > a {
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.receivableWhat > a:hover {
+  color: var(--accent);
+}
+.receivableWhat small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.receivableWhat small a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.receivableAmount {
+  display: grid;
+  gap: 2px;
+  font-size: var(--text-sm);
+}
+.receivableAmount small {
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+}
+.receivableList li > i {
+  justify-self: start;
+  font-style: normal;
+}
+.receivableAction {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.receivableAction > small {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+}
+/* Aberto, o formulário de confirmação ocupa a linha inteira, abaixo dos dados da parcela. */
+.receivableList li:has(.confirmPayment[open]) > .receivableAction,
+.scheduleList li:has(.confirmPayment[open]) > .scheduleActions {
+  grid-column: 1 / -1;
+  justify-content: stretch;
+}
+.confirmPayment[open] {
+  width: 100%;
+}
+.confirmPayment summary {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  height: 32px;
+  margin-left: auto;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  list-style: none;
+}
+.confirmPayment summary::-webkit-details-marker {
+  display: none;
+}
+.confirmPayment[open] summary {
+  background: var(--white);
+  color: var(--accent);
+}
+.confirmPayment form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.confirmPayment label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+}
+.confirmPayment input {
+  width: 150px;
+  height: 34px;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
+  background: var(--white);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--text-xs);
+}
+.confirmPayment .confirmNote input {
+  width: 220px;
+}
+.confirmPayment button {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.confirmPayment button:hover,
+.confirmPayment:not([open]) summary:hover {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+}
+.confirmPayment p {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.receivableSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--color-border);
+}
+.receivableSummary div {
+  display: grid;
+  gap: 2px;
+}
+.receivableSummary span {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+}
+.receivableSummary strong {
+  font-size: var(--text-md);
+}
+.receivableSummary small {
+  color: var(--muted);
+  font-size: var(--text-2xs);
+}
+@media (max-width: 860px) {
+  .receivableList li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+    padding: 12px 15px;
+  }
+  .receivableDate {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .receivableAmount {
+    grid-column: 2;
+    grid-row: 1;
+    justify-items: end;
+    text-align: right;
+  }
+  .receivableWhat {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .receivableList li > i {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .receivableAction {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .receivableList li:has(.confirmPayment[open]) > .receivableAction {
+    grid-row: 4;
+  }
+  .confirmPayment label {
+    flex: 1 1 140px;
+  }
+  .confirmPayment input,
+  .confirmPayment .confirmNote input {
+    width: 100%;
+  }
+  .confirmPayment button {
+    flex: 1 1 100%;
+  }
+  .receivableSummary {
+    padding: 12px 15px;
+  }
+}

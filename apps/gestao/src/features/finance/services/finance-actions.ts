@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
 import { syncExpensePayment } from "@/features/finance/services/recurring-entries";
-import { MAX_INSTALLMENTS } from "@/features/finance/services/installments";
+import { MAX_INSTALLMENTS, nextOpenInstallment } from "@/features/finance/services/installments";
+import { cancelStaleEntryCharges } from "@/features/integrations/services/asaas-charges";
 import { rebuildInstallments, syncQuotePayments } from "@/features/finance/services/payment-plan";
 import { isMonthKey } from "@/features/finance/services/recurring-entries";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
@@ -236,6 +237,65 @@ export async function updateInstallmentAction(formData: FormData) {
  * Marca como paga a próxima parcela em aberto (ou o que falta, sem parcelas) na data informada.
  * Volta para a tela de origem: o lançamento ou a lista de condições especiais.
  */
+/** Cancela a cobrança do Asaas que a confirmação manual tornou inválida; uma falha aqui não desfaz o recebimento. */
+async function cancelStaleChargesSafely(entryId: string) {
+  try {
+    await cancelStaleEntryCharges(entryId);
+  } catch {
+    // O ciclo de cobranças (a cada 30 minutos) tenta cancelar de novo.
+  }
+}
+
+/** Para onde voltar depois de confirmar uma parcela: o perfil do cliente, a lista de parcelas (com o filtro de cliente) ou o lançamento. */
+function installmentReturn(value: string, entryId: string, params: { error?: string; notice?: string }): never {
+  const client = /^client:([\w-]{1,50})$/.exec(value)?.[1];
+  if (client) {
+    const query = new URLSearchParams({ section: "finance" });
+    if (params.error) query.set("erro", params.error);
+    if (params.notice) query.set("pagamento", params.notice);
+    redirect(`/clientes/${encodeURIComponent(client)}?${query.toString()}#parcelas`);
+  }
+  const receivables = /^receivables(?::([\w-]{1,50}))?$/.exec(value);
+  if (receivables) {
+    const query = new URLSearchParams();
+    if (receivables[1]) query.set("cliente", receivables[1]);
+    if (params.error) query.set("error", params.error);
+    if (params.notice) query.set("notice", params.notice);
+    redirect(`/financeiro/receber?${query.toString()}`);
+  }
+  backToEntry(entryId, params.error ? { error: params.error } : { notice: "installment-paid" });
+}
+
+/**
+ * Confirma à mão o pagamento da próxima parcela de uma venda (Pix direto, dinheiro, transferência fora do Asaas):
+ * registra o recebimento na data e no valor informados e cancela na hora a cobrança aberta no Asaas, para o cliente não
+ * pagar duas vezes. `number` é a parcela que a tela mostrava: se ela já não for a próxima em aberto, nada é registrado.
+ */
+export async function confirmInstallmentPaymentAction(formData: FormData) {
+  await requireManagementUser();
+  const entryId = text(formData, "entryId", 50);
+  const returnTo = text(formData, "returnTo", 60);
+  if (!entryId) back({ error: "Parcela inválida." });
+  const entry = await prisma.financialEntry.findUnique({ where: { id: entryId }, select: { type: true, status: true, amountCents: true, paidCents: true, clientId: true, installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { number: true, dueDate: true, amountCents: true } } } });
+  if (!entry || entry.type !== FinancialEntryType.INCOME || entry.status !== FinancialEntryStatus.PENDING) installmentReturn(returnTo, entryId, { error: "Esta parcela já foi paga ou a venda não está mais em aberto." });
+  const next = entry.installments.length ? nextOpenInstallment(entry.installments, entry.paidCents) : null;
+  const expected = Number(text(formData, "number", 3)) || 1;
+  if ((next?.number ?? 1) !== expected) installmentReturn(returnTo, entryId, { error: `A parcela ${expected} já não é a próxima em aberto. A página foi atualizada; confira antes de confirmar.` });
+  const remaining = next ? next.remaining : entry.amountCents - entry.paidCents;
+  const typed = text(formData, "amount", 24);
+  const amountCents = typed ? amountToCents(typed) : remaining;
+  const label = next && entry.installments.length > 1 ? `Parcela ${next.number}/${entry.installments.length}` : null;
+  const note = [label, text(formData, "notes", 200) || "Confirmado manualmente"].filter(Boolean).join(" · ");
+  const result = await registerFinancialPayment({ entryId, amountCents, paidAt: text(formData, "paidAt", 10), notes: note });
+  if (!result.ok) installmentReturn(returnTo, entryId, { error: result.error });
+  await cancelStaleChargesSafely(entryId);
+  revalidateFinance(entryId);
+  revalidatePath("/financeiro/receber");
+  revalidatePath("/financeiro/condicoes");
+  if (entry.clientId) revalidatePath(`/clientes/${entry.clientId}`);
+  installmentReturn(returnTo, entryId, { notice: "confirmado" });
+}
+
 export async function markNextInstallmentPaidAction(formData: FormData) {
   await requireManagementUser();
   const entryId = text(formData, "entryId", 50);
@@ -246,6 +306,7 @@ export async function markNextInstallmentPaidAction(formData: FormData) {
     if (returnTo === "conditions") redirect(`/financeiro/condicoes?error=${encodeURIComponent(result.error)}`);
     backToEntry(entryId, { error: result.error });
   }
+  await cancelStaleChargesSafely(entryId);
   revalidateFinance(entryId);
   revalidatePath("/financeiro/condicoes");
   if (returnTo === "conditions") redirect("/financeiro/condicoes?notice=paid");

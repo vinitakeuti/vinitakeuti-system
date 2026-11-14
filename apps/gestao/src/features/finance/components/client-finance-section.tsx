@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { FinancialEntryType } from "@prisma/client";
-import { financeEntryStatusKey, financeEntryStatusLabel } from "@/features/finance/queries/finance-queries";
+import { financeEntryStatusKey, financeEntryStatusLabel, type listOpenInstallments } from "@/features/finance/queries/finance-queries";
+import { OpenInstallmentsList } from "@/features/finance/components/open-installments";
 import type { getClientFinance } from "@/features/finance/queries/client-finance";
 
-/** Aba Financeiro do perfil do cliente: totais, resultado, os últimos 12 meses, o resumo por ano e os lançamentos. */
+/**
+ * Aba Financeiro do perfil do cliente: totais, as parcelas a receber (com a confirmação manual de pagamento),
+ * os últimos 12 meses, o resumo por ano e os lançamentos.
+ */
 
 type ClientFinance = Awaited<ReturnType<typeof getClientFinance>>;
+type ClientInstallments = Awaited<ReturnType<typeof listOpenInstallments>>;
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const brl = (cents: number) => money.format(cents / 100);
@@ -13,24 +18,33 @@ const date = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", 
 const monthShort = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" });
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-export function ClientFinanceSection({ clientId, clientName, data, cursor }: { clientId: string; clientName: string; data: ClientFinance; cursor?: string }) {
+export function ClientFinanceSection({ clientId, clientName, data, installments, cursor, feedback }: { clientId: string; clientName: string; data: ClientFinance; installments: ClientInstallments; cursor?: string; feedback?: { error?: string; notice?: string } }) {
   const { totals } = data;
   const max = Math.max(1, ...data.monthly.flatMap((month) => [month.billed, month.expenses]));
   const base = `/clientes/${clientId}?section=finance`;
   const margin = totals.received > 0 ? Math.round((totals.result / totals.received) * 100) : null;
+  // Em atraso pelas parcelas vencidas (não pelo lançamento inteiro): uma venda com uma parcela atrasada não conta o restante.
+  const overdue = { cents: installments.totals.overdue, count: installments.totals.overdueCount };
   return <section className="client-panel client-finance">
     <div className="client-panel-heading">
       <div><h2>Financeiro</h2><p>Entradas e saídas vinculadas a {clientName}, pela data de vencimento. Vendas confirmadas entram sozinhas.</p></div>
       <div className="client-panel-actions"><Link className="text-link" href={`/financeiro?cliente=${clientId}#novo-lancamento`}>+ Nova entrada</Link><Link className="text-link" href={`/financeiro?cliente=${clientId}&tipo=saida#novo-lancamento`}>+ Nova saída</Link></div>
     </div>
+    {feedback?.error ? <p className="form-error" role="alert">{feedback.error}</p> : feedback?.notice === "confirmado" ? <p className="form-success" role="status">Pagamento confirmado. A parcela foi baixada{installments.data.length ? " e a próxima já aparece na lista" : ""}.</p> : null}
     {data.total === 0 ? <div className="client-panel-empty"><p>Nenhum lançamento vinculado a este cliente ainda.</p><span>No Financeiro, escolha o cliente no campo Contraparte de uma entrada ou saída.</span></div> : <>
       <dl className="client-finance-kpis">
         <div><dt>Faturado</dt><dd>{brl(totals.billed)}</dd><small>{plural(totals.incomeCount, "entrada", "entradas")} · recebido + a receber</small></div>
         <div><dt>Recebido</dt><dd className="is-income">{brl(totals.received)}</dd><small>{totals.billed ? `${Math.round((totals.received / totals.billed) * 100)}% do faturado` : "—"}</small></div>
-        <div><dt>A receber</dt><dd>{brl(totals.receivable)}</dd><small className={totals.overdue > 0 ? "is-late" : undefined}>{totals.overdue > 0 ? `${brl(totals.overdue)} em atraso (${totals.overdueCount})` : "Nada em atraso"}</small></div>
+        <div><dt>A receber</dt><dd>{brl(totals.receivable)}</dd><small className={overdue.cents > 0 ? "is-late" : undefined}>{overdue.cents > 0 ? `${brl(overdue.cents)} em atraso (${plural(overdue.count, "parcela", "parcelas")})` : "Nada em atraso"}</small></div>
         <div><dt>Saídas</dt><dd className="is-expense">{brl(totals.spent)}</dd><small>{totals.scheduled > 0 ? `+ ${brl(totals.scheduled)} programadas` : plural(totals.expenseCount, "saída paga", "saídas pagas")}</small></div>
         <div className="is-result"><dt>Resultado</dt><dd className={totals.result < 0 ? "is-expense" : "is-income"}>{brl(totals.result)}</dd><small>Recebido − saídas{margin !== null ? ` · margem de ${margin}%` : ""}</small></div>
       </dl>
+
+      {installments.data.length ? <section className="client-finance-entries client-finance-installments" id="parcelas" aria-label="Parcelas a receber">
+        <header><h3>Parcelas a receber</h3><span>{plural(installments.totals.openCount, "em aberto", "em aberto")}{installments.totals.overdueCount ? ` · ${plural(installments.totals.overdueCount, "atrasada", "atrasadas")}` : ""}</span></header>
+        <OpenInstallmentsList items={installments.data} returnTo={`client:${clientId}`} showClient={false} />
+        {installments.nextCursor ? <div className="client-finance-pages"><span /><Link className="text-link" href={`/financeiro/receber?cliente=${clientId}`}>Ver todas as parcelas →</Link></div> : null}
+      </section> : null}
 
       <div className="client-finance-grid">
         <section className="client-finance-chart" aria-label="Últimos 12 meses">

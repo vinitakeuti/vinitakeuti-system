@@ -16,14 +16,12 @@ type Row = { key: string; type: FinancialEntryType; amount: bigint | number; pai
 
 export async function getClientFinance(clientId: string, cursor?: string) {
   const today = dayKey.format(new Date());
-  const startOfToday = new Date(`${today}T00:00:00-03:00`);
   const endOfToday = new Date(`${today}T23:59:59.999-03:00`);
   const firstMonth = new Date(`${(() => { const [y, m] = today.split("-").map(Number); const index = y * 12 + m - 1 - 11; return `${Math.floor(index / 12)}-${String(index % 12 + 1).padStart(2, "0")}`; })()}-01T00:00:00-03:00`);
   const active = { clientId, status: { not: FinancialEntryStatus.CANCELLED } };
 
-  const [income, overdue, expensePaid, expenseScheduled, years, months, rows, recurring, total] = await Promise.all([
+  const [income, expensePaid, expenseScheduled, years, months, rows, recurring, total] = await Promise.all([
     prisma.financialEntry.aggregate({ where: { ...active, type: FinancialEntryType.INCOME }, _sum: { amountCents: true, paidCents: true }, _count: { _all: true } }),
-    prisma.financialEntry.aggregate({ where: { clientId, type: FinancialEntryType.INCOME, status: FinancialEntryStatus.PENDING, dueDate: { lt: startOfToday } }, _sum: { amountCents: true, paidCents: true }, _count: { _all: true } }),
     prisma.financialEntry.aggregate({ where: { ...active, type: FinancialEntryType.EXPENSE, dueDate: { lte: endOfToday } }, _sum: { amountCents: true }, _count: { _all: true } }),
     prisma.financialEntry.aggregate({ where: { ...active, type: FinancialEntryType.EXPENSE, dueDate: { gt: endOfToday } }, _sum: { amountCents: true }, _count: { _all: true } }),
     prisma.$queryRaw<Row[]>`
@@ -63,7 +61,6 @@ export async function getClientFinance(clientId: string, cursor?: string) {
   return {
     totals: {
       billed, received, receivable: billed - received, incomeCount: income._count._all,
-      overdue: (overdue._sum.amountCents ?? 0) - (overdue._sum.paidCents ?? 0), overdueCount: overdue._count._all,
       spent, expenseCount: expensePaid._count._all, scheduled: expenseScheduled._sum.amountCents ?? 0, scheduledCount: expenseScheduled._count._all,
       result: received - spent,
     },

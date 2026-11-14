@@ -11,6 +11,7 @@ import { ClientDocumentsSection } from "@/features/documents/components/client-d
 import { documentKindFromEnum } from "@/features/documents/types/document-kinds";
 import { ClientFinanceSection } from "@/features/finance/components/client-finance-section";
 import { countClientFinancialEntries, getClientFinance } from "@/features/finance/queries/client-finance";
+import { listOpenInstallments } from "@/features/finance/queries/finance-queries";
 import { monitoringEnvironmentLabel, monitoringStatusClass, monitoringStatusLabel } from "@/features/monitoring/types/monitoring-labels";
 import { percentOf } from "@/features/projects/types/project";
 
@@ -55,16 +56,18 @@ function whatsappHref(phone: string | null) {
   return null;
 }
 
-export default async function ClientProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ section?: string; updated?: string; conferido?: string; depois?: string }> }) {
+export default async function ClientProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ section?: string; updated?: string; conferido?: string; depois?: string; pagamento?: string; erro?: string }> }) {
   const { id } = await params;
-  const { section: requestedSection, updated, conferido, depois } = await searchParams;
+  const { section: requestedSection, updated, conferido, depois, pagamento, erro } = await searchParams;
   // "quotes" era o nome antigo da seção de documentos.
   const activeSection = requestedSection === "quotes" ? "documents" : isProfileSection(requestedSection) ? requestedSection : "overview";
   const client = await getClientProfile(id);
   if (!client) notFound();
-  const [finance, financeCount] = await Promise.all([
+  const [finance, financeCount, installments] = await Promise.all([
     activeSection === "finance" ? getClientFinance(client.id, depois) : null,
     activeSection === "finance" ? null : countClientFinancialEntries(client.id),
+    // Parcelas a receber do cliente, uma por linha, com a confirmação manual de pagamento.
+    activeSection === "finance" ? listOpenInstallments({ clientId: client.id, limit: 12 }) : null,
   ]);
 
   const sectionCounts: Record<Exclude<ProfileSection, "overview">, number> = {
@@ -117,7 +120,7 @@ export default async function ClientProfilePage({ params, searchParams }: { para
         </div>
         <PortalAccessPanel clientId={client.id} clientName={client.name} clientEmail={client.email} portalUrl={clientPortalUrl()} access={client.portalUsers[0] ? { ...client.portalUsers[0], lastLoginAt: client.portalUsers[0].lastLoginAt?.toISOString() ?? null, createdAt: client.portalUsers[0].createdAt.toISOString() } : null} />
       </section> : null}
-      {activeSection === "finance" && finance ? <ClientFinanceSection clientId={client.id} clientName={client.name} data={finance} cursor={depois} /> : null}
+      {activeSection === "finance" && finance && installments ? <ClientFinanceSection clientId={client.id} clientName={client.name} data={finance} installments={installments} cursor={depois} feedback={{ error: erro?.slice(0, 300), notice: pagamento === "confirmado" ? "confirmado" : undefined }} /> : null}
       {activeSection === "documents" ? <ClientDocumentsSection clientId={client.id} quotes={client.quotes} documents={client.documents} reviewed={conferido} /> : null}
       {activeSection === "projects" ? <ProfileSection title="Serviços ativos" description="Projetos em planejamento, execução ou aguardando retorno, com o percentual concluído do plano." action={<Link className="text-link" href="/projetos/novo">Novo projeto</Link>}><ProfileTable variant="projects" columns={["Serviço", "Situação", "Entrega", "Valor"]} empty="Nenhum serviço ativo para este cliente.">{client.projects.map((project) => <tr key={project.id}><td><Link className="client-name" href={`/projetos/${project.id}`}>{project.name}</Link>{project.totalWeight ? <small>{percentOf(project.doneWeight, project.totalWeight)}% concluído</small> : null}</td><td>{projectStatusLabels[project.status] ?? project.status}</td><td>{project.deliveryAt ? date.format(project.deliveryAt) : "A definir"}</td><td>{project.budgetCents ? money.format(project.budgetCents / 100) : "A definir"}</td></tr>)}</ProfileTable></ProfileSection> : null}
       {activeSection === "subscriptions" ? <ProfileSection title="Assinaturas" description="Cobranças recorrentes e situação de cada assinatura." action={<Link className="text-link" href={`/clientes/${client.id}/assinaturas/nova`}>Atribuir serviço recorrente</Link>}><ProfileTable variant="subscriptions" columns={["Assinatura", "Situação", "Próximo pagamento", "Valor"]} empty="Nenhuma assinatura registrada para este cliente.">{client.subscriptions.map((subscription) => <tr key={subscription.id}><td><span>{subscription.name}</span><small>{subscription.serviceCatalogItem?.category.name ?? "Recorrência avulsa"}</small></td><td>{subscriptionStatusLabels[subscription.status] ?? subscription.status}</td><td>{subscription.nextPaymentAt ? date.format(subscription.nextPaymentAt) : "A definir"}</td><td>{money.format(subscription.amountCents / 100)}</td></tr>)}</ProfileTable></ProfileSection> : null}

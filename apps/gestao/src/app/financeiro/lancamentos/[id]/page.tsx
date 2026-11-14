@@ -8,10 +8,11 @@ import { PaymentPlanCalculator } from "@/features/finance/components/payment-pla
 import { allocateInstallments, installmentPaidDates } from "@/features/finance/services/installments";
 import { currentPlanParams } from "@/features/finance/services/payment-plan";
 import { FINANCE_CATEGORIES, financeEntryStatusKey, financeEntryStatusLabel, financeTypeLabel, getFinancialEntryDetail, getQuotePaymentsForEntry, listPaymentConditions } from "@/features/finance/queries/finance-queries";
-import { addFinancialPaymentAction, cancelFinancialEntryAction, deleteFinancialPaymentAction, importQuotePaymentsAction, markNextInstallmentPaidAction, reopenFinancialEntryAction, savePaymentPlanAction, settleFinancialEntryAction, updateFinancialEntryAction, updateFinancialPaymentAction, updateInstallmentAction } from "@/features/finance/services/finance-actions";
+import { addFinancialPaymentAction, cancelFinancialEntryAction, deleteFinancialPaymentAction, importQuotePaymentsAction, reopenFinancialEntryAction, savePaymentPlanAction, settleFinancialEntryAction, updateFinancialEntryAction, updateFinancialPaymentAction, updateInstallmentAction } from "@/features/finance/services/finance-actions";
 import { getEntryAsaasState } from "@/features/integrations/queries/integration-queries";
 import { chargeNextInstallmentAction } from "@/features/integrations/services/asaas-actions";
 import { CounterpartyField } from "@/features/finance/components/counterparty-field";
+import { ConfirmInstallmentPayment } from "@/features/finance/components/open-installments";
 import styles from "../../financeiro.module.css";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ const notices: Record<string, string> = {
   "payment-updated": "Pagamento atualizado.",
   "payment-deleted": "Pagamento removido.",
   "installment-updated": "Parcela ajustada.",
-  "installment-paid": "Parcela marcada como paga.",
+  "installment-paid": "Pagamento confirmado. A parcela foi baixada e a cobrança do Asaas, se havia uma, foi cancelada.",
   "plan-saved": "Condição de pagamento salva. As parcelas foram refeitas.",
   "quote-payments": "Pagamentos da proposta trazidos para cá.",
   "charge-created": "Cobrança gerada no Asaas e enviada ao cliente.",
@@ -80,11 +81,12 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
   const asaas = income && open ? await getEntryAsaasState(entry) : null;
   const automated = Boolean(asaas?.automated);
   const nextCharge = asaas?.openCharges.get(next?.number ?? 0) ?? null;
-  const manualPaid = <form action={markNextInstallmentPaidAction} className={styles.markPaid}><input type="hidden" name="entryId" value={entry.id} /><input name="paidAt" type="date" required defaultValue={today} aria-label="Data do pagamento" /><button type="submit">Marcar paga</button></form>;
-  // Na próxima parcela: com o Asaas, a cobrança (ou o botão para gerá-la) e o registro manual só para recebimentos fora dele.
+  // Confirmação manual da próxima parcela (Pix direto, dinheiro, transferência): registra o recebimento e cancela a cobrança do Asaas.
+  const manualPaid = <ConfirmInstallmentPayment entryId={entry.id} number={next?.number ?? 1} remaining={nextAmount} hasCharge={Boolean(nextCharge)} returnTo="entry" />;
+  // Na próxima parcela: com o Asaas, a cobrança (ou o botão para gerá-la) e, sempre, a confirmação manual.
   const nextActions = automated ? <>
     {nextCharge ? <a className={styles.chargeLink} href={nextCharge.invoiceUrl ?? undefined} target="_blank" rel="noreferrer">Cobrança enviada · fatura</a> : <form action={chargeNextInstallmentAction}><input type="hidden" name="entryId" value={entry.id} /><button className={styles.textAction} type="submit">Gerar cobrança agora</button></form>}
-    <details className={styles.adjust}><summary>Recebido fora do Asaas</summary>{manualPaid}</details>
+    {manualPaid}
   </> : manualPaid;
 
   const header = <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/financeiro">Financeiro</Link> / {income ? "Entrada" : "Saída"}</p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} · {entry.counterparty ?? "Sem contraparte"} · {entry.category}{entry.origin === "QUOTE" ? " · venda confirmada" : ""}</p>{entry.paymentCondition ? <span className={styles.conditionTag + " " + styles.headerTag}>{entry.paymentCondition}</span> : null}</div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">Voltar ao financeiro</Link></div></div></header>;
@@ -155,7 +157,7 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
 
     {/* 3. Parcelas: com o Asaas, cobradas e baixadas automaticamente; sem ele, a próxima é marcada como paga na data em que o pagamento entrou. */}
     <section className={styles.ledger + " " + styles.entryEdit}>
-      <div className={styles.ledgerHeading}><div><p className="eyebrow">Parcelas</p><h2>{installments.length ? "Cronograma de pagamento" : "Cobrança única"}</h2><small>{automated ? `Confirmadas automaticamente pelo Asaas: a cobrança da próxima parcela é enviada ao cliente${asaas?.autoChargeDays !== null ? ` ${asaas?.autoChargeDays} dias antes do vencimento` : " quando ele usa “Pagar agora” no portal"} e a parcela é baixada quando o pagamento cai.${installments.length ? " Use “Ajustar” para mudar a data ou o valor." : ""}` : installments.length ? "Marque a próxima parcela como paga quando o pagamento entrar. Use “Ajustar” para mudar a data ou o valor de uma parcela." : "Para dividir em parcelas, preencha a condição de pagamento acima."}</small></div>{open && remaining ? <form action={settleFinancialEntryAction}><input type="hidden" name="id" value={entry.id} /><input type="hidden" name="returnTo" value="entry" /><button className={styles.textAction} type="submit">Quitar tudo</button></form> : null}</div>
+      <div className={styles.ledgerHeading}><div><p className="eyebrow">Parcelas</p><h2>{installments.length ? "Cronograma de pagamento" : "Cobrança única"}</h2><small>{automated ? `Confirmadas automaticamente pelo Asaas: a cobrança da próxima parcela é enviada ao cliente${asaas?.autoChargeDays !== null ? ` ${asaas?.autoChargeDays} dias antes do vencimento` : " quando ele usa “Pagar agora” no portal"} e a parcela é baixada quando o pagamento cai. Recebeu fora do Asaas? Use “Confirmar pagamento”.${installments.length ? " Use “Ajustar” para mudar a data ou o valor." : ""}` : installments.length ? "Use “Confirmar pagamento” na próxima parcela quando o pagamento entrar. Use “Ajustar” para mudar a data ou o valor de uma parcela." : "Para dividir em parcelas, preencha a condição de pagamento acima."}</small></div>{open && remaining ? <form action={settleFinancialEntryAction}><input type="hidden" name="id" value={entry.id} /><input type="hidden" name="returnTo" value="entry" /><button className={styles.textAction} type="submit">Quitar tudo</button></form> : null}</div>
       {automated && asaas?.missingDocument ? <p className={styles.chargeWarning}>O cliente não tem CPF nem CNPJ no cadastro, e o Asaas exige um deles para cobrar. <Link href={`/clientes/${asaas.clientId}/editar`}>Completar cadastro</Link></p> : null}
       <ol className={styles.scheduleList}>
         {installments.length ? installments.map((installment) => {

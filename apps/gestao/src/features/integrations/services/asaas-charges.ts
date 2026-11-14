@@ -56,6 +56,24 @@ async function cancelCharge(charge: { id: string; asaasPaymentId: string | null 
 }
 
 /**
+ * Cancela já as cobranças abertas de uma venda que deixaram de valer (parcela confirmada à mão, valor alterado, venda
+ * quitada), sem esperar o ciclo de 30 minutos: o cliente não paga de novo nem recebe lembrete. Devolve quantas cancelou;
+ * cobranças que o Asaas recusar cancelar ficam registradas no log e o ciclo tenta de novo.
+ */
+export async function cancelStaleEntryCharges(entryId: string) {
+  const charges = await prisma.charge.findMany({ where: { financialEntryId: entryId, status: { in: OPEN } }, take: 20, select: { id: true, asaasPaymentId: true, amountCents: true, installmentNumber: true, installmentThrough: true } });
+  if (!charges.length) return 0;
+  const entry = await prisma.financialEntry.findUnique({ where: { id: entryId }, select: portalEntrySelect });
+  const schedule = entry && entry.status === FinancialEntryStatus.PENDING ? entrySchedule(entry) : null;
+  let cancelled = 0;
+  for (const charge of charges) {
+    if (schedule && chargeStillValid(schedule, charge)) continue;
+    if (await cancelCharge(charge, schedule ? "parcela confirmada manualmente" : "venda quitada ou cancelada")) cancelled += 1;
+  }
+  return cancelled;
+}
+
+/**
  * Cobrança aberta para estas parcelas (mesmo intervalo e valor) ou uma nova. As outras cobranças abertas da venda são
  * canceladas para o cliente não pagar duas vezes. `installments`: parcelas seguidas a partir da próxima em aberto.
  * O cliente precisa de CPF ou CNPJ no cadastro.
