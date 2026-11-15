@@ -58,7 +58,7 @@ export default async function RecurringEntryPage({ params, searchParams }: Recur
         <input type="hidden" name="type" value={entry.type} />
         <label>Descrição<input name="description" maxLength={180} required defaultValue={entry.description} /></label>
         <label>Valor mensal<input name="amount" inputMode="decimal" required defaultValue={amountField(entry.amountCents)} /></label>
-        <label>Dia do vencimento<select name="dayOfMonth" defaultValue={String(entry.dayOfMonth)}>{DAYS.map((day) => <option key={day} value={day}>{day}</option>)}</select><small className={styles.fieldHint}>Dia 29, 30 ou 31 cai no último dia nos meses mais curtos.</small></label>
+        <label>Dia do vencimento<select name="dayOfMonth" defaultValue={String(entry.dayOfMonth)}>{DAYS.map((day) => <option key={day} value={day}>{day}</option>)}</select></label>
         <label>Aplicar a partir de<input name="applyFrom" type="month" required min={startKey} defaultValue={current < startKey ? startKey : current} /></label>
         <label>Categoria<select name="category" defaultValue={entry.category}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
         <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField initialClient={entry.client} initialText={entry.counterparty ?? ""} placeholder="Busque um cliente ou digite fornecedor ou pessoa" /></div>

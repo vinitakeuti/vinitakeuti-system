@@ -44,7 +44,7 @@ export default async function FixedCostsPage({ searchParams }: FixedCostsPagePro
         <label>Categoria<select name="category" defaultValue="Ferramentas">{FINANCE_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
         <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField placeholder="Busque um cliente ou digite fornecedor ou pessoa" /></div>
         <label>Valor mensal<input name="amount" inputMode="decimal" required placeholder="0,00" /></label>
-        <label>Dia do vencimento<select name="dayOfMonth" defaultValue="5">{DAYS.map((day) => <option key={day} value={day}>{day}</option>)}</select><small className={styles.fieldHint}>Dia 29, 30 ou 31 cai no último dia nos meses mais curtos.</small></label>
+        <label>Dia do vencimento<select name="dayOfMonth" defaultValue="5">{DAYS.map((day) => <option key={day} value={day}>{day}</option>)}</select></label>
         <label>Primeiro mês<input name="startsOn" type="month" required defaultValue={current} /></label>
         <label>Observação<input name="notes" maxLength={500} placeholder="Opcional" /></label>
         <div className={styles.formActions}><button className="primary-action" type="submit">Salvar recorrência</button></div>

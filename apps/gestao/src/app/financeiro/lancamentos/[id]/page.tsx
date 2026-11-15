@@ -151,7 +151,7 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
           <label>Próxima parcela em<input name="firstMonth" type="month" required defaultValue={plan.firstMonth} /></label>
         </div>
         <PaymentPlanCalculator paidCents={entry.paidCents} paidCount={entry.payments.length} defaultTotalCents={entry.amountCents} defaultCount={plan.count} defaultMonthlyCents={installments.length ? plan.monthlyCents : null} classNames={{ grid: styles.planGrid, preview: styles.planPreview, hint: styles.fieldHint }} />
-        <div className={styles.planActions}><small className={styles.fieldHint}>Dia 29, 30 ou 31 cai no último dia nos meses mais curtos.</small><button className="primary-action" type="submit">Salvar condição</button></div>
+        <div className={styles.planActions}><button className="primary-action" type="submit">Salvar condição</button></div>
       </form>
     </section> : null}
 
