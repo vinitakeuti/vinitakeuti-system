@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-export const VALUES_COOKIE = "vr-valores";
+import { VALUES_COOKIE, VALUES_HIDDEN, VALUES_VISIBLE } from "@/features/overview/types/values-preference";
 
 /**
  * Olho que oculta e mostra os valores em dinheiro da tela. A escolha fica num cookie (só preferência de interface),
@@ -15,7 +14,7 @@ export function ValuesToggle({ initialHidden, targetId }: { initialHidden: boole
     const next = !hidden;
     setHidden(next);
     document.getElementById(targetId)?.setAttribute("data-values", next ? "hidden" : "visible");
-    document.cookie = `${VALUES_COOKIE}=${next ? "ocultos" : "visiveis"}; path=/; max-age=31536000; samesite=lax`;
+    document.cookie = `${VALUES_COOKIE}=${next ? VALUES_HIDDEN : VALUES_VISIBLE}; path=/; max-age=31536000; samesite=lax`;
   }
 
   const label = hidden ? "Mostrar valores" : "Ocultar valores";

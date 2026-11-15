@@ -6,7 +6,8 @@ import { LandingPage } from "@/features/landing/components/landing-page";
 import { portalForRequest } from "@/features/auth/services/auth-host";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
 import { getOverviewData } from "@/features/overview/queries/overview-queries";
-import { ValuesToggle, VALUES_COOKIE } from "@/features/overview/components/values-toggle";
+import { ValuesToggle } from "@/features/overview/components/values-toggle";
+import { VALUES_COOKIE, VALUES_HIDDEN } from "@/features/overview/types/values-preference";
 import { EVENT_KINDS, dayKey, isEventKind, timeOf } from "@/features/agenda/types/agenda";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export default async function Home() {
   if (portal === "landing") return <LandingPage />;
   await requireManagementUser();
   const [data, cookieStore] = await Promise.all([getOverviewData(), cookies()]);
-  const hidden = cookieStore.get(VALUES_COOKIE)?.value === "ocultos";
+  const hidden = cookieStore.get(VALUES_COOKIE)?.value === VALUES_HIDDEN;
   const { finance, receivables, commitments, events, attentionApps, monitoring, openQuotes, pendingQuotes, newAttendances, period, today } = data;
 
   const monthLabel = monthName.format(new Date(Date.UTC(period.year, period.month - 1, 15)));
