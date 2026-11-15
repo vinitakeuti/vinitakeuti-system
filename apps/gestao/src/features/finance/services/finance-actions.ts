@@ -11,6 +11,8 @@ import { cancelStaleEntryCharges } from "@/features/integrations/services/asaas-
 import { rebuildInstallments, syncQuotePayments } from "@/features/finance/services/payment-plan";
 import { isMonthKey } from "@/features/finance/services/recurring-entries";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
+import { ensureFinanceCategory, resolveFinanceAccount } from "@/features/finance/services/finance-catalog";
+import { financeScopeParam, parseFinanceScope, scopeFromParam } from "@/features/finance/types/finance-scope";
 import { createFinancialEntry, financeDueDate, financePaymentDate, financialPaymentProblem, payNextInstallment, registerFinancialPayment, resolveCounterparty } from "@/features/finance/services/finance-service";
 
 function text(formData: FormData, name: string, max: number) {
@@ -65,25 +67,39 @@ function returnsToEntry(formData: FormData) {
   return text(formData, "returnTo", 10) === "entry";
 }
 
+/**
+ * Novo lançamento pelo formulário do Financeiro. `repeat`: "once" (uma vez), "installments" (parcelado) ou "monthly"
+ * (todo mês). Volta para o Financeiro na mesma visão (empresa, pessoal ou tudo) de onde o formulário foi enviado.
+ */
 export async function createFinancialEntryAction(formData: FormData) {
   await requireManagementUser();
+  const type = text(formData, "type", 20) === FinancialEntryType.EXPENSE ? FinancialEntryType.EXPENSE : FinancialEntryType.INCOME;
+  const repeat = text(formData, "repeat", 20);
+  const view = scopeFromParam(text(formData, "view", 10));
   const result = await createFinancialEntry({
-    type: text(formData, "type", 20) === FinancialEntryType.EXPENSE ? FinancialEntryType.EXPENSE : FinancialEntryType.INCOME,
+    type,
+    scope: parseFinanceScope(text(formData, "scope", 20)),
     description: text(formData, "description", 180),
     category: text(formData, "category", 80),
+    accountId: text(formData, "accountId", 50) || null,
+    accountName: text(formData, "accountName", 60) || null,
     amountCents: amountToCents(text(formData, "amount", 24)),
     dueDate: text(formData, "dueDate", 10),
     counterparty: text(formData, "counterparty", 160),
     clientId: text(formData, "clientId", 50) || null,
     notes: text(formData, "notes", 500),
     paymentCondition: text(formData, "paymentCondition", 80),
-    recurring: formData.get("isFixed") === "on",
-    received: text(formData, "status", 20) === FinancialEntryStatus.SETTLED,
-    installments: Number(text(formData, "installments", 3)) || 1,
+    recurring: repeat === "monthly",
+    received: repeat === "once" && text(formData, "status", 20) === FinancialEntryStatus.SETTLED,
+    installments: repeat === "installments" ? Number(text(formData, "installments", 3)) || 1 : 1,
   });
-  if (!result.ok) back({ error: result.error });
-  revalidateFinance();
-  back({ notice: result.kind === "recurring" ? "recurring" : "created" });
+  const query = new URLSearchParams();
+  if (view) query.set("escopo", financeScopeParam[view]);
+  if (!result.ok) query.set("error", result.error);
+  else if (result.kind === "series") query.set("series", String(result.count));
+  else query.set(result.kind === "recurring" ? "recurring" : "created", "1");
+  if (result.ok) revalidateFinance();
+  redirect(`/financeiro?${query.toString()}${result.ok ? "" : "#novo-lancamento"}`);
 }
 
 /** Registra o que falta receber (ou pagar) e deixa o lançamento realizado. */
@@ -136,7 +152,7 @@ export async function updateFinancialEntryAction(formData: FormData) {
   if (!id) back({ error: "Lançamento inválido." });
   const description = text(formData, "description", 180);
   const amountCents = amountToCents(text(formData, "amount", 24));
-  const entry = await prisma.financialEntry.findUnique({ where: { id }, select: { type: true, paidCents: true, amountCents: true, dueDate: true, _count: { select: { installments: true } } } });
+  const entry = await prisma.financialEntry.findUnique({ where: { id }, select: { type: true, origin: true, scope: true, paidCents: true, amountCents: true, dueDate: true, _count: { select: { installments: true } } } });
   if (!entry) back({ error: "Lançamento não encontrado." });
   // Parcelado: o valor esperado é a soma das parcelas e o vencimento é o da próxima parcela.
   // Sem os campos de valor e vencimento no formulário (entradas: ficam na condição de pagamento), mantém os atuais.
@@ -147,8 +163,13 @@ export async function updateFinancialEntryAction(formData: FormData) {
   if (entry.type === FinancialEntryType.INCOME && expected < entry.paidCents) backToEntry(id, { error: "O valor esperado não pode ser menor que o total já recebido. Ajuste ou remova recebimentos primeiro." });
   const party = await resolveCounterparty(text(formData, "clientId", 50), text(formData, "counterparty", 160));
   if (!party.ok) backToEntry(id, { error: party.error });
+  // Vendas confirmadas (vindas de proposta) são sempre da empresa.
+  const scope = entry.origin === "QUOTE" || !formData.has("scope") ? entry.scope : parseFinanceScope(text(formData, "scope", 20));
+  const account = formData.has("accountId") || formData.has("accountName") ? await resolveFinanceAccount(prisma, { accountId: text(formData, "accountId", 50) || null, accountName: text(formData, "accountName", 60) || null }) : null;
+  if (account && !account.ok) backToEntry(id, { error: account.error });
+  const category = await ensureFinanceCategory(prisma, scope, entry.type, text(formData, "category", 80));
   await prisma.$transaction(async (tx) => {
-    await tx.financialEntry.update({ where: { id }, data: { description, category: text(formData, "category", 80) || "Outros", counterparty: party.counterparty, clientId: party.clientId, amountCents: expected, dueDate, notes: text(formData, "notes", 500) || null, ...(formData.has("paymentCondition") ? { paymentCondition: entry.type === FinancialEntryType.INCOME ? text(formData, "paymentCondition", 80) || null : null } : {}) } });
+    await tx.financialEntry.update({ where: { id }, data: { description, category, scope, ...(account?.ok ? { accountId: account.accountId } : {}), counterparty: party.counterparty, clientId: party.clientId, amountCents: expected, dueDate, notes: text(formData, "notes", 500) || null, ...(formData.has("paymentCondition") ? { paymentCondition: entry.type === FinancialEntryType.INCOME ? text(formData, "paymentCondition", 80) || null : null } : {}) } });
     if (entry.type === FinancialEntryType.EXPENSE) await syncExpensePayment(tx, id);
     else await recalculateFinancialEntry(tx, id, { syncSale: true });
   });

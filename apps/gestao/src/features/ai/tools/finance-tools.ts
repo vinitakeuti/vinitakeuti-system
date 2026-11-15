@@ -2,7 +2,7 @@ import { FinancialEntryStatus, FinancialEntryType, SaleStatus } from "@prisma/cl
 import { revalidatePath } from "next/cache";
 import { defineTool, day, reais, todayIso } from "@/features/ai/tools/tool";
 import { object, s } from "@/features/ai/tools/schema";
-import { getFinanceSummary, getUpcomingCommitments, getUpcomingReceivables, listFinancialEntries, FINANCE_CATEGORIES } from "@/features/finance/queries/finance-queries";
+import { getFinanceSummary, getUpcomingCommitments, getUpcomingReceivables, listFinancialEntries } from "@/features/finance/queries/finance-queries";
 import { createFinancialEntry, payNextInstallment, registerFinancialPayment } from "@/features/finance/services/finance-service";
 import { listOpenQuoteOpportunities, listSales, saleStatusLabel } from "@/features/sales/queries/sale-queries";
 import { changeSaleStatus, confirmQuoteSale } from "@/features/sales/services/sale-service";
@@ -18,6 +18,10 @@ function refreshFinance(entryId?: string) {
   } catch { /* fora de uma requisição (agendador): as páginas são dinâmicas e leem o banco na próxima visita */ }
 }
 
+/** "empresa" ou "pessoal" (sem valor: os dois, nas consultas; empresa, ao lançar). */
+const scopeInput = s.optional(s.enum(["empresa", "pessoal"] as const, { description: "Dinheiro da empresa ou pessoal. Sem valor: os dois (consultas) ou empresa (novo lançamento)." }));
+const scopeOf = (value?: "empresa" | "pessoal") => (value === "pessoal" ? "PERSONAL" : value === "empresa" ? "BUSINESS" : undefined);
+
 const statusFilter = { a_receber_ou_pagar: FinancialEntryStatus.PENDING, realizado: FinancialEntryStatus.SETTLED, cancelado: FinancialEntryStatus.CANCELLED } as const;
 
 export const financeTools = [
@@ -26,15 +30,17 @@ export const financeTools = [
     description: "Resumo do Financeiro num período: realizado (entradas e saídas pagas), a receber, a pagar, saldo, previsão e atrasos. Também traz as cobranças dos próximos 7 dias, as atrasadas e os compromissos (saídas) da semana. Sem datas, considera o mês atual.",
     scopes: ["owner"],
     mutates: false,
-    input: object({ de: s.optional(s.date({ description: "Início do período" })), ate: s.optional(s.date({ description: "Fim do período" })) }),
+    input: object({ de: s.optional(s.date({ description: "Início do período" })), ate: s.optional(s.date({ description: "Fim do período" })), escopo: scopeInput }),
     async run(input) {
       const today = todayIso();
       const from = input.de ?? `${today.slice(0, 7)}-01`;
       const [year, month] = today.split("-").map(Number);
       const to = input.ate ?? `${today.slice(0, 7)}-${String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0")}`;
-      const [summary, receivables, commitments] = await Promise.all([getFinanceSummary({ from, to }), getUpcomingReceivables(10), getUpcomingCommitments(10)]);
+      const scope = scopeOf(input.escopo);
+      const [summary, receivables, commitments] = await Promise.all([getFinanceSummary({ from, to, scope }), getUpcomingReceivables(10, scope), getUpcomingCommitments(10, scope)]);
       return {
         periodo: { de: from, ate: to },
+        escopo: input.escopo ?? "empresa e pessoal",
         realizado: { entradas: reais(summary.incomeSettled), saidas: reais(summary.expenseSettled), saldo: reais(summary.balance) },
         pendente: { a_receber: reais(summary.incomePending), a_pagar: reais(summary.expensePending), previsao_saldo: reais(summary.forecast) },
         atrasado: { valor: reais(summary.overdueAmount), parcelas: summary.overdueCount },
@@ -55,12 +61,13 @@ export const financeTools = [
       situacao: s.optional(s.enum(["a_receber_ou_pagar", "realizado", "cancelado"] as const)),
       de: s.optional(s.date({ description: "Vencimento ou recebimento a partir de" })),
       ate: s.optional(s.date({ description: "Vencimento ou recebimento até" })),
+      escopo: scopeInput,
       cursor: s.optional(s.id({ description: "proxima_pagina da resposta anterior" })),
     }),
     async run(input) {
-      const result = await listFinancialEntries({ query: input.busca, type: input.tipo === "entrada" ? FinancialEntryType.INCOME : input.tipo === "saida" ? FinancialEntryType.EXPENSE : undefined, status: input.situacao ? statusFilter[input.situacao] : undefined, from: input.de, to: input.ate, cursor: input.cursor });
+      const result = await listFinancialEntries({ query: input.busca, type: input.tipo === "entrada" ? FinancialEntryType.INCOME : input.tipo === "saida" ? FinancialEntryType.EXPENSE : undefined, status: input.situacao ? statusFilter[input.situacao] : undefined, from: input.de, to: input.ate, scope: scopeOf(input.escopo), cursor: input.cursor });
       return {
-        lancamentos: result.data.map((entry) => ({ id: entry.id, tipo: entry.type === FinancialEntryType.INCOME ? "entrada" : "saida", situacao: entry.status, descricao: entry.description, categoria: entry.category, contraparte: entry.counterparty, valor: reais(entry.amountCents), pago: reais(entry.paidCents), vencimento: day(entry.dueDate), realizado_em: day(entry.settledAt), parcelas: entry.installments.length || undefined, condicao: entry.paymentCondition ?? undefined })),
+        lancamentos: result.data.map((entry) => ({ id: entry.id, tipo: entry.type === FinancialEntryType.INCOME ? "entrada" : "saida", situacao: entry.status, descricao: entry.description, escopo: entry.scope === "PERSONAL" ? "pessoal" : "empresa", categoria: entry.category, conta: entry.account?.name ?? undefined, contraparte: entry.counterparty, valor: reais(entry.amountCents), pago: reais(entry.paidCents), vencimento: day(entry.dueDate), realizado_em: day(entry.settledAt), parcelas: entry.installments.length || undefined, condicao: entry.paymentCondition ?? undefined })),
         proxima_pagina: result.nextCursor,
       };
     },
@@ -68,7 +75,7 @@ export const financeTools = [
 
   defineTool({
     name: "financeiro_adicionar_lancamento",
-    description: `Adiciona um lançamento no Financeiro. Se o lançamento for de um cliente cadastrado, procure-o (clientes_buscar) e envie cliente_id: ele aparece no perfil do cliente. Saída (gasto) conta como paga na data. Entrada fica a receber, a menos que "recebido" seja true; pode ser parcelada. "recorrente" cria um lançamento mensal fixo (ex.: assinatura, aluguel). Categorias usadas: ${FINANCE_CATEGORIES.join(", ")}.`,
+    description: "Adiciona um lançamento no Financeiro, da empresa (padrão) ou pessoal (escopo). Se o lançamento for de um cliente cadastrado, procure-o (clientes_buscar) e envie cliente_id: ele aparece no perfil do cliente. Saída (gasto) conta como paga na data; saída parcelada vira uma saída por mês. Entrada fica a receber, a menos que \"recebido\" seja true; pode ser parcelada. \"recorrente\" cria um lançamento mensal fixo (ex.: assinatura, aluguel). Categorias comuns: empresa (Vendas, Serviços recorrentes, Impostos, Marketing, Infraestrutura, Ferramentas, Administrativo, Pró-labore) e pessoal (Pró-labore, Salário, Moradia, Alimentação, Transporte, Saúde, Educação, Lazer, Assinaturas); uma categoria nova é cadastrada sozinha. \"conta\" é o banco por onde o dinheiro passou (ex.: Nubank PJ); se não existir, é cadastrada.",
     scopes: ["owner"],
     mutates: true,
     input: object({
@@ -81,15 +88,17 @@ export const financeTools = [
       cliente_id: s.optional(s.id({ description: "Cliente cadastrado (use clientes_buscar); vincula o lançamento ao perfil dele" })),
       observacoes: s.optional(s.string({ max: 500 })),
       recebido: s.optional(s.boolean({ description: "Só entradas: já foi recebida" })),
-      parcelas: s.optional(s.integer({ min: 1, max: 60, description: "Só entradas a receber: número de parcelas mensais" })),
+      parcelas: s.optional(s.integer({ min: 1, max: 60, description: "Parcelas mensais: entrada a receber parcelada, ou saída parcelada (compra em 10x, uma saída por mês)" })),
       recorrente: s.optional(s.boolean({ description: "Repete todo mês" })),
+      escopo: scopeInput,
+      conta: s.optional(s.string({ max: 60, description: "Banco ou conta por onde o dinheiro entrou ou saiu" })),
     }),
-    summarize: (input) => `${input.tipo === "saida" ? "Saída" : "Entrada"} de ${reais(input.valor)} · ${input.descricao} · vencimento ${input.vencimento}${input.recorrente ? " · mensal" : ""}${input.parcelas && input.parcelas > 1 ? ` · ${input.parcelas}x` : ""}`,
+    summarize: (input) => `${input.tipo === "saida" ? "Saída" : "Entrada"}${input.escopo === "pessoal" ? " pessoal" : ""} de ${reais(input.valor)} · ${input.descricao} · vencimento ${input.vencimento}${input.recorrente ? " · mensal" : ""}${input.parcelas && input.parcelas > 1 ? ` · ${input.parcelas}x` : ""}${input.conta ? ` · ${input.conta}` : ""}`,
     async run(input) {
-      const result = await createFinancialEntry({ type: input.tipo === "saida" ? FinancialEntryType.EXPENSE : FinancialEntryType.INCOME, description: input.descricao, amountCents: input.valor, dueDate: input.vencimento, category: input.categoria, counterparty: input.contraparte, clientId: input.cliente_id, notes: input.observacoes, received: input.recebido, installments: input.parcelas, recurring: input.recorrente });
+      const result = await createFinancialEntry({ type: input.tipo === "saida" ? FinancialEntryType.EXPENSE : FinancialEntryType.INCOME, description: input.descricao, amountCents: input.valor, dueDate: input.vencimento, category: input.categoria, counterparty: input.contraparte, clientId: input.cliente_id, notes: input.observacoes, received: input.recebido, installments: input.parcelas, recurring: input.recorrente, scope: scopeOf(input.escopo) ?? "BUSINESS", accountName: input.conta });
       if (!result.ok) return { erro: result.error };
-      refreshFinance(result.kind === "entry" ? result.id : undefined);
-      return { feito: true, tipo: result.kind === "recurring" ? "recorrencia_mensal" : "lancamento", id: result.id, link: result.kind === "entry" ? `/financeiro/lancamentos/${result.id}` : "/financeiro/custos-fixos" };
+      refreshFinance(result.kind === "recurring" ? undefined : result.id);
+      return { feito: true, tipo: result.kind === "recurring" ? "recorrencia_mensal" : result.kind === "series" ? "saidas_parceladas" : "lancamento", id: result.id, ...(result.kind === "series" ? { parcelas: result.count } : {}), link: result.kind === "recurring" ? "/financeiro/custos-fixos" : `/financeiro/lancamentos/${result.id}` };
     },
   }),
 

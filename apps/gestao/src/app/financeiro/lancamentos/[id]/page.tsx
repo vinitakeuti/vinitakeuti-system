@@ -7,7 +7,10 @@ import { ConfirmSubmitButton } from "@/features/finance/components/confirm-submi
 import { PaymentPlanCalculator } from "@/features/finance/components/payment-plan-calculator";
 import { allocateInstallments, installmentPaidDates } from "@/features/finance/services/installments";
 import { currentPlanParams } from "@/features/finance/services/payment-plan";
-import { FINANCE_CATEGORIES, financeEntryStatusKey, financeEntryStatusLabel, financeTypeLabel, getFinancialEntryDetail, getQuotePaymentsForEntry, listPaymentConditions } from "@/features/finance/queries/finance-queries";
+import { financeEntryStatusKey, financeEntryStatusLabel, financeTypeLabel, getFinancialEntryDetail, getQuotePaymentsForEntry, getSeriesEntries, listPaymentConditions } from "@/features/finance/queries/finance-queries";
+import { listFinanceAccounts, listFinanceCategories } from "@/features/finance/services/finance-catalog";
+import { EntryClassificationFields } from "@/features/finance/components/catalog-fields";
+import { financeScopeLabel } from "@/features/finance/types/finance-scope";
 import { addFinancialPaymentAction, cancelFinancialEntryAction, deleteFinancialPaymentAction, importQuotePaymentsAction, reopenFinancialEntryAction, savePaymentPlanAction, settleFinancialEntryAction, updateFinancialEntryAction, updateFinancialPaymentAction, updateInstallmentAction } from "@/features/finance/services/finance-actions";
 import { getEntryAsaasState } from "@/features/integrations/queries/integration-queries";
 import { chargeNextInstallmentAction } from "@/features/integrations/services/asaas-actions";
@@ -49,7 +52,7 @@ function amountField(cents: number) {
 
 export default async function FinancialEntryPage({ params, searchParams }: EntryPageProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const [entry, conditionsInUse] = await Promise.all([getFinancialEntryDetail(id), listPaymentConditions()]);
+  const [entry, conditionsInUse, categories, accounts] = await Promise.all([getFinancialEntryDetail(id), listPaymentConditions(), listFinanceCategories(), listFinanceAccounts()]);
   if (!entry) notFound();
   const income = entry.type === FinancialEntryType.INCOME;
   const open = entry.status === FinancialEntryStatus.PENDING;
@@ -58,7 +61,8 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
   const cancellable = open || (!income && entry.status === FinancialEntryStatus.SETTLED);
   const remaining = Math.max(0, entry.amountCents - entry.paidCents);
   const feedback = query.error ?? (query.notice ? notices[query.notice] : null);
-  const categories = FINANCE_CATEGORIES.includes(entry.category) ? FINANCE_CATEGORIES : [entry.category, ...FINANCE_CATEGORIES];
+  // Vendas confirmadas (vindas de proposta) são sempre da empresa.
+  const fromQuote = entry.origin === "QUOTE";
   const today = isoDay.format(new Date());
   const todayStart = new Date(`${today}T00:00:00.000-03:00`);
 
@@ -89,21 +93,21 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
     {manualPaid}
   </> : manualPaid;
 
-  const header = <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/financeiro">Financeiro</Link> / {income ? "Entrada" : "Saída"}</p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} · {entry.counterparty ?? "Sem contraparte"} · {entry.category}{entry.origin === "QUOTE" ? " · venda confirmada" : ""}</p>{entry.paymentCondition ? <span className={styles.conditionTag + " " + styles.headerTag}>{entry.paymentCondition}</span> : null}</div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">Voltar ao financeiro</Link></div></div></header>;
+  const header = <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/financeiro">Financeiro</Link> / {income ? "Entrada" : "Saída"}</p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} · {financeScopeLabel[entry.scope]} · {entry.counterparty ?? "Sem contraparte"} · {entry.category}{entry.account ? ` · ${entry.account.name}` : ""}{fromQuote ? " · venda confirmada" : ""}</p>{entry.paymentCondition ? <span className={styles.conditionTag + " " + styles.headerTag}>{entry.paymentCondition}</span> : null}</div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro">Voltar ao financeiro</Link></div></div></header>;
 
   const detailsForm = <section className={styles.entryPanel + " " + styles.entryEdit}>
     <div className={styles.ledgerHeading}><div><p className="eyebrow">Dados do lançamento</p><h2>Descrição e detalhes</h2><small>{income ? "Valor, condição e datas ficam na condição de pagamento, acima." : "O valor e a data definem quanto e quando esta saída conta nos custos."}</small></div></div>
     <form action={updateFinancialEntryAction} className={styles.entryForm}>
       <input type="hidden" name="id" value={entry.id} />
-      <label>Descrição<input name="description" maxLength={180} required defaultValue={entry.description} /></label>
+      <label className={income && fromQuote ? styles.spanTwo : undefined}>Descrição<input name="description" maxLength={180} required defaultValue={entry.description} /></label>
       {income ? null : <>
         <label>Valor<input name="amount" inputMode="decimal" required defaultValue={amountField(entry.amountCents)} /></label>
         <label>Vencimento<input name="dueDate" type="date" required defaultValue={isoDay.format(entry.dueDate)} /></label>
       </>}
-      <label>Categoria<select name="category" defaultValue={entry.category}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
-      <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField initialClient={entry.client} initialText={entry.counterparty ?? ""} placeholder="Busque um cliente ou digite fornecedor ou pessoa" /></div>
+      <EntryClassificationFields categories={categories} accounts={accounts} initialType={entry.type} initialScope={entry.scope} initialCategory={entry.category} initialAccount={entry.account} scopeEditable={!fromQuote} />
+      <div className={styles.fieldGroup + " " + styles.spanTwo}><span>Contraparte</span><CounterpartyField initialClient={entry.client} initialText={entry.counterparty ?? ""} placeholder="Cliente, fornecedor ou pessoa" /></div>
       <label className={styles.notes}>Observação<textarea name="notes" maxLength={500} rows={2} defaultValue={entry.notes ?? ""} placeholder="Opcional" /></label>
-      <div className={styles.formActions}>
+      <div className={styles.formActions + (income ? " " + styles.actionsRow : "")}>
         {cancellable ? <ConfirmSubmitButton formAction={cancelFinancialEntryAction} className={styles.textAction + " " + styles.cancelAction} message="Cancelar este lançamento? Ele deixa de contar no caixa e no resultado.">Cancelar lançamento</ConfirmSubmitButton> : null}
         {cancelled ? <button className={styles.textAction} type="submit" formAction={reopenFinancialEntryAction} formNoValidate>Reabrir lançamento</button> : null}
         <input type="hidden" name="returnTo" value="entry" />
@@ -113,6 +117,7 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
   </section>;
 
   if (!income) {
+    const series = await getSeriesEntries(entry.seriesId);
     return <main className="app-shell"><AppSidebar current="finance" /><div className="workspace"><section className={"directory-page " + styles.page}>
       {header}
       {feedback ? <p className={query.error ? "form-error" : "form-success"} role={query.error ? "alert" : "status"}>{feedback}</p> : null}
@@ -123,6 +128,10 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
       </section>
       {entry.recurringEntry ? <p className={styles.recurringNote}>Este lançamento é o mês de {monthLabel.format(entry.dueDate)} do custo fixo <Link href={`/financeiro/custos-fixos/${entry.recurringEntry.id}`}>{entry.recurringEntry.description}</Link>. Para mudar todos os meses, edite o custo fixo; aqui a alteração vale só para este mês.</p> : null}
       {detailsForm}
+      {series.length > 1 ? <section className={styles.seriesPanel} aria-label="Parcelas desta compra">
+        <div className={styles.ledgerHeading}><div><p className="eyebrow">Saída parcelada</p><h2>Parcelas desta compra</h2><small>Cada parcela é uma saída do seu mês. Para mudar uma, abra a parcela; para desistir das próximas, cancele cada uma.</small></div><span>{money.format(series.reduce((sum, item) => sum + (item.status === FinancialEntryStatus.CANCELLED ? 0 : item.amountCents), 0) / 100)} no total</span></div>
+        <ol className={styles.seriesList}>{series.map((item, index) => <li key={item.id} aria-current={item.id === entry.id ? "true" : undefined}><Link href={`/financeiro/lancamentos/${item.id}`}><span>{index + 1}/{series.length}</span><b>{shortDate.format(item.dueDate)}</b><em>{money.format(item.amountCents / 100)}</em><i>{item.status === FinancialEntryStatus.CANCELLED ? "Cancelada" : item.dueDate.getTime() > Date.now() ? "Programada" : "Paga"}</i></Link></li>)}</ol>
+      </section> : null}
     </section></div></main>;
   }
 
@@ -178,7 +187,7 @@ export default async function FinancialEntryPage({ params, searchParams }: Entry
           <b>Única</b><span>{shortDate.format(entry.dueDate)}</span><strong>{money.format(remaining / 100)}</strong>
           <i className={styles.status + " " + (late ? styles.cancelledLate : styles.pending)}>{late ? "Atrasada" : "Em aberto"}</i>
           <div className={styles.scheduleActions}>{nextActions}</div>
-        </li> : <li><span>{cancelled ? "Lançamento cancelado." : "Tudo recebido."}</span></li>}
+        </li> : <li className={styles.scheduleDone}><span>{cancelled ? "Lançamento cancelado." : "Tudo recebido."}</span></li>}
       </ol>
     </section>
 

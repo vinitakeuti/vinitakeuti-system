@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { applyRecurringChanges, currentMonthKey, ensureRecurringEntries, isMonthKey, monthKeyOf, monthStart, removeOccurrencesAfter } from "@/features/finance/services/recurring-entries";
 import { resolveCounterparty } from "@/features/finance/services/finance-service";
+import { ensureFinanceCategory, resolveFinanceAccount } from "@/features/finance/services/finance-catalog";
+import { parseFinanceScope, type FinanceScopeKey } from "@/features/finance/types/finance-scope";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
 
 const LIST_HREF = "/financeiro/custos-fixos";
@@ -38,7 +40,7 @@ function revalidateRecurring(id?: string) {
   if (id) revalidatePath(detailHref(id));
 }
 
-type RecurringInput = { type: FinancialEntryType; description: string; category: string; counterparty: string | null; clientId: string | null; amountCents: number; dayOfMonth: number; notes: string | null };
+type RecurringInput = { type: FinancialEntryType; scope: FinanceScopeKey; description: string; category: string; counterparty: string | null; clientId: string | null; accountId: string | null; amountCents: number; dayOfMonth: number; notes: string | null };
 
 async function recurringFromForm(formData: FormData): Promise<RecurringInput | { error: string }> {
   const description = text(formData, "description", 180);
@@ -48,7 +50,12 @@ async function recurringFromForm(formData: FormData): Promise<RecurringInput | {
   if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) return { error: "Escolha um dia de vencimento entre 1 e 31." };
   const party = await resolveCounterparty(text(formData, "clientId", 50), text(formData, "counterparty", 160));
   if (!party.ok) return { error: party.error };
-  return { type: text(formData, "type", 20) === FinancialEntryType.INCOME ? FinancialEntryType.INCOME : FinancialEntryType.EXPENSE, description, category: text(formData, "category", 80) || "Outros", counterparty: party.counterparty, clientId: party.clientId, amountCents, dayOfMonth, notes: text(formData, "notes", 500) || null };
+  const account = await resolveFinanceAccount(prisma, { accountId: text(formData, "accountId", 50) || null, accountName: text(formData, "accountName", 60) || null });
+  if (!account.ok) return { error: account.error };
+  const type = text(formData, "type", 20) === FinancialEntryType.INCOME ? FinancialEntryType.INCOME : FinancialEntryType.EXPENSE;
+  const scope = parseFinanceScope(text(formData, "scope", 20));
+  const category = await ensureFinanceCategory(prisma, scope, type, text(formData, "category", 80));
+  return { type, scope, description, category, counterparty: party.counterparty, clientId: party.clientId, accountId: account.accountId, amountCents, dayOfMonth, notes: text(formData, "notes", 500) || null };
 }
 
 export async function createRecurringEntryAction(formData: FormData) {

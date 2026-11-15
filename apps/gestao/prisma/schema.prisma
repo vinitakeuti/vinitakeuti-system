@@ -102,6 +102,12 @@ enum FinancialEntryOrigin {
   QUOTE
 }
 
+/// Separação do Financeiro: dinheiro da empresa ou pessoal.
+enum FinanceScope {
+  BUSINESS
+  PERSONAL
+}
+
 /// Perfis de acesso da operação e do portal do cliente.
 enum UserRole {
   PROFESSIONAL
@@ -602,12 +608,19 @@ model FinancialEntry {
   /// Condição especial de pagamento combinada ("Mensal no Pix", "Boleto em 10x"). Lançamentos com condição
   /// aparecem na área Condições especiais, independentemente da data.
   paymentCondition String?
+  /// Empresa ou pessoal.
+  scope        FinanceScope         @default(BUSINESS)
+  /// Conta (banco) por onde o valor entrou ou saiu.
+  accountId    String?
+  /// Saída parcelada (compra em 10x): as parcelas são lançamentos separados, um por mês, com o mesmo seriesId.
+  seriesId     String?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   payments     FinancialPayment[]
   installments FinancialInstallment[]
   recurringEntry RecurringEntry?    @relation(fields: [recurringEntryId], references: [id], onDelete: SetNull)
   client       Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  account      FinanceAccount?      @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   @@index([status, dueDate, id])
   @@index([clientId, dueDate])
@@ -615,6 +628,34 @@ model FinancialEntry {
   @@index([createdAt, id])
   @@index([recurringEntryId, dueDate])
   @@index([paymentCondition, status, dueDate])
+  @@index([scope, dueDate])
+  @@index([accountId, dueDate])
+  @@index([seriesId, dueDate])
+}
+
+/// Conta bancária (ou carteira) por onde o dinheiro entra e sai. Arquivada, some do formulário e continua nos lançamentos.
+model FinanceAccount {
+  id         String           @id @default(cuid())
+  name       String           @unique
+  archivedAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  entries    FinancialEntry[]
+  recurring  RecurringEntry[]
+
+  @@index([archivedAt, name])
+}
+
+/// Categorias do Financeiro, separadas por escopo (empresa ou pessoal) e tipo (entrada ou saída).
+/// Os lançamentos guardam o nome da categoria, como snapshot; renomear aqui atualiza os lançamentos.
+model FinanceCategory {
+  id        String             @id @default(cuid())
+  scope     FinanceScope
+  type      FinancialEntryType
+  name      String
+  createdAt DateTime           @default(now())
+
+  @@unique([scope, type, name])
 }
 
 /// Parcelas de uma entrada: datas e valores combinados para receber. Os recebimentos registrados quitam as parcelas
@@ -651,14 +692,20 @@ model RecurringEntry {
   /// Último mês já gerado.
   generatedThrough DateTime?
   notes            String?
+  /// Empresa ou pessoal; passa para os lançamentos gerados.
+  scope            FinanceScope       @default(BUSINESS)
+  /// Conta (banco) dos lançamentos gerados.
+  accountId        String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   entries          FinancialEntry[]
   client           Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  account          FinanceAccount?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   @@index([endsOn, generatedThrough])
   @@index([clientId])
   @@index([type, createdAt, id])
+  @@index([accountId])
 }
 
 /// Valores efetivamente recebidos ou pagos de um lançamento. Um lançamento pode ser quitado em várias partes;

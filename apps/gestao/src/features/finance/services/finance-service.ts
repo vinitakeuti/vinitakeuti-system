@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { FinancialEntryOrigin, FinancialEntryStatus, FinancialEntryType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { ensureFinanceCategory, resolveFinanceAccount } from "@/features/finance/services/finance-catalog";
+import { parseFinanceScope, type FinanceScopeKey } from "@/features/finance/types/finance-scope";
 import { MAX_FINANCIAL_PAYMENTS, recalculateFinancialEntry } from "@/features/finance/services/finance-ledger";
 import { ensureRecurringEntries, monthKeyOf, monthStart } from "@/features/finance/services/recurring-entries";
 import { MAX_INSTALLMENTS, buildInstallmentPlan, nextOpenInstallment } from "@/features/finance/services/installments";
@@ -57,43 +60,66 @@ export type NewFinancialEntry = {
   recurring?: boolean;
   /** Só entradas: já recebida (na data informada, ou hoje se ela ainda não chegou). */
   received?: boolean;
-  /** Só entradas a receber: em quantas parcelas mensais. */
+  /**
+   * Em quantas parcelas mensais. Entrada a receber: uma entrada com as parcelas. Saída (compra em 10x): uma saída por
+   * mês, cada uma com a sua parte do valor.
+   */
   installments?: number;
+  /** Empresa (padrão) ou pessoal. */
+  scope?: FinanceScopeKey | null;
+  /** Conta cadastrada por onde o valor entra ou sai. */
+  accountId?: string | null;
+  /** Conta nova, cadastrada na hora (quando não há accountId). */
+  accountName?: string | null;
 };
 
-export async function createFinancialEntry(input: NewFinancialEntry): Promise<FinanceResult<{ kind: "entry" | "recurring"; id: string }>> {
+export async function createFinancialEntry(input: NewFinancialEntry): Promise<FinanceResult<{ kind: "entry" | "recurring" | "series"; id: string; count: number }>> {
   const type = input.type === FinancialEntryType.EXPENSE ? FinancialEntryType.EXPENSE : FinancialEntryType.INCOME;
+  const scope = parseFinanceScope(input.scope);
   const description = input.description.trim().slice(0, 180);
-  const category = input.category?.trim().slice(0, 80) || "Outros";
   const amountCents = Math.round(input.amountCents);
   const dueDate = financeDueDate(input.dueDate);
-  if (!description || !Number.isFinite(amountCents) || amountCents < 1 || !dueDate) return { ok: false, error: "Preencha descrição, valor e data de vencimento." };
+  if (!description || !Number.isFinite(amountCents) || amountCents < 1 || !dueDate) return { ok: false, error: "Preencha descrição, valor e data." };
   const party = await resolveCounterparty(input.clientId, input.counterparty);
   if (!party.ok) return party;
+  const account = await resolveFinanceAccount(prisma, { accountId: input.accountId, accountName: input.accountName });
+  if (!account.ok) return account;
   const { clientId, counterparty } = party;
+  const { accountId } = account;
+  const category = await ensureFinanceCategory(prisma, scope, type, input.category);
   const notes = input.notes?.trim().slice(0, 500) || null;
   const paymentCondition = type === FinancialEntryType.INCOME ? input.paymentCondition?.trim().slice(0, 80) || null : null;
 
   // Recorrente: vira uma recorrência mensal a partir deste vencimento; os meses são gerados conforme consultados.
   if (input.recurring) {
     const month = monthKeyOf(dueDate);
-    const recurring = await prisma.recurringEntry.create({ data: { type, description, category, counterparty, clientId, amountCents, dayOfMonth: Number(input.dueDate.slice(8, 10)), startsOn: monthStart(month), notes }, select: { id: true } });
+    const recurring = await prisma.recurringEntry.create({ data: { type, scope, description, category, counterparty, clientId, accountId, amountCents, dayOfMonth: Number(input.dueDate.slice(8, 10)), startsOn: monthStart(month), notes }, select: { id: true } });
     await ensureRecurringEntries(month);
-    return { ok: true, kind: "recurring", id: recurring.id };
+    return { ok: true, kind: "recurring", id: recurring.id, count: 1 };
   }
 
-  // Saídas não precisam de confirmação: contam como pagas na data do vencimento.
-  // Entradas ficam a receber, ou recebidas quando marcadas assim (na data informada, ou hoje se ela ainda não chegou).
   const expense = type === FinancialEntryType.EXPENSE;
+  const count = Math.min(MAX_INSTALLMENTS, Math.max(1, Math.floor(input.installments ?? 1) || 1));
+
+  // Saída parcelada (compra em 10x): uma saída por mês, cada uma paga na sua data, ligadas pelo mesmo seriesId.
+  if (expense && count > 1) {
+    const plan = buildInstallmentPlan({ amountCents, paidCents: 0, firstPaidAt: null, count, firstDue: input.dueDate });
+    const seriesId = randomUUID();
+    const base = description.slice(0, 170);
+    const rows = await prisma.$transaction(plan.map((item) => prisma.financialEntry.create({ data: { type, scope, status: FinancialEntryStatus.SETTLED, origin: FinancialEntryOrigin.MANUAL, description: `${base} (${item.number}/${count})`, category, counterparty, clientId, accountId, seriesId, amountCents: item.amountCents, paidCents: item.amountCents, isFixed: false, dueDate: item.dueDate, settledAt: item.dueDate, notes, payments: { create: { amountCents: item.amountCents, paidAt: item.dueDate } } }, select: { id: true } })));
+    return { ok: true, kind: "series", id: rows[0].id, count: rows.length };
+  }
+
+  // Saídas não precisam de confirmação: contam como pagas na data.
+  // Entradas ficam a receber, ou recebidas quando marcadas assim (na data informada, ou hoje se ela ainda não chegou).
   const received = !expense && Boolean(input.received);
   const now = new Date();
   const paidAt = expense ? dueDate : dueDate.getTime() <= now.getTime() ? dueDate : now;
   const settled = expense || received;
   // Entrada a receber em parcelas: a primeira vence na data informada, as demais nos meses seguintes.
-  const count = Math.min(MAX_INSTALLMENTS, Math.max(1, Math.floor(input.installments ?? 1) || 1));
-  const installments = !settled && !expense && count > 1 ? buildInstallmentPlan({ amountCents, paidCents: 0, firstPaidAt: null, count, firstDue: input.dueDate }) : [];
-  const entry = await prisma.financialEntry.create({ data: { type, status: settled ? FinancialEntryStatus.SETTLED : FinancialEntryStatus.PENDING, origin: FinancialEntryOrigin.MANUAL, description, category, counterparty, clientId, amountCents, paidCents: settled ? amountCents : 0, isFixed: false, dueDate, settledAt: settled ? paidAt : null, notes, paymentCondition, ...(settled ? { payments: { create: { amountCents, paidAt } } } : {}), ...(installments.length ? { installments: { create: installments } } : {}) }, select: { id: true } });
-  return { ok: true, kind: "entry", id: entry.id };
+  const installments = !settled && count > 1 ? buildInstallmentPlan({ amountCents, paidCents: 0, firstPaidAt: null, count, firstDue: input.dueDate }) : [];
+  const entry = await prisma.financialEntry.create({ data: { type, scope, status: settled ? FinancialEntryStatus.SETTLED : FinancialEntryStatus.PENDING, origin: FinancialEntryOrigin.MANUAL, description, category, counterparty, clientId, accountId, amountCents, paidCents: settled ? amountCents : 0, isFixed: false, dueDate, settledAt: settled ? paidAt : null, notes, paymentCondition, ...(settled ? { payments: { create: { amountCents, paidAt } } } : {}), ...(installments.length ? { installments: { create: installments } } : {}) }, select: { id: true } });
+  return { ok: true, kind: "entry", id: entry.id, count: 1 };
 }
 
 /** Garante que a soma recebida não passe do valor esperado (sem contar o recebimento que está sendo editado). */

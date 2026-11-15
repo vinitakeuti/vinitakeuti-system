@@ -2,7 +2,10 @@ import Link from "next/link";
 import { FinancialEntryType } from "@prisma/client";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarToggle } from "@/components/sidebar-toggle";
-import { FINANCE_CATEGORIES, financeTypeLabel, getRecurringSummary, listRecurringEntries } from "@/features/finance/queries/finance-queries";
+import { financeTypeLabel, getRecurringSummary, listRecurringEntries } from "@/features/finance/queries/finance-queries";
+import { listFinanceAccounts, listFinanceCategories } from "@/features/finance/services/finance-catalog";
+import { EntryClassificationFields } from "@/features/finance/components/catalog-fields";
+import { financeScopeLabel } from "@/features/finance/types/finance-scope";
 import { createRecurringEntryAction } from "@/features/finance/services/recurring-actions";
 import { currentMonthKey, ensureRecurringEntries, monthKeyOf, recurringDayLabel } from "@/features/finance/services/recurring-entries";
 import { CounterpartyField } from "@/features/finance/components/counterparty-field";
@@ -22,7 +25,9 @@ function monthLabel(date: Date) {
 export default async function FixedCostsPage({ searchParams }: FixedCostsPageProps) {
   const params = await searchParams;
   await ensureRecurringEntries();
-  const [entries, summary] = await Promise.all([listRecurringEntries(), getRecurringSummary()]);
+  const [entries, summary, categories, accounts] = await Promise.all([listRecurringEntries(), getRecurringSummary(), listFinanceCategories(), listFinanceAccounts()]);
+  /** Pessoal e conta, na linha de detalhes da recorrência. */
+  const meta = (entry: (typeof entries)[number]) => [entry.scope === "PERSONAL" ? financeScopeLabel.PERSONAL : null, entry.account?.name ?? null].filter(Boolean).join(" · ");
   const current = currentMonthKey();
   const active = (entry: { endsOn: Date | null }) => !entry.endsOn || monthKeyOf(entry.endsOn) >= current;
   const feedback = params.error ?? (params.notice === "created" ? "Recorrência criada. Os meses aparecem sozinhos no Financeiro." : null);
@@ -39,10 +44,9 @@ export default async function FixedCostsPage({ searchParams }: FixedCostsPagePro
 
     <details className={styles.entryPanel} id="nova-recorrencia" open={Boolean(params.error) || !entries.length}><summary><span><b>Novo custo fixo ou entrada mensal</b><small>Cadastre uma vez; todo mês ele entra no Financeiro.</small></span><strong>Abrir</strong></summary>
       <form action={createRecurringEntryAction} className={styles.entryForm}>
-        <label>Tipo<select name="type" defaultValue={FinancialEntryType.EXPENSE}><option value="EXPENSE">Saída (custo)</option><option value="INCOME">Entrada</option></select></label>
+        <EntryClassificationFields categories={categories} accounts={accounts} initialType="EXPENSE" initialScope="BUSINESS" initialCategory="Ferramentas" typeEditable />
         <label>Descrição<input name="description" maxLength={180} required placeholder="Ex.: Assinatura do servidor" /></label>
-        <label>Categoria<select name="category" defaultValue="Ferramentas">{FINANCE_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
-        <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField placeholder="Busque um cliente ou digite fornecedor ou pessoa" /></div>
+        <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField placeholder="Cliente, fornecedor ou pessoa" /></div>
         <label>Valor mensal<input name="amount" inputMode="decimal" required placeholder="0,00" /></label>
         <label>Dia do vencimento<select name="dayOfMonth" defaultValue="5">{DAYS.map((day) => <option key={day} value={day}>{day}</option>)}</select></label>
         <label>Primeiro mês<input name="startsOn" type="month" required defaultValue={current} /></label>
@@ -56,7 +60,7 @@ export default async function FixedCostsPage({ searchParams }: FixedCostsPagePro
       {entries.length ? <>
         <div className={styles.tableScroll}><table><thead><tr><th>Recorrência</th><th>Categoria</th><th>Vencimento</th><th>Valor mensal</th><th>Situação</th><th /></tr></thead><tbody>{entries.map((entry) => <tr key={entry.id}>
           <td><b className={entry.type === FinancialEntryType.INCOME ? styles.incomeText : styles.expenseText}>{financeTypeLabel[entry.type]}</b><Link className={styles.entryLink} href={`/financeiro/custos-fixos/${entry.id}`}>{entry.description}</Link><small>{entry.counterparty ?? "Sem contraparte"}</small></td>
-          <td>{entry.category}</td>
+          <td>{entry.category}{meta(entry) ? <small className={styles.entryMeta}>{meta(entry)}</small> : null}</td>
           <td>{recurringDayLabel(entry.dayOfMonth)}</td>
           <td><strong>{money.format(entry.amountCents / 100)}</strong></td>
           <td><span className={styles.status + " " + (active(entry) ? styles.settled : styles.cancelled)}>{active(entry) ? `Ativa desde ${monthLabel(entry.startsOn)}` : `Encerrada em ${monthLabel(entry.endsOn!)}`}</span></td>
@@ -65,7 +69,7 @@ export default async function FixedCostsPage({ searchParams }: FixedCostsPagePro
         <div className={styles.mobileList}>{entries.map((entry) => <article key={entry.id}>
           <div className={styles.mobileTop}><b className={entry.type === FinancialEntryType.INCOME ? styles.incomeText : styles.expenseText}>{financeTypeLabel[entry.type]}</b><span className={styles.status + " " + (active(entry) ? styles.settled : styles.cancelled)}>{active(entry) ? "Ativa" : "Encerrada"}</span></div>
           <Link className={styles.entryLink} href={`/financeiro/custos-fixos/${entry.id}`}>{entry.description}</Link>
-          <small>{entry.category} · {recurringDayLabel(entry.dayOfMonth)}</small>
+          <small>{[entry.category, meta(entry), recurringDayLabel(entry.dayOfMonth)].filter(Boolean).join(" · ")}</small>
           <div className={styles.mobileBottom}><b>{money.format(entry.amountCents / 100)}</b><span>{active(entry) ? `desde ${monthLabel(entry.startsOn)}` : `até ${monthLabel(entry.endsOn!)}`}</span></div>
           <div className={styles.mobileActions}><Link className={styles.editAction} href={`/financeiro/custos-fixos/${entry.id}`}>Editar</Link></div>
         </article>)}</div>

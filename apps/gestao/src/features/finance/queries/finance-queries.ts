@@ -1,9 +1,8 @@
-import { FinancialEntryStatus, FinancialEntryType, Prisma } from "@prisma/client";
+import { FinanceScope, FinancialEntryStatus, FinancialEntryType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { MAX_INSTALLMENTS } from "@/features/finance/services/installments";
 
 export const FINANCE_PAGE_SIZE = 50;
-export const FINANCE_CATEGORIES = ["Vendas", "Serviços recorrentes", "Impostos", "Marketing", "Infraestrutura", "Ferramentas", "Administrativo", "Pró-labore", "Outros"];
 
 export type FinanceFilters = {
   cursor?: string;
@@ -13,7 +12,21 @@ export type FinanceFilters = {
   from?: string;
   to?: string;
   fixed?: string;
+  /** Empresa ou pessoal (BUSINESS ou PERSONAL); sem valor, os dois. */
+  scope?: string;
+  /** Conta (id); "sem" para lançamentos sem conta. */
+  account?: string;
 };
+
+export function normalizedScope(value?: string | null) {
+  return value === FinanceScope.BUSINESS || value === FinanceScope.PERSONAL ? value : undefined;
+}
+
+/** Filtro SQL do escopo para as consultas em SQL (alias da tabela de lançamentos: e). */
+function scopeSql(scope?: string | null) {
+  const value = normalizedScope(scope);
+  return value ? Prisma.sql`AND e."scope" = ${value}::"FinanceScope"` : Prisma.empty;
+}
 
 function day(value: string | undefined, end = false) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
@@ -45,6 +58,8 @@ function whereFor(filters: FinanceFilters): Prisma.FinancialEntryWhereInput {
     ...(normalizedType(filters.type) ? { type: normalizedType(filters.type) } : {}),
     ...(normalizedStatus(filters.status) ? { status: normalizedStatus(filters.status) } : {}),
     ...(filters.fixed === "1" ? { isFixed: true } : {}),
+    ...(normalizedScope(filters.scope) ? { scope: normalizedScope(filters.scope) } : {}),
+    ...(filters.account === "sem" ? { accountId: null } : filters.account && /^[\w-]{1,50}$/.test(filters.account) ? { accountId: filters.account } : {}),
     ...(and.length ? { AND: and } : {}),
   };
 }
@@ -55,7 +70,7 @@ export async function listFinancialEntries(filters: FinanceFilters = {}) {
     take: FINANCE_PAGE_SIZE + 1,
     ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
     orderBy: [{ dueDate: "desc" }, { id: "desc" }],
-    select: { id: true, type: true, status: true, origin: true, isFixed: true, description: true, category: true, counterparty: true, clientId: true, amountCents: true, paidCents: true, dueDate: true, settledAt: true, notes: true, paymentCondition: true, installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { number: true, dueDate: true, amountCents: true } } },
+    select: { id: true, type: true, status: true, origin: true, isFixed: true, scope: true, seriesId: true, description: true, category: true, counterparty: true, clientId: true, account: { select: { name: true } }, amountCents: true, paidCents: true, dueDate: true, settledAt: true, notes: true, paymentCondition: true, installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { number: true, dueDate: true, amountCents: true } } },
   });
   const hasMore = rows.length > FINANCE_PAGE_SIZE;
   const data = hasMore ? rows.slice(0, FINANCE_PAGE_SIZE) : rows;
@@ -79,13 +94,13 @@ export async function getFixedFinanceSummary(filters: Pick<FinanceFilters, "from
 type MonthRow = { month: Date; type: FinancialEntryType; total: bigint | number | null };
 
 /** Recebimentos e pagamentos realizados nos últimos seis meses, pela data em que aconteceram. */
-async function realizedMonths() {
+async function realizedMonths(scope?: string) {
   const now = new Date();
   const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
   const rows = await prisma.$queryRaw<MonthRow[]>`
     SELECT date_trunc('month', p."paidAt") AS month, e."type" AS type, SUM(p."amountCents") AS total
     FROM "FinancialPayment" p JOIN "FinancialEntry" e ON e."id" = p."entryId"
-    WHERE p."paidAt" >= ${first} AND e."status" <> 'CANCELLED'
+    WHERE p."paidAt" >= ${first} AND e."status" <> 'CANCELLED' ${scopeSql(scope)}
     GROUP BY 1, 2`;
   return Array.from({ length: 6 }, (_, index) => {
     const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (5 - index), 1));
@@ -98,20 +113,23 @@ async function realizedMonths() {
  * Parcelas a receber das entradas em aberto, com o que falta em cada uma. Entradas sem parcelas contam como uma
  * parcela única no vencimento. Os recebimentos quitam as parcelas em ordem (a primeira primeiro).
  */
-const OPEN_RECEIVABLES = Prisma.sql`
+function openReceivables(scope?: string | null) {
+  return Prisma.sql`
   WITH plan AS (
     SELECT i."entryId", i."number", i."dueDate", i."amountCents" AS amount, e."paidCents" AS paid,
       COALESCE(SUM(i."amountCents") OVER (PARTITION BY i."entryId" ORDER BY i."number" ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0) AS before,
       COUNT(*) OVER (PARTITION BY i."entryId") AS total
     FROM "FinancialInstallment" i JOIN "FinancialEntry" e ON e."id" = i."entryId"
-    WHERE e."type" = 'INCOME' AND e."status" = 'PENDING'
+    WHERE e."type" = 'INCOME' AND e."status" = 'PENDING' ${scopeSql(scope)}
     UNION ALL
     SELECT e."id", 1, e."dueDate", e."amountCents", e."paidCents", 0, 1
     FROM "FinancialEntry" e
-    WHERE e."type" = 'INCOME' AND e."status" = 'PENDING' AND NOT EXISTS (SELECT 1 FROM "FinancialInstallment" i WHERE i."entryId" = e."id")
+    WHERE e."type" = 'INCOME' AND e."status" = 'PENDING' AND NOT EXISTS (SELECT 1 FROM "FinancialInstallment" i WHERE i."entryId" = e."id") ${scopeSql(scope)}
   ), receivables AS (
     SELECT *, GREATEST(0, LEAST(amount, before + amount - paid)) AS remaining FROM plan
   )`;
+}
+const OPEN_RECEIVABLES = openReceivables();
 
 type ReceivableTotals = { inRange: bigint | number | null; overdue: bigint | number | null; overdueCount: bigint | number | null };
 
@@ -122,9 +140,9 @@ function todayBounds(days = 7) {
   return { start, end: new Date(start.getTime() + days * 24 * 60 * 60 * 1000) };
 }
 
-async function receivableTotals(range: { gte?: Date; lte?: Date } | undefined) {
+async function receivableTotals(range: { gte?: Date; lte?: Date } | undefined, scope?: string) {
   const { start } = todayBounds();
-  const [row] = await prisma.$queryRaw<ReceivableTotals[]>`${OPEN_RECEIVABLES}
+  const [row] = await prisma.$queryRaw<ReceivableTotals[]>`${openReceivables(scope)}
     SELECT
       SUM(remaining) FILTER (WHERE ${range?.gte ? Prisma.sql`"dueDate" >= ${range.gte}` : Prisma.sql`TRUE`} AND ${range?.lte ? Prisma.sql`"dueDate" <= ${range.lte}` : Prisma.sql`TRUE`}) AS "inRange",
       SUM(remaining) FILTER (WHERE "dueDate" < ${start}) AS overdue,
@@ -133,15 +151,16 @@ async function receivableTotals(range: { gte?: Date; lte?: Date } | undefined) {
   return { inRange: Number(row?.inRange ?? 0), overdue: Number(row?.overdue ?? 0), overdueCount: Number(row?.overdueCount ?? 0) };
 }
 
-export async function getFinanceSummary(filters: Pick<FinanceFilters, "from" | "to"> = {}) {
+export async function getFinanceSummary(filters: Pick<FinanceFilters, "from" | "to" | "scope"> = {}) {
   const base = financeDateRange(filters);
+  const scope = normalizedScope(filters.scope);
   // Realizado é o que entrou ou saiu de fato no período, pela data de cada recebimento ou pagamento.
-  const realizedIn = (type: FinancialEntryType) => prisma.financialPayment.aggregate({ where: { ...(base ? { paidAt: base } : {}), entry: { type, status: { not: FinancialEntryStatus.CANCELLED } } }, _sum: { amountCents: true } }).then((result) => result._sum.amountCents ?? 0);
+  const realizedIn = (type: FinancialEntryType) => prisma.financialPayment.aggregate({ where: { ...(base ? { paidAt: base } : {}), entry: { type, status: { not: FinancialEntryStatus.CANCELLED }, ...(scope ? { scope } : {}) } }, _sum: { amountCents: true } }).then((result) => result._sum.amountCents ?? 0);
   const [receivables, expenses, months, incomeSettled, expenseSettled] = await Promise.all([
     // A receber: o que falta das parcelas que vencem no período. Atrasos (antes de hoje) não dependem do período.
-    receivableTotals(base),
-    prisma.financialEntry.aggregate({ where: { type: FinancialEntryType.EXPENSE, status: FinancialEntryStatus.PENDING, ...(base ? { dueDate: base } : {}) }, _sum: { amountCents: true, paidCents: true } }),
-    realizedMonths(),
+    receivableTotals(base, scope),
+    prisma.financialEntry.aggregate({ where: { type: FinancialEntryType.EXPENSE, status: FinancialEntryStatus.PENDING, ...(scope ? { scope } : {}), ...(base ? { dueDate: base } : {}) }, _sum: { amountCents: true, paidCents: true } }),
+    realizedMonths(scope),
     realizedIn(FinancialEntryType.INCOME),
     realizedIn(FinancialEntryType.EXPENSE),
   ]);
@@ -233,16 +252,17 @@ export async function listOpenInstallments({ clientId, query, cursor, limit = OP
 }
 
 /** Cobranças próximas: parcelas a receber nos próximos 7 dias e as que já venceram (atrasadas primeiro). */
-export async function getUpcomingReceivables(limit = 6) {
+export async function getUpcomingReceivables(limit = 6, scope?: string) {
   const { start, end } = todayBounds();
+  const receivables = openReceivables(scope);
   const [rows, [totals]] = await Promise.all([
-    prisma.$queryRaw<UpcomingReceivableRow[]>`${OPEN_RECEIVABLES}
+    prisma.$queryRaw<UpcomingReceivableRow[]>`${receivables}
       SELECT r."entryId", r."number", r.total, r."dueDate", r.remaining, e."description", e."counterparty"
       FROM receivables r JOIN "FinancialEntry" e ON e."id" = r."entryId"
       WHERE r.remaining > 0 AND r."dueDate" < ${end}
       ORDER BY r."dueDate" ASC, r."entryId" ASC, r."number" ASC
       LIMIT ${limit}`,
-    prisma.$queryRaw<Array<{ upcoming: bigint | number | null; upcomingCount: bigint | number; overdue: bigint | number | null; overdueCount: bigint | number }>>`${OPEN_RECEIVABLES}
+    prisma.$queryRaw<Array<{ upcoming: bigint | number | null; upcomingCount: bigint | number; overdue: bigint | number | null; overdueCount: bigint | number }>>`${receivables}
       SELECT SUM(remaining) FILTER (WHERE "dueDate" >= ${start}) AS upcoming, COUNT(*) FILTER (WHERE "dueDate" >= ${start}) AS "upcomingCount",
         SUM(remaining) FILTER (WHERE "dueDate" < ${start}) AS overdue, COUNT(*) FILTER (WHERE "dueDate" < ${start}) AS "overdueCount"
       FROM receivables WHERE remaining > 0 AND "dueDate" < ${end}`,
@@ -254,9 +274,10 @@ export async function getUpcomingReceivables(limit = 6) {
 }
 
 /** Compromissos próximos: saídas com data de hoje até os próximos 7 dias. */
-export async function getUpcomingCommitments(limit = 6) {
+export async function getUpcomingCommitments(limit = 6, scope?: string) {
   const { start, end } = todayBounds();
-  const where = { type: FinancialEntryType.EXPENSE, status: { not: FinancialEntryStatus.CANCELLED }, dueDate: { gte: start, lt: end } };
+  const value = normalizedScope(scope);
+  const where = { type: FinancialEntryType.EXPENSE, status: { not: FinancialEntryStatus.CANCELLED }, dueDate: { gte: start, lt: end }, ...(value ? { scope: value } : {}) };
   const [items, totals] = await Promise.all([
     prisma.financialEntry.findMany({ where, take: limit, orderBy: [{ dueDate: "asc" }, { id: "asc" }], select: { id: true, description: true, counterparty: true, amountCents: true, dueDate: true, recurringEntryId: true } }),
     prisma.financialEntry.aggregate({ where, _sum: { amountCents: true }, _count: { _all: true } }),
@@ -290,7 +311,7 @@ export async function getFinancialEntryDetail(id: string) {
   return prisma.financialEntry.findUnique({
     where: { id },
     select: {
-      id: true, type: true, status: true, origin: true, sourceKey: true, isFixed: true, description: true, category: true, counterparty: true, client: { select: { id: true, name: true, company: true } }, amountCents: true, paidCents: true, dueDate: true, settledAt: true, notes: true, createdAt: true, paymentCondition: true,
+      id: true, type: true, status: true, origin: true, sourceKey: true, isFixed: true, scope: true, seriesId: true, accountId: true, account: { select: { id: true, name: true } }, description: true, category: true, counterparty: true, client: { select: { id: true, name: true, company: true } }, amountCents: true, paidCents: true, dueDate: true, settledAt: true, notes: true, createdAt: true, paymentCondition: true,
       recurringEntry: { select: { id: true, description: true } },
       installments: { orderBy: { number: "asc" }, take: MAX_INSTALLMENTS, select: { id: true, number: true, dueDate: true, amountCents: true } },
       payments: { orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 200, select: { id: true, amountCents: true, paidAt: true, notes: true, fromSale: true, fromQuote: true, chargeId: true } },
@@ -322,7 +343,7 @@ export async function listRecurringEntries() {
   return prisma.recurringEntry.findMany({
     take: 200,
     orderBy: [{ endsOn: { sort: "desc", nulls: "first" } }, { type: "asc" }, { dayOfMonth: "asc" }, { id: "asc" }],
-    select: { id: true, type: true, description: true, category: true, counterparty: true, amountCents: true, dayOfMonth: true, startsOn: true, endsOn: true },
+    select: { id: true, type: true, scope: true, description: true, category: true, counterparty: true, account: { select: { name: true } }, amountCents: true, dayOfMonth: true, startsOn: true, endsOn: true },
   });
 }
 
@@ -342,7 +363,7 @@ export async function getRecurringEntryDetail(id: string) {
   return prisma.recurringEntry.findUnique({
     where: { id },
     select: {
-      id: true, type: true, description: true, category: true, counterparty: true, client: { select: { id: true, name: true, company: true } }, amountCents: true, dayOfMonth: true, startsOn: true, endsOn: true, notes: true,
+      id: true, type: true, scope: true, accountId: true, account: { select: { id: true, name: true } }, description: true, category: true, counterparty: true, client: { select: { id: true, name: true, company: true } }, amountCents: true, dayOfMonth: true, startsOn: true, endsOn: true, notes: true,
       entries: { orderBy: [{ dueDate: "desc" }, { id: "desc" }], take: 18, select: { id: true, type: true, status: true, amountCents: true, paidCents: true, dueDate: true } },
     },
   });
@@ -402,4 +423,10 @@ export async function getQuotePaymentsForEntry(sourceKey: string | null) {
   const quoteId = sourceKey?.startsWith("quote:") ? sourceKey.slice("quote:".length) : null;
   if (!quoteId) return [];
   return prisma.quotePayment.findMany({ where: { quoteId }, orderBy: [{ paidAt: "asc" }, { id: "asc" }], take: 50, select: { amountCents: true, paidAt: true } });
+}
+
+/** Parcelas de uma saída parcelada (compra em 10x), em ordem, para navegar entre elas. */
+export async function getSeriesEntries(seriesId: string | null) {
+  if (!seriesId) return [];
+  return prisma.financialEntry.findMany({ where: { seriesId }, orderBy: [{ dueDate: "asc" }, { id: "asc" }], take: MAX_INSTALLMENTS, select: { id: true, description: true, amountCents: true, dueDate: true, status: true } });
 }

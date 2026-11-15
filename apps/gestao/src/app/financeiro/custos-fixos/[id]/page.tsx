@@ -3,10 +3,13 @@ import { notFound } from "next/navigation";
 import { FinancialEntryType } from "@prisma/client";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarToggle } from "@/components/sidebar-toggle";
-import { FINANCE_CATEGORIES, financeEntryStatusKey, financeEntryStatusLabel, financeTypeLabel, getRecurringEntryDetail } from "@/features/finance/queries/finance-queries";
+import { financeEntryStatusKey, financeEntryStatusLabel, financeTypeLabel, getRecurringEntryDetail } from "@/features/finance/queries/finance-queries";
 import { endRecurringEntryAction, reactivateRecurringEntryAction, updateRecurringEntryAction } from "@/features/finance/services/recurring-actions";
 import { currentMonthKey, ensureRecurringEntries, monthKeyOf, recurringDayLabel } from "@/features/finance/services/recurring-entries";
 import { CounterpartyField } from "@/features/finance/components/counterparty-field";
+import { EntryClassificationFields } from "@/features/finance/components/catalog-fields";
+import { listFinanceAccounts, listFinanceCategories } from "@/features/finance/services/finance-catalog";
+import { financeScopeLabel } from "@/features/finance/types/finance-scope";
 import styles from "../../financeiro.module.css";
 
 export const dynamic = "force-dynamic";
@@ -31,17 +34,16 @@ function amountField(cents: number) {
 export default async function RecurringEntryPage({ params, searchParams }: RecurringPageProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   await ensureRecurringEntries();
-  const entry = await getRecurringEntryDetail(id);
+  const [entry, categories, accounts] = await Promise.all([getRecurringEntryDetail(id), listFinanceCategories(), listFinanceAccounts()]);
   if (!entry) notFound();
   const current = currentMonthKey();
   const ended = Boolean(entry.endsOn && monthKeyOf(entry.endsOn) < current);
   const income = entry.type === FinancialEntryType.INCOME;
   const feedback = query.error ?? (query.notice ? notices[query.notice] : null);
-  const categories = FINANCE_CATEGORIES.includes(entry.category) ? FINANCE_CATEGORIES : [entry.category, ...FINANCE_CATEGORIES];
   const startKey = monthKeyOf(entry.startsOn);
 
   return <main className="app-shell"><AppSidebar current="finance" /><div className="workspace"><section className={"directory-page " + styles.page}>
-    <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/financeiro">Financeiro</Link> / <Link href="/financeiro/custos-fixos">Custos fixos</Link></p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} mensal · {recurringDayLabel(entry.dayOfMonth)} · {entry.category}</p></div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro/custos-fixos">Voltar aos custos fixos</Link></div></div></header>
+    <header className="directory-header"><div><p className="eyebrow page-crumb"><Link href="/financeiro">Financeiro</Link> / <Link href="/financeiro/custos-fixos">Custos fixos</Link></p><h1>{entry.description}</h1><p>{financeTypeLabel[entry.type]} mensal · {financeScopeLabel[entry.scope]} · {recurringDayLabel(entry.dayOfMonth)} · {entry.category}{entry.account ? ` · ${entry.account.name}` : ""}</p></div><div className={"header-actions " + styles.financeHeaderActions}><div className={styles.financeHeaderNavigation}><SidebarToggle location="header" /><Link className="text-link" href="/financeiro/custos-fixos">Voltar aos custos fixos</Link></div></div></header>
     {feedback ? <p className={query.error ? "form-error" : "form-success"} role={query.error ? "alert" : "status"}>{feedback}</p> : null}
 
     <section className={styles.entrySummary} aria-label="Situação da recorrência">
@@ -60,8 +62,8 @@ export default async function RecurringEntryPage({ params, searchParams }: Recur
         <label>Valor mensal<input name="amount" inputMode="decimal" required defaultValue={amountField(entry.amountCents)} /></label>
         <label>Dia do vencimento<select name="dayOfMonth" defaultValue={String(entry.dayOfMonth)}>{DAYS.map((day) => <option key={day} value={day}>{day}</option>)}</select></label>
         <label>Aplicar a partir de<input name="applyFrom" type="month" required min={startKey} defaultValue={current < startKey ? startKey : current} /></label>
-        <label>Categoria<select name="category" defaultValue={entry.category}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
-        <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField initialClient={entry.client} initialText={entry.counterparty ?? ""} placeholder="Busque um cliente ou digite fornecedor ou pessoa" /></div>
+        <EntryClassificationFields categories={categories} accounts={accounts} initialType={entry.type} initialScope={entry.scope} initialCategory={entry.category} initialAccount={entry.account} />
+        <div className={styles.fieldGroup}><span>Contraparte</span><CounterpartyField initialClient={entry.client} initialText={entry.counterparty ?? ""} placeholder="Cliente, fornecedor ou pessoa" /></div>
         <label className={styles.notes}>Observação<textarea name="notes" maxLength={500} rows={2} defaultValue={entry.notes ?? ""} placeholder="Opcional" /></label>
         <div className={styles.formActions}><button className="primary-action" type="submit">Salvar recorrência</button></div>
       </form>
