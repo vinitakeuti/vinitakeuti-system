@@ -3,7 +3,7 @@ import type { CalendarEventStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendOwnerEmail } from "@/features/notifications/services/owner-email";
 import { logEvent } from "@/features/system-logs/services/system-log";
-import { EVENT_KINDS, addDays, atMinutes, atTime, dayKey, isDayKey, isEventKind, isTime, longDayLabel, minutesToTime, timeOf, todayKey, weekdayOf, WEEKDAYS, type EventKind } from "@/features/agenda/types/agenda";
+import { EVENT_KINDS, addDays, addMonths, atMinutes, atTime, dayKey, isDayKey, isEventKind, isMonthKey, isTime, longDayLabel, minutesToTime, startOfToday, timeOf, todayKey, weekdayOf, WEEKDAYS, type EventKind } from "@/features/agenda/types/agenda";
 
 /**
  * Regras da agenda, usadas pela tela e pela IA: disponibilidade, horários livres, criar e cancelar eventos e marcar
@@ -107,7 +107,7 @@ export async function createCalendarEvent(input: NewEvent) {
 }
 
 export async function setEventStatus(id: string, status: CalendarEventStatus) {
-  const result = await prisma.calendarEvent.updateMany({ where: { id: id.slice(0, 50) }, data: { status, ...(status === "DONE" ? {} : { archivedAt: null }) } });
+  const result = await prisma.calendarEvent.updateMany({ where: { id: id.slice(0, 50) }, data: { status } });
   return result.count > 0;
 }
 
@@ -117,8 +117,8 @@ const DAY = 24 * HOUR;
  * Remarca o evento para outro dia, no mesmo horário (as setas da semana). Guarda o início original na primeira
  * remarcação e conta quantas vezes foi remarcado. Só eventos marcados; conflitos voltam como aviso.
  */
-export async function shiftCalendarEvent(id: string, days: number) {
-  if (!Number.isInteger(days) || days === 0 || Math.abs(days) > 60) return { ok: false as const, error: "Remarcação inválida." };
+export async function shiftCalendarEvent(id: string, days: number, maxDays = 60) {
+  if (!Number.isInteger(days) || days === 0 || Math.abs(days) > maxDays) return { ok: false as const, error: "Remarcação inválida." };
   const event = await prisma.calendarEvent.findUnique({ where: { id: id.slice(0, 50) }, select: { id: true, status: true, startsAt: true, endsAt: true, rescheduledFrom: true, contactName: true, contactPhone: true, contactEmail: true, source: true } });
   if (!event) return { ok: false as const, error: "Evento não encontrado." };
   if (event.status !== "SCHEDULED") return { ok: false as const, error: "Só eventos marcados podem ser remarcados. Reabra o evento antes." };
@@ -131,16 +131,20 @@ export async function shiftCalendarEvent(id: string, days: number) {
   return { ok: true as const, day: dayKey(startsAt), conflicts: conflicts.length, hasContact: Boolean(event.contactPhone || event.contactEmail) };
 }
 
-/** Arquiva (ou tira do arquivo) um evento concluído. */
-export async function setEventArchived(id: string, archived: boolean) {
-  const result = await prisma.calendarEvent.updateMany({ where: { id: id.slice(0, 50), ...(archived ? { status: "DONE" as const, archivedAt: null } : { archivedAt: { not: null } }) }, data: { archivedAt: archived ? new Date() : null } });
-  return result.count > 0;
+/** Remarca para um dia (hoje ou adiante), no mesmo horário: o caminho dos esquecidos, que podem estar longe no passado. */
+export async function rescheduleCalendarEvent(id: string, day: string) {
+  if (!isDayKey(day) || day < todayKey()) return { ok: false as const, error: "Escolha hoje ou uma data futura." };
+  const event = await prisma.calendarEvent.findUnique({ where: { id: id.slice(0, 50) }, select: { startsAt: true } });
+  if (!event) return { ok: false as const, error: "Evento não encontrado." };
+  const noon = (key: string) => new Date(`${key}T12:00:00-03:00`).getTime();
+  const days = Math.round((noon(day) - noon(dayKey(event.startsAt))) / DAY);
+  return shiftCalendarEvent(id, days, 3_660);
 }
 
-/** Arquiva todos os concluídos entre dois dias (inclusive): o botão da semana e do mês. */
-export async function archiveDoneBetween(fromDay: string, toDay: string) {
-  if (!isDayKey(fromDay) || !isDayKey(toDay)) return 0;
-  const result = await prisma.calendarEvent.updateMany({ where: { status: "DONE", archivedAt: null, startsAt: { gte: atMinutes(fromDay, 0), lt: atMinutes(addDays(toDay, 1), 0) } }, data: { archivedAt: new Date() } });
+/** Marca como concluídos os esquecidos (de um mês, ou todos). */
+export async function concludeForgottenEvents(month?: string | null) {
+  const range = month && isMonthKey(month) ? { startsAt: { gte: atMinutes(`${month}-01`, 0), lt: atMinutes(`${addMonths(month, 1)}-01`, 0) } } : {};
+  const result = await prisma.calendarEvent.updateMany({ where: { status: "SCHEDULED", endsAt: { lt: startOfToday() }, ...range }, data: { status: "DONE" } });
   return result.count;
 }
 

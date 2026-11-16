@@ -15756,7 +15756,7 @@ body .chat .sidebar-toggle.sidebar-toggle-header b {
   line-height: 1.6;
   white-space: pre-wrap;
 }
-/* Agenda: semana em colunas (dias separados por traço de 1px), mês em grade, arquivo por mês e o evento num pop-up.
+/* Agenda: semana em colunas (dias separados por traço de 1px), mês em grade, concluídos por mês e o evento num pop-up.
    Cada tipo tem cor e forma próprias (--k): reunião quadrado verde, compromisso círculo preto, demanda losango azul,
    lembrete barra terracota. */
 .agenda-page {
@@ -15896,7 +15896,7 @@ body .chat .sidebar-toggle.sidebar-toggle-header b {
   }
 }
 
-/* Barra: navegação, período e arquivar concluídos */
+/* Barra: navegação, período e o atalho para os concluídos */
 .agenda-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -15951,12 +15951,9 @@ body .chat .sidebar-toggle.sidebar-toggle-header b {
   font-size: var(--text-2xs);
   letter-spacing: 0;
 }
-.agenda-archive-done {
-  margin: 0 0 0 auto;
-}
-.agenda-archive-done .secondary-action {
+.agenda-review-link {
   min-height: 38px;
-  cursor: pointer;
+  margin: 0 0 0 auto;
 }
 
 /* Faixa dos sete dias: só no celular */
@@ -16312,10 +16309,6 @@ html:has(.agenda-strip) {
   animation: agenda-pending 0.9s ease-in-out infinite;
   cursor: progress;
 }
-.agenda-event-archive {
-  margin: 0;
-  border-top: 1px solid var(--line);
-}
 .agenda-text-button {
   min-height: 28px;
   width: 100%;
@@ -16513,8 +16506,8 @@ html:has(.agenda-strip) {
   }
 }
 
-/* Arquivo */
-.agenda-archive {
+/* Concluídos: árvore de anos e meses e a lista do mês */
+.agenda-review {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   align-items: start;
@@ -16522,7 +16515,7 @@ html:has(.agenda-strip) {
   background: var(--white);
   animation: agenda-fade 0.3s ease both;
 }
-.agenda-archive-side {
+.agenda-review-side {
   position: sticky;
   top: 16px;
   align-self: stretch;
@@ -16530,7 +16523,7 @@ html:has(.agenda-strip) {
   border-right: 1px solid var(--line);
   background: var(--paper);
 }
-.agenda-archive-picker {
+.agenda-review-picker {
   display: none;
 }
 .agenda-tree {
@@ -16627,7 +16620,7 @@ html:has(.agenda-strip) {
   border-color: var(--accent);
   color: var(--accent);
 }
-.agenda-archive-crumb {
+.agenda-review-crumb {
   margin: 0 0 2px;
   flex-basis: 100%;
   color: var(--accent);
@@ -16635,31 +16628,31 @@ html:has(.agenda-strip) {
   font-size: var(--text-2xs);
   letter-spacing: 0;
 }
-.agenda-archive-list {
+.agenda-review-list {
   min-width: 0;
   padding: 22px 26px 26px;
 }
-.agenda-archive-list > header {
+.agenda-review-list > header {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 14px;
   margin-bottom: 14px;
 }
-.agenda-archive-list > header h2 {
+.agenda-review-list > header h2 {
   margin: 0;
   color: var(--black);
   font-size: var(--text-2xl);
   font-weight: 650;
   letter-spacing: -0.02em;
 }
-.agenda-archive-list > header span {
+.agenda-review-list > header span {
   color: var(--muted);
   font-family: var(--mono);
   font-size: var(--text-2xs);
   letter-spacing: 0;
 }
-.agenda-archive-day {
+.agenda-review-day {
   display: grid;
   grid-template-columns: 84px minmax(0, 1fr);
   gap: 12px;
@@ -16667,40 +16660,40 @@ html:has(.agenda-strip) {
   border-top: 1px solid var(--line);
   animation: agenda-rise 0.35s ease both;
 }
-.agenda-archive-day h3 {
+.agenda-review-day h3 {
   display: grid;
   align-content: start;
   gap: 2px;
   margin: 6px 0 0;
 }
-.agenda-archive-day h3 b {
+.agenda-review-day h3 b {
   color: var(--black);
   font-size: var(--text-2xl);
   font-weight: 650;
   letter-spacing: -0.02em;
   line-height: 1;
 }
-.agenda-archive-day h3 span {
+.agenda-review-day h3 span {
   color: var(--muted);
   font-family: var(--mono);
   font-size: var(--text-2xs);
   letter-spacing: 0;
 }
-.agenda-archive-day ul {
+.agenda-review-day ul {
   display: grid;
   gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.agenda-archive-day li {
+.agenda-review-day li {
   display: flex;
   align-items: center;
   min-width: 0;
   border-left: 2px solid var(--k);
   background: color-mix(in srgb, var(--k) 4%, var(--white));
 }
-.agenda-archive-day li a {
+.agenda-review-day li a {
   display: grid;
   grid-template-columns: 48px 124px minmax(0, 1fr) minmax(0, auto);
   align-items: center;
@@ -16712,15 +16705,15 @@ html:has(.agenda-strip) {
   text-decoration: none;
   transition: background 0.15s ease;
 }
-.agenda-archive-day li a:hover {
+.agenda-review-day li a:hover {
   background: color-mix(in srgb, var(--k) 10%, var(--white));
 }
-.agenda-archive-day time {
+.agenda-review-day time {
   color: var(--muted);
   font-family: var(--mono);
   font-size: var(--text-2xs);
 }
-.agenda-archive-kind {
+.agenda-review-kind {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -16729,40 +16722,40 @@ html:has(.agenda-strip) {
   font-size: var(--text-2xs);
   letter-spacing: 0;
 }
-.agenda-archive-day li b {
+.agenda-review-day li b {
   overflow: hidden;
   font-size: var(--text-sm);
   font-weight: 560;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.agenda-archive-day li small {
+.agenda-review-day li small {
   overflow: hidden;
   color: var(--muted);
   font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.agenda-archive-day li form {
+.agenda-review-day li form {
   margin: 0;
   flex: none;
 }
-.agenda-archive-day li .agenda-text-button {
+.agenda-review-day li .agenda-text-button {
   width: auto;
   min-height: 38px;
   padding: 0 12px;
 }
-.agenda-archive-pages {
+.agenda-review-pages {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
 }
-.agenda-archive-pages .secondary-action {
+.agenda-review-pages .secondary-action {
   text-decoration: none;
 }
-.agenda-archive-empty {
+.agenda-review-empty {
   display: grid;
   justify-items: center;
   gap: 10px;
@@ -16772,21 +16765,21 @@ html:has(.agenda-strip) {
   text-align: center;
   animation: agenda-rise 0.4s ease both;
 }
-.agenda-archive-empty-mark {
+.agenda-review-empty-mark {
   width: 12px;
   height: 12px;
   margin-bottom: 8px;
   background: var(--k-task);
   transform: rotate(45deg);
 }
-.agenda-archive-empty h2 {
+.agenda-review-empty h2 {
   margin: 0;
   color: var(--black);
   font-size: var(--text-xl);
   font-weight: 650;
   letter-spacing: -0.02em;
 }
-.agenda-archive-empty p {
+.agenda-review-empty p {
   max-width: 440px;
   margin: 0;
   color: var(--muted);
@@ -16933,11 +16926,6 @@ html:has(.agenda-strip) {
   border-color: var(--danger-border);
   background: var(--danger-bg);
   color: var(--danger-ink);
-}
-.agenda-status.is-archived {
-  border-color: var(--ink);
-  background: var(--paper);
-  color: var(--ink);
 }
 .agenda-sheet-body {
   display: grid;
@@ -17237,9 +17225,9 @@ html:has(.agenda-strip) {
   .agenda-day,
   .agenda-event,
   .agenda-cell,
-  .agenda-archive,
-  .agenda-archive-day,
-  .agenda-archive-empty,
+  .agenda-review,
+  .agenda-review-day,
+  .agenda-review-empty,
   .agenda-modal-backdrop,
   .agenda-modal-panel,
   .agenda-sheet-head::before,
@@ -17471,9 +17459,6 @@ html:has(.agenda-strip) {
     font-size: var(--text-xs);
   }
   .agenda-move:not(.is-large),
-  .agenda-event-archive {
-    display: none;
-  }
   .agenda-day-events {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -17514,18 +17499,18 @@ html:has(.agenda-strip) {
     height: 5px;
     background: var(--k);
   }
-  .agenda-archive {
+  .agenda-review {
     grid-template-columns: minmax(0, 1fr);
   }
-  .agenda-archive-side {
+  .agenda-review-side {
     display: none;
   }
-  .agenda-archive-picker {
+  .agenda-review-picker {
     display: block;
     border-bottom: 1px solid var(--line);
     background: var(--paper);
   }
-  .agenda-archive-picker > summary {
+  .agenda-review-picker > summary {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -17534,60 +17519,60 @@ html:has(.agenda-strip) {
     cursor: pointer;
     list-style: none;
   }
-  .agenda-archive-picker summary::-webkit-details-marker {
+  .agenda-review-picker summary::-webkit-details-marker {
     display: none;
   }
-  .agenda-archive-picker > summary span {
+  .agenda-review-picker > summary span {
     color: var(--muted);
     font-family: var(--mono);
     font-size: var(--text-2xs);
     letter-spacing: 0;
   }
-  .agenda-archive-picker > summary b {
+  .agenda-review-picker > summary b {
     margin-left: auto;
     font-size: var(--text-base);
     font-weight: 620;
   }
-  .agenda-archive-picker > summary svg {
+  .agenda-review-picker > summary svg {
     transition: transform 0.2s ease;
   }
-  .agenda-archive-picker[open] > summary svg {
+  .agenda-review-picker[open] > summary svg {
     transform: rotate(180deg);
   }
-  .agenda-archive-picker .agenda-tree {
+  .agenda-review-picker .agenda-tree {
     padding: 4px 8px 14px;
     border-top: 1px solid var(--line);
   }
-  .agenda-archive-list {
+  .agenda-review-list {
     padding: 16px 14px 20px;
   }
-  .agenda-archive-day {
+  .agenda-review-day {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
-  .agenda-archive-day h3 {
+  .agenda-review-day h3 {
     display: flex;
     align-items: baseline;
     gap: 8px;
     margin: 0;
   }
-  .agenda-archive-day li a {
+  .agenda-review-day li a {
     grid-template-columns: 44px minmax(0, 1fr);
     gap: 2px 10px;
     padding: 9px 10px;
   }
-  .agenda-archive-day li a time {
+  .agenda-review-day li a time {
     grid-row: 1 / span 3;
     align-self: start;
     padding-top: 2px;
   }
-  .agenda-archive-day li a > * {
+  .agenda-review-day li a > * {
     grid-column: 2;
   }
-  .agenda-archive-day li a time {
+  .agenda-review-day li a time {
     grid-column: 1;
   }
-  .agenda-archive-day li .agenda-text-button {
+  .agenda-review-day li .agenda-text-button {
     padding: 0 10px;
   }
   .agenda-preview li {
@@ -20594,5 +20579,299 @@ a.attendance-row:hover {
   body.doc-ai-open .quote-editor-page {
     padding-right: 460px;
     transition: padding var(--duration-slow) var(--ease-out);
+  }
+}
+
+/* Agenda: esquecidos (marcados de dias anteriores a hoje). Tom de alerta, distinto do concluído (riscado). */
+.agenda-event.is-forgotten {
+  border-color: var(--warning-border);
+  background: color-mix(in srgb, var(--warning-bg) 70%, var(--white));
+}
+.agenda-event-tags em.is-forgotten {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+}
+.agenda-chip.is-forgotten {
+  background: var(--warning-bg);
+  box-shadow: inset 0 0 0 1px var(--warning-border);
+}
+.agenda-chip.is-forgotten time {
+  color: var(--warning-ink);
+}
+.agenda-status.is-forgotten {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+}
+.agenda-forgotten-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+  font-size: var(--text-sm);
+}
+.agenda-forgotten-banner b {
+  font-weight: 650;
+}
+.agenda-forgotten-banner a {
+  color: var(--warning-ink);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+.client-tabs a b.agenda-tab-alert,
+.client-tabs a.active b.agenda-tab-alert {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+}
+
+/* Revisão: atalho para todos os esquecidos e os números de cada mês (concluídos; esquecidos em destaque). */
+.agenda-tree-pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+.agenda-tree-pending:hover,
+.agenda-tree-pending.is-active {
+  box-shadow: inset 0 0 0 1px var(--warning-ink);
+}
+.agenda-tree em,
+.agenda-tree-pending em {
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  font-style: normal;
+}
+.agenda-tree-pending em {
+  background: var(--white);
+}
+.agenda-tree em + small {
+  margin-left: 0;
+}
+.agenda-review-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.agenda-review-bar:empty {
+  display: none;
+}
+.agenda-review-filters {
+  display: flex;
+  border: 1px solid var(--line);
+  background: var(--white);
+}
+.agenda-review-filters a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  text-decoration: none;
+}
+.agenda-review-filters a:last-child {
+  border-right: 0;
+}
+.agenda-review-filters a:hover {
+  color: var(--ink);
+  background: var(--gray-50);
+}
+.agenda-review-filters a b {
+  font-weight: 600;
+}
+.agenda-review-filters a.is-alert b {
+  color: var(--warning-ink);
+}
+.agenda-review-filters a.is-active {
+  background: var(--accent);
+  color: var(--white);
+}
+.agenda-review-filters a.is-active b {
+  color: var(--white);
+}
+.agenda-review-bulk {
+  margin: 0 0 0 auto;
+}
+.agenda-review-bulk .secondary-action {
+  min-height: 36px;
+  cursor: pointer;
+}
+.agenda-review-day li.is-forgotten {
+  background: color-mix(in srgb, var(--warning-bg) 55%, var(--white));
+}
+
+/* Ações de um esquecido: concluir, remarcar (abre as opções embaixo) e cancelar. */
+.agenda-review-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+.agenda-review-actions form {
+  margin: 0;
+}
+.agenda-review-actions .agenda-text-button,
+.agenda-review-move summary {
+  width: auto;
+  min-height: 38px;
+  padding: 0 11px;
+}
+.agenda-text-button.is-strong {
+  font-weight: 600;
+}
+.agenda-text-button.is-muted {
+  color: var(--muted);
+}
+.agenda-text-button.is-muted:hover {
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+.agenda-review-move {
+  position: relative;
+}
+/* Cada dia da lista anima a entrada e vira uma camada própria: o dia com o menu aberto sobe para cima dos seguintes. */
+.agenda-review-day:has(.agenda-review-move[open]) {
+  position: relative;
+  z-index: 20;
+}
+.agenda-review-move summary {
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  cursor: pointer;
+  list-style: none;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.agenda-review-move summary::-webkit-details-marker {
+  display: none;
+}
+.agenda-review-move summary:hover,
+.agenda-review-move[open] summary {
+  background: var(--accent);
+  color: var(--white);
+}
+.agenda-review-move > div {
+  position: absolute;
+  z-index: 15;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  gap: 10px;
+  width: 260px;
+  padding: 12px;
+  border: 1px solid var(--ink);
+  background: var(--white);
+  box-shadow: 0 16px 32px -18px rgba(17, 27, 20, 0.45);
+}
+.agenda-review-move > div > span {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+}
+.agenda-review-move-quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.agenda-review-move-quick .secondary-action,
+.agenda-review-move-date .primary-action {
+  width: 100%;
+  min-height: 36px;
+  cursor: pointer;
+}
+.agenda-review-move-date {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.agenda-review-move-date label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+}
+.agenda-review-move-date input {
+  min-width: 0;
+  height: 36px;
+  border: 1px solid var(--color-input-border);
+  padding: 0 8px;
+  background: var(--white);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--text-sm);
+}
+@media (max-width: 760px) {
+  .agenda-review-day li {
+    flex-wrap: wrap;
+  }
+  .agenda-review-day li > a {
+    flex-basis: 100%;
+  }
+  .agenda-review-day li > form,
+  .agenda-review-actions {
+    width: 100%;
+    justify-content: flex-end;
+    border-top: 1px solid color-mix(in srgb, var(--k) 12%, var(--white));
+  }
+  .agenda-review-day li > form {
+    display: flex;
+  }
+  /* No celular, o menu de remarcar ocupa a largura da linha (preso às ações, não ao botão). */
+  .agenda-review-actions {
+    position: relative;
+  }
+  .agenda-review-move {
+    position: static;
+  }
+  .agenda-review-move > div {
+    right: 0;
+    left: 0;
+    width: auto;
+  }
+  .agenda-review-filters {
+    width: 100%;
+  }
+  .agenda-review-filters a {
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 0 6px;
+  }
+  .agenda-review-bulk {
+    width: 100%;
+  }
+  .agenda-review-bulk .secondary-action {
+    width: 100%;
   }
 }

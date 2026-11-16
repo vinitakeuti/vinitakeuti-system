@@ -31,6 +31,17 @@ export function atMinutes(day: string, minutes: number) {
   return new Date(`${day}T${hours}:${mins}:00${OFFSET}`);
 }
 
+/** Início de hoje (meia-noite em Brasília). Evento marcado que terminou antes disso foi esquecido. */
+export const startOfToday = () => atMinutes(todayKey(), 0);
+
+/** Esquecido: continua marcado (nem concluído, nem cancelado) e terminou num dia anterior a hoje. */
+export const isForgotten = (event: { status: string; endsAt: Date }, todayStart = startOfToday()) => event.status === "SCHEDULED" && event.endsAt < todayStart;
+
+/** Revisão: os esquecidos, os concluídos e os cancelados. */
+export const REVIEW_FILTERS = ["esquecidos", "concluidos", "cancelados"] as const;
+export type ReviewFilter = (typeof REVIEW_FILTERS)[number];
+export const isReviewFilter = (value: string | null | undefined): value is ReviewFilter => REVIEW_FILTERS.includes(value as ReviewFilter);
+
 export function atTime(day: string, time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   return atMinutes(day, hours * 60 + minutes);

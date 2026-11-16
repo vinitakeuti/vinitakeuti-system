@@ -2,10 +2,10 @@ import Link from "next/link";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { AgendaModal } from "@/features/agenda/components/agenda-modal";
-import { AgendaArchive, AgendaMonth, AgendaWeek, ArchiveDoneButton, AvailabilityPanel, EventDetailPanel, EventForm, weekRangeLabel } from "@/features/agenda/components/agenda-panels";
-import { getCalendarEvent, listArchiveMonths, listArchivedEvents, listClientOptions, listEventsBetween, listWeekEvents } from "@/features/agenda/queries/agenda-queries";
+import { AgendaMonth, AgendaReview, AgendaWeek, AvailabilityPanel, DoneLink, ForgottenBanner, EventDetailPanel, EventForm, weekRangeLabel } from "@/features/agenda/components/agenda-panels";
+import { countForgottenEvents, getCalendarEvent, listClientOptions, listReviewEvents, listReviewMonths, listEventsBetween, listWeekEvents } from "@/features/agenda/queries/agenda-queries";
 import { findFreeSlots, getAgendaSettings } from "@/features/agenda/services/agenda-service";
-import { addDays, addMonths, dayKey, isDayKey, isMonthKey, longDayLabel, monthGrid, monthLabel, monthOf, todayKey, weekStart } from "@/features/agenda/types/agenda";
+import { addDays, addMonths, dayKey, isDayKey, isMonthKey, isReviewFilter, longDayLabel, monthGrid, monthLabel, monthOf, todayKey, weekStart } from "@/features/agenda/types/agenda";
 
 export const dynamic = "force-dynamic";
 
@@ -17,42 +17,48 @@ function notice(code: string | undefined, params: { dia?: string; total?: string
     criado: "Evento criado.",
     conflito: "Evento criado. Atenção: ele coincide com outro compromisso da agenda.",
     salvo: "Evento atualizado.",
-    concluido: "Evento concluído. Arquive quando quiser tirá-lo da semana.",
+    concluido: "Evento concluído. Ele continua no calendário e aparece na Revisão.",
+    "esquecidos-concluidos": params.total === "1" ? "1 evento esquecido marcado como concluído." : `${params.total ?? "Os"} eventos esquecidos marcados como concluídos.`,
     reaberto: "Evento reaberto.",
     cancelado: "Evento cancelado.",
     excluido: "Evento excluído.",
     remarcado: moved,
     "remarcado-conflito": `${moved} Atenção: ele coincide com outro compromisso.`,
     "remarcado-contato": `${moved} Avise o contato sobre a nova data.`,
-    arquivado: "Evento arquivado. Ele fica no Arquivo, no mês dele.",
-    desarquivado: "Evento tirado do arquivo. Ele voltou para a agenda.",
-    arquivados: `${params.total ?? "Os"} ${params.total === "1" ? "evento concluído arquivado" : "eventos concluídos arquivados"}.`,
-    "nada-arquivar": "Não há eventos concluídos para arquivar.",
     disponibilidade: "Disponibilidade salva. A assistente passa a oferecer os novos horários.",
   };
   return code ? notices[code] ?? null : null;
 }
 
-type AgendaPageProps = { searchParams: Promise<{ aba?: string; visao?: string; mes?: string; semana?: string; evento?: string; editar?: string; novo?: string; dia?: string; aviso?: string; erro?: string; destaque?: string; total?: string; depois?: string }> };
+type AgendaPageProps = { searchParams: Promise<{ aba?: string; visao?: string; mes?: string; semana?: string; evento?: string; editar?: string; novo?: string; dia?: string; aviso?: string; erro?: string; destaque?: string; total?: string; filtro?: string; depois?: string }> };
 
-/** Agenda: semana em colunas, mês em grade e arquivo por mês; detalhe e formulário do evento num pop-up. */
+/**
+ * Agenda: semana em colunas, mês em grade e a Revisão (esquecidos, concluídos e cancelados por mês); detalhe e
+ * formulário do evento num pop-up. Esquecido: evento ainda marcado de um dia anterior a hoje.
+ */
 export default async function AgendaPage({ searchParams }: AgendaPageProps) {
   const params = await searchParams;
-  const tab = params.aba === "disponibilidade" ? "disponibilidade" : params.aba === "arquivo" ? "arquivo" : params.visao === "mes" ? "mes" : "semana";
+  // "arquivo" é o endereço antigo da Revisão.
+  const tab = params.aba === "disponibilidade" ? "disponibilidade" : params.aba === "revisao" || params.aba === "arquivo" ? "revisao" : params.visao === "mes" ? "mes" : "semana";
   const today = todayKey();
   const monday = weekStart(params.semana && isDayKey(params.semana) ? params.semana : today);
   const requestedMonth = params.mes && isMonthKey(params.mes) ? params.mes : null;
   const month = requestedMonth ?? monthOf(today);
   const grid = monthGrid(month);
   const settings = await getAgendaSettings();
-  const archiveMonths = tab === "arquivo" ? await listArchiveMonths() : [];
-  const archiveMonth = tab === "arquivo" ? requestedMonth && archiveMonths.some((item) => item.month === requestedMonth) ? requestedMonth : archiveMonths[0]?.month ?? null : null;
-  const view = tab === "mes" ? `visao=mes&mes=${month}` : tab === "arquivo" ? `aba=arquivo&mes=${archiveMonth ?? month}` : `semana=${monday}`;
+  const [forgottenTotal, reviewMonths] = await Promise.all([countForgottenEvents(), tab === "revisao" ? listReviewMonths() : []]);
+  // Revisão: sem mês, abre em todos os esquecidos (se houver); com mês, no filtro pedido ou no que tiver eventos.
+  const requestedFilter = isReviewFilter(params.filtro) ? params.filtro : undefined;
+  const monthStats = requestedMonth ? reviewMonths.find((item) => item.month === requestedMonth) : undefined;
+  const reviewMonth = tab !== "revisao" ? null : monthStats ? monthStats.month : forgottenTotal && (!requestedFilter || requestedFilter === "esquecidos") ? null : reviewMonths[0]?.month ?? null;
+  const reviewStats = reviewMonths.find((item) => item.month === reviewMonth);
+  const reviewFilter = !reviewMonth ? "esquecidos" : requestedFilter ?? (reviewStats?.forgotten ? "esquecidos" : reviewStats?.done || !reviewStats?.cancelled ? "concluidos" : "cancelados");
+  const view = tab === "mes" ? `visao=mes&mes=${month}` : tab === "revisao" ? `aba=revisao${reviewMonth ? `&mes=${reviewMonth}` : ""}&filtro=${reviewFilter}` : `semana=${monday}`;
   const modalOpen = tab !== "disponibilidade" && Boolean(params.evento || params.novo);
 
-  const [events, archive, event, clients, preview] = await Promise.all([
+  const [events, review, event, clients, preview] = await Promise.all([
     tab === "semana" ? listWeekEvents(monday) : tab === "mes" ? listEventsBetween(grid[0], grid.at(-1)!, { take: 600 }) : [],
-    tab === "arquivo" && archiveMonth ? listArchivedEvents(archiveMonth, params.depois) : null,
+    tab === "revisao" && (reviewMonth || forgottenTotal) ? listReviewEvents(reviewFilter, reviewMonth, params.depois) : null,
     modalOpen && params.evento ? getCalendarEvent(params.evento) : null,
     modalOpen && (params.novo || params.editar) ? listClientOptions() : [],
     tab === "disponibilidade" ? findFreeSlots({ days: 5, perDay: 40 }) : [],
@@ -64,21 +70,23 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
   const tabs = [
     { id: "semana", label: "Semana", href: `/agenda?semana=${monday}` },
     { id: "mes", label: "Mês", href: `/agenda?visao=mes&mes=${tab === "semana" ? monthOf(addDays(monday, 3)) : month}` },
-    { id: "arquivo", label: "Arquivo", href: "/agenda?aba=arquivo" },
+    { id: "revisao", label: "Revisão", href: "/agenda?aba=revisao", alert: forgottenTotal },
     { id: "disponibilidade", label: "Disponibilidade", href: "/agenda?aba=disponibilidade" },
   ];
 
   return <main className="app-shell"><AppSidebar current="agenda" /><div className="workspace"><section className="directory-page settings-page agenda-page">
     <header className="directory-header"><div><h1>Agenda</h1><p>Reuniões, compromissos, demandas e lembretes. A assistente consulta e marca eventos aqui, e as reuniões do atendimento chegam com o contato e o resumo da conversa.</p></div><div className="header-actions"><SidebarToggle location="header" />{tab === "semana" || tab === "mes" ? <Link className="primary-action" href={`/agenda?${view}&novo=1`} scroll={false}>+ Novo evento</Link> : null}</div></header>
     <nav className="client-tabs settings-tabs" aria-label="Seções da agenda">
-      {tabs.map((item) => <Link key={item.id} href={item.href} className={tab === item.id ? "active" : undefined} aria-current={tab === item.id ? "page" : undefined}>{item.label}</Link>)}
+      {tabs.map((item) => <Link key={item.id} href={item.href} className={tab === item.id ? "active" : undefined} aria-current={tab === item.id ? "page" : undefined}>{item.label}{"alert" in item && item.alert ? <b className="agenda-tab-alert" title={`${item.alert} ${item.alert === 1 ? "esquecido" : "esquecidos"}`}>{item.alert}</b> : null}</Link>)}
     </nav>
     {message ? <p className="agenda-toast" role="status" key={`${params.aviso}-${params.destaque ?? ""}-${params.dia ?? ""}`}>{message}</p> : null}
     {params.erro && !modalOpen ? <p className="form-error" role="alert">{params.erro.slice(0, 300)}</p> : null}
 
     {tab === "disponibilidade" ? <AvailabilityPanel settings={settings} preview={preview} /> : null}
 
-    {tab === "arquivo" ? <AgendaArchive months={archiveMonths} month={archiveMonth} events={archive?.events ?? []} next={archive?.next ?? null} cursor={params.depois} /> : null}
+    {tab === "revisao" ? <AgendaReview months={reviewMonths} month={reviewMonth} filter={reviewFilter} events={review?.events ?? []} next={review?.next ?? null} cursor={params.depois} forgottenTotal={forgottenTotal} /> : null}
+
+    {tab === "semana" || tab === "mes" ? <ForgottenBanner count={forgottenTotal} /> : null}
 
     {tab === "mes" ? <>
       <div className="agenda-toolbar">
@@ -88,7 +96,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
           <Link href={`/agenda?visao=mes&mes=${addMonths(month, 1)}`} aria-label="Próximo mês" title="Próximo mês">→</Link>
         </div>
         <div className="agenda-toolbar-title"><b>{monthLabel(month)}</b><span>{events.filter((item) => monthOf(dayKey(item.startsAt)) === month).length} eventos no mês</span></div>
-        <ArchiveDoneButton from={`${month}-01`} to={addDays(`${addMonths(month, 1)}-01`, -1)} view={view} count={doneCount} />
+        <DoneLink month={month} count={doneCount} />
       </div>
       <AgendaMonth key={month} month={month} events={events} workDays={settings.workDays} highlight={params.destaque} />
     </> : null}
@@ -101,7 +109,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
           <Link href={`/agenda?semana=${addDays(monday, 7)}`} aria-label="Próxima semana" title="Próxima semana">→</Link>
         </div>
         <div className="agenda-toolbar-title"><b>{weekRangeLabel(monday)}</b><span>{addDays(monday, 6).slice(0, 4)} · {events.length} {events.length === 1 ? "evento" : "eventos"}</span></div>
-        <ArchiveDoneButton from={monday} to={addDays(monday, 6)} view={view} count={doneCount} />
+        <DoneLink month={monthOf(addDays(monday, 3))} count={doneCount} />
       </div>
       <AgendaWeek key={monday} monday={monday} events={events} workDays={settings.workDays} highlight={params.destaque} />
     </> : null}

@@ -1355,7 +1355,7 @@ a:hover > .row-chevron {
   color: var(--danger-ink);
 }
 .settings-level.is-info,
-.agenda-status:not(.is-done):not(.is-cancelled):not(.is-archived) {
+.agenda-status:not(.is-done):not(.is-cancelled):not(.is-forgotten) {
   border-color: var(--info-border);
   background: var(--info-bg);
   color: var(--info-ink);
@@ -1871,7 +1871,7 @@ a:hover > .row-chevron {
   border-radius: var(--radius-full);
   background: var(--k);
 }
-.agenda-archive-day li {
+.agenda-review-day li {
   border-left: 0;
   border-radius: var(--radius-xs);
 }

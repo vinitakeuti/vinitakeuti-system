@@ -1246,8 +1246,6 @@ model CalendarEvent {
   /// gestao, ia-gestao ou ia-atendimento.
   source         String              @default("gestao")
   createdBy      String?
-  /// Concluído e arquivado: sai da semana e do mês e fica no Arquivo (organizado pelo mês do evento).
-  archivedAt       DateTime?
   /// Início original antes da primeira remarcação, e quantas vezes o evento foi remarcado.
   rescheduledFrom  DateTime?
   rescheduledCount Int                 @default(0)
@@ -1257,7 +1255,6 @@ model CalendarEvent {
   conversation   AiConversation?     @relation(fields: [conversationId], references: [id], onDelete: SetNull)
 
   @@index([status, startsAt])
-  @@index([archivedAt, startsAt])
   @@index([startsAt, id])
   @@index([clientId, startsAt])
   @@index([conversationId])

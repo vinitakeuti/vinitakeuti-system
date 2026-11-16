@@ -3,11 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireManagementUser } from "@/features/auth/services/auth-session";
-import { prisma } from "@/lib/prisma";
-import { archiveDoneBetween, createCalendarEvent, deleteCalendarEvent, saveAgendaSettings, setEventArchived, setEventStatus, shiftCalendarEvent, updateCalendarEvent } from "@/features/agenda/services/agenda-service";
-import { dayKey, isDayKey, isMonthKey, isTime, monthOf, timeToMinutes, weekStart } from "@/features/agenda/types/agenda";
+import { concludeForgottenEvents, createCalendarEvent, deleteCalendarEvent, rescheduleCalendarEvent, saveAgendaSettings, setEventStatus, shiftCalendarEvent, updateCalendarEvent } from "@/features/agenda/services/agenda-service";
+import { isDayKey, isMonthKey, isReviewFilter, isTime, monthOf, timeToMinutes, weekStart } from "@/features/agenda/types/agenda";
 
-/** Ações da tela da Agenda. Voltam para a tela de onde vieram (semana, mês ou arquivo), com aviso ou erro. */
+/** Ações da tela da Agenda. Voltam para a tela de onde vieram (semana, mês ou revisão), com aviso ou erro. */
 
 const text = (formData: FormData, name: string, max: number) => {
   const value = formData.get(name);
@@ -21,14 +20,14 @@ function back(params: Record<string, string | undefined>): never {
 }
 
 /**
- * A tela de origem, pelo campo `voltar` (semana=…, visao=mes&mes=… ou aba=arquivo&mes=…). Com `day`, a semana ou o
+ * A tela de origem, pelo campo `voltar` (semana=…, visao=mes&mes=… ou aba=revisao&mes=…&filtro=…). Com `day`, a semana ou o
  * mês passam a ser os do evento (ao criar ou mudar a data, a tela mostra onde ele ficou).
  */
 function origin(formData: FormData, day?: string): Record<string, string | undefined> {
   const query = new URLSearchParams(text(formData, "voltar", 120));
   const month = query.get("mes") ?? "";
   const validMonth = isMonthKey(month) ? month : undefined;
-  if (query.get("aba") === "arquivo") return { aba: "arquivo", mes: validMonth };
+  if (query.get("aba") === "revisao") { const filter = query.get("filtro"); return { aba: "revisao", mes: validMonth, filtro: isReviewFilter(filter) ? filter : undefined }; }
   if (query.get("visao") === "mes") return { visao: "mes", mes: day && isDayKey(day) ? monthOf(day) : validMonth };
   const week = query.get("semana") ?? "";
   return { semana: day && isDayKey(day) ? weekStart(day) : isDayKey(week) ? week : undefined };
@@ -60,13 +59,9 @@ export async function setEventStatusAction(formData: FormData) {
   const id = text(formData, "id", 50);
   const status = text(formData, "status", 20);
   if (status === "DONE" || status === "CANCELLED" || status === "SCHEDULED") await setEventStatus(id, status);
+  // Na Revisão, a lista segue sem abrir o evento (dá para resolver vários seguidos); nas demais telas, ele fica aberto.
   const where = origin(formData);
-  // Reaberto a partir do arquivo: volta para a semana do evento, onde ele reaparece.
-  if (status === "SCHEDULED" && where.aba === "arquivo") {
-    const event = await prisma.calendarEvent.findUnique({ where: { id }, select: { startsAt: true } });
-    back({ semana: event ? weekStart(dayKey(event.startsAt)) : undefined, evento: id, aviso: "reaberto" });
-  }
-  back({ ...where, evento: status === "CANCELLED" ? undefined : id, aviso: status === "CANCELLED" ? "cancelado" : status === "DONE" ? "concluido" : "reaberto" });
+  back({ ...where, evento: status === "CANCELLED" || (where.aba === "revisao" && text(formData, "lista", 1) === "1") ? undefined : id, aviso: status === "CANCELLED" ? "cancelado" : status === "DONE" ? "concluido" : "reaberto" });
 }
 
 /** Setas da semana: passa o evento para o dia anterior ou o seguinte, no mesmo horário. */
@@ -79,18 +74,20 @@ export async function shiftEventAction(formData: FormData) {
   back({ ...origin(formData), ...(text(formData, "manter", 1) === "1" ? { evento: id } : {}), destaque: id, aviso: result.hasContact ? "remarcado-contato" : result.conflicts ? "remarcado-conflito" : "remarcado", dia: result.day });
 }
 
-export async function archiveEventAction(formData: FormData) {
+/** Remarca um esquecido para hoje, amanhã ou outra data, no mesmo horário. */
+export async function rescheduleEventAction(formData: FormData) {
   await requireManagementUser();
-  const archived = text(formData, "arquivar", 1) !== "0";
-  await setEventArchived(text(formData, "id", 50), archived);
-  back({ ...origin(formData), aviso: archived ? "arquivado" : "desarquivado" });
+  const result = await rescheduleCalendarEvent(text(formData, "id", 50), text(formData, "dia", 10));
+  if (!result.ok) back({ ...origin(formData), erro: result.error });
+  back({ ...origin(formData), aviso: result.hasContact ? "remarcado-contato" : result.conflicts ? "remarcado-conflito" : "remarcado", dia: result.day });
 }
 
-/** Arquiva de uma vez os concluídos da semana ou do mês que está na tela. */
-export async function archiveDoneAction(formData: FormData) {
+/** Marca como concluídos, de uma vez, os esquecidos do mês na tela (ou todos). */
+export async function concludeForgottenAction(formData: FormData) {
   await requireManagementUser();
-  const count = await archiveDoneBetween(text(formData, "de", 10), text(formData, "ate", 10));
-  back({ ...origin(formData), aviso: count ? "arquivados" : "nada-arquivar", total: count ? String(count) : undefined });
+  const month = text(formData, "mes", 7);
+  const count = await concludeForgottenEvents(isMonthKey(month) ? month : null);
+  back({ ...origin(formData), aviso: "esquecidos-concluidos", total: String(count) });
 }
 
 export async function deleteEventAction(formData: FormData) {

@@ -4,7 +4,7 @@ import { defineTool } from "@/features/ai/tools/tool";
 import { object, s } from "@/features/ai/tools/schema";
 import { bookAttendanceMeeting, cancelAttendanceMeeting, createCalendarEvent, eventKindLabel, findFreeSlots, getAgendaSettings, saveConversationSummary, setEventStatus } from "@/features/agenda/services/agenda-service";
 import { listEventsBetween } from "@/features/agenda/queries/agenda-queries";
-import { addDays, dayKey, timeOf, todayKey, WEEKDAYS, weekdayOf } from "@/features/agenda/types/agenda";
+import { addDays, dayKey, isForgotten, timeOf, todayKey, WEEKDAYS, weekdayOf } from "@/features/agenda/types/agenda";
 
 /**
  * Agenda. Para você (owner): consultar, criar e cancelar eventos. Para o atendimento (public e client): só os
@@ -21,17 +21,17 @@ const KINDS = { reuniao: "MEETING", compromisso: "APPOINTMENT", demanda: "TASK",
 export const agendaTools = [
   defineTool({
     name: "agenda_listar",
-    description: "Eventos da agenda (reuniões, compromissos, demandas e lembretes) entre duas datas, com horário, cliente ou contato e situação. Sem datas: de hoje até daqui a 7 dias. Concluídos arquivados só com incluir_arquivados.",
+    description: "Eventos da agenda (reuniões, compromissos, demandas e lembretes) entre duas datas, com horário, cliente ou contato e situação. Sem datas: de hoje até daqui a 7 dias. Concluídos vêm junto, com a situação concluído; eventos de dias anteriores que ficaram sem concluir nem cancelar vêm como esquecidos.",
     scopes: ["owner"],
     mutates: false,
-    input: object({ de: s.optional(s.date()), ate: s.optional(s.date()), incluir_cancelados: s.optional(s.boolean()), incluir_arquivados: s.optional(s.boolean()) }),
+    input: object({ de: s.optional(s.date()), ate: s.optional(s.date()), incluir_cancelados: s.optional(s.boolean()) }),
     async run(input) {
       const from = input.de ?? todayKey();
       const to = input.ate ?? addDays(from, 7);
-      const events = await listEventsBetween(from, to, { includeCancelled: input.incluir_cancelados, includeArchived: input.incluir_arquivados, take: 100 });
+      const events = await listEventsBetween(from, to, { includeCancelled: input.incluir_cancelados, take: 100 });
       return {
         periodo: { de: from, ate: to },
-        eventos: events.map((event) => ({ id: event.id, titulo: event.title, tipo: eventKindLabel(event.kind), data: dayKey(event.startsAt), dia: WEEKDAYS[weekdayOf(dayKey(event.startsAt))], inicio: timeOf(event.startsAt), fim: timeOf(event.endsAt), situacao: event.status === "CANCELLED" ? "cancelado" : event.archivedAt ? "concluído e arquivado" : event.status === "DONE" ? "concluído" : "marcado", remarcado: event.rescheduledCount ? `${event.rescheduledCount}×, originalmente ${dayKey(event.rescheduledFrom!)} ${timeOf(event.rescheduledFrom!)}` : undefined, cliente: event.client?.name ?? event.contactName ?? null, local: event.location, origem: event.source === "ia-atendimento" ? "marcado pela assistente no atendimento" : undefined, link: `/agenda?evento=${event.id}` })),
+        eventos: events.map((event) => ({ id: event.id, titulo: event.title, tipo: eventKindLabel(event.kind), data: dayKey(event.startsAt), dia: WEEKDAYS[weekdayOf(dayKey(event.startsAt))], inicio: timeOf(event.startsAt), fim: timeOf(event.endsAt), situacao: event.status === "CANCELLED" ? "cancelado" : isForgotten(event) ? "esquecido (passou sem ser concluído)" : event.status === "DONE" ? "concluído" : "marcado", remarcado: event.rescheduledCount ? `${event.rescheduledCount}×, originalmente ${dayKey(event.rescheduledFrom!)} ${timeOf(event.rescheduledFrom!)}` : undefined, cliente: event.client?.name ?? event.contactName ?? null, local: event.location, origem: event.source === "ia-atendimento" ? "marcado pela assistente no atendimento" : undefined, link: `/agenda?evento=${event.id}` })),
       };
     },
   }),
