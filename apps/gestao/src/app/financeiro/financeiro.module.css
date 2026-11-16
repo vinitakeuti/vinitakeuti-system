@@ -3185,3 +3185,8 @@
   grid-column: 1 / -1;
   color: var(--muted);
 }
+
+/* Painéis com o campo de contraparte: a lista de clientes passa da borda do painel em vez de ser cortada por ela. */
+.entryPanel:has(:global(.counterparty-field)) {
+  overflow: visible;
+}
