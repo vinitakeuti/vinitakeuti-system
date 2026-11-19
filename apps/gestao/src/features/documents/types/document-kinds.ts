@@ -13,6 +13,8 @@ export type DocumentKindInfo = {
   slug: string;
   name: string;
   shortName: string;
+  /** Nome curto com o artigo, para frases ("Escrever a proposta", "Descreva o contrato"). */
+  withArticle: string;
   description: string;
   /** Rótulo da capa e do cabeçalho das páginas. */
   coverLabel: string;
@@ -33,6 +35,7 @@ export const DOCUMENT_KINDS: DocumentKindInfo[] = [
     slug: "proposta",
     name: "Proposta comercial",
     shortName: "Proposta",
+    withArticle: "a proposta",
     description: "Serviços, valores, pagamentos e condições. Folha final de investimento e aceite.",
     coverLabel: "PROPOSTA COMERCIAL",
     codePrefix: "ORC",
@@ -46,6 +49,7 @@ export const DOCUMENT_KINDS: DocumentKindInfo[] = [
     slug: "contrato",
     name: "Contrato de prestação de serviço",
     shortName: "Contrato",
+    withArticle: "o contrato",
     description: "Objeto, obrigações, prazos, valores e cláusulas. Folha final de assinaturas com testemunhas.",
     coverLabel: "CONTRATO DE PRESTAÇÃO DE SERVIÇO",
     codePrefix: "CTR",
@@ -59,6 +63,7 @@ export const DOCUMENT_KINDS: DocumentKindInfo[] = [
     slug: "cessao",
     name: "Cessão de transferência de propriedade",
     shortName: "Cessão",
+    withArticle: "a cessão",
     description: "Transferência dos direitos patrimoniais sobre o que foi desenvolvido. Folha final de assinaturas com testemunhas.",
     coverLabel: "CESSÃO DE TRANSFERÊNCIA DE PROPRIEDADE",
     codePrefix: "CES",
@@ -72,6 +77,7 @@ export const DOCUMENT_KINDS: DocumentKindInfo[] = [
     slug: "memorial",
     name: "Documentação do projeto / Memorial técnico",
     shortName: "Memorial técnico",
+    withArticle: "o memorial técnico",
     description: "Escopo entregue, funcionalidades, arquitetura e tecnologias. Folha final de recebimento.",
     coverLabel: "MEMORIAL TÉCNICO",
     codePrefix: "MEM",
@@ -85,6 +91,7 @@ export const DOCUMENT_KINDS: DocumentKindInfo[] = [
     slug: "livre",
     name: "Documento livre",
     shortName: "Documento livre",
+    withArticle: "o documento",
     description: "Cabeçalho padrão e capa opcional, sem folha final. Com ou sem cliente vinculado.",
     coverLabel: "DOCUMENTO",
     codePrefix: "DOC",

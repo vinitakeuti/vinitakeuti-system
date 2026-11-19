@@ -15,7 +15,7 @@ function QuoteCreationSteps({ clientSelected }: { clientSelected: boolean }) {
     <li className={clientSelected ? "is-current" : ""}><span>02</span><div><b>Proposta</b><small>Título</small></div></li>
     <li><span>03</span><div><b>Serviços</b><small>Valores e desconto</small></div></li>
     <li><span>04</span><div><b>Pagamentos</b><small>Opcional</small></div></li>
-    <li><span>05</span><div><b>Condições</b><small>Validade e termos</small></div></li>
+    <li><span>05</span><div><b>Validade</b><small>Opcional</small></div></li>
   </ol>;
 }
 
@@ -37,7 +37,7 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
       <section className="quote-form-section quote-form-stage-proposal"><StepHeading step="02" eyebrow="Proposta" title="Dê um título à proposta" description="É o primeiro elemento do documento e o nome que o cliente vai reconhecer no PDF." /><div className="form-grid"><label className="form-wide">Título da proposta <em>Obrigatório</em><input name="title" required maxLength={180} autoFocus placeholder="Ex.: Plataforma de gestão comercial" /><small>Use um nome direto, que descreva a entrega.</small></label></div></section>
       <section className="quote-form-section quote-form-stage-services"><StepHeading step="03" eyebrow="Serviços e valores" title="Adicione os serviços" description="Busque no catálogo ou filtre por categoria. Os serviços ficam agrupados por categoria e cada linha usa sua própria regra: valor fechado, por hora, por dia ou definido nesta proposta." /><QuoteServicePicker /></section>
       <section className="quote-form-section quote-form-stage-payments"><StepHeading step="04" eyebrow="Pagamentos" title="Pagamentos já recebidos" description="Opcional. Registre sinais ou parcelas que o cliente já pagou. O saldo a receber aparece na folha final do PDF." /><QuotePaymentsFields /></section>
-      <section className="quote-form-section quote-form-stage-conditions"><StepHeading step="05" eyebrow="Validade e condições" title="Defina as condições" description="Validade da proposta e condições comerciais que acompanham o PDF." /><div className="form-grid"><label>Válido até<input name="validUntil" type="date" /><small>Opcional. Define até quando a proposta pode ser aceita.</small></label><label className="form-wide">Condições comerciais<textarea name="terms" maxLength={4000} placeholder="Ex.: Pagamento em duas etapas, prazo de suporte e itens não inclusos." /><small>Opcional. Registre forma de pagamento, inclusões ou limites da proposta.</small></label></div></section>
+      <section className="quote-form-section quote-form-stage-conditions"><StepHeading step="05" eyebrow="Validade" title="Até quando vale a proposta" description="As condições de pagamento e a forma de mostrar o valor (cheio, parcelado ou os dois) você define na página final, no editor de PDF." /><div className="form-grid"><label>Válido até<input name="validUntil" type="date" /><small>Opcional. Define até quando a proposta pode ser aceita.</small></label></div></section>
       <div className="form-actions quote-form-actions"><Link className="text-link" href="/documentos">Cancelar</Link><button className="primary-action" type="submit">Salvar e editar PDF</button></div>
     </form>}
   </section></div></main>;

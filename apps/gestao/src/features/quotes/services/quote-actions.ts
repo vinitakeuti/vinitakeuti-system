@@ -140,7 +140,7 @@ export async function updateQuoteAction(formData: FormData) {
   if (!paymentResult.ok) redirect(withError(`/orcamentos/${quoteId}/editar`, paymentResult.error));
   const { payments, paymentNotes } = paymentResult;
   const validUntilRaw = text(formData, "validUntil", 10);
-  await prisma.quote.update({ where: { id: quoteId }, data: { title, estimatedHours: 0, estimatedDays: 0, pricingMethod: "FIXED", pricingRateCents: null, amountCents, discountCents, discountPercentBps, terms: text(formData, "terms", 4_000) || null, validUntil: validUntilRaw ? new Date(`${validUntilRaw}T12:00:00.000Z`) : null, paymentNotes, items: { deleteMany: {}, create: items }, payments: { deleteMany: {}, create: payments } } });
+  await prisma.quote.update({ where: { id: quoteId }, data: { title, estimatedHours: 0, estimatedDays: 0, pricingMethod: "FIXED", pricingRateCents: null, amountCents, discountCents, discountPercentBps, ...(formData.has("terms") ? { terms: text(formData, "terms", 4_000) || null } : {}), validUntil: validUntilRaw ? new Date(`${validUntilRaw}T12:00:00.000Z`) : null, paymentNotes, items: { deleteMany: {}, create: items }, payments: { deleteMany: {}, create: payments } } });
   // Venda já confirmada: os pagamentos da proposta acompanham a entrada no Financeiro.
   await prisma.$transaction(async (tx) => {
     const entryId = await syncQuotePayments(tx, quoteId);

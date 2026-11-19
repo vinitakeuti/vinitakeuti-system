@@ -69,7 +69,60 @@ export type QuoteDocumentContent = {
   blocks: QuoteDocumentBlock[];
   /** Somente no documento livre. */
   cover?: DocumentCoverSettings;
+  /** Somente na proposta: como o valor aparece na página final e as condições de pagamento. */
+  closing?: QuoteClosingSettings;
 };
+
+/** Valor na página final da proposta: o total, as parcelas ou os dois ("R$ 12.000,00 ou 6 × R$ 2.000,00"). */
+export type QuoteClosingValueDisplay = "total" | "installments" | "both";
+export const QUOTE_CLOSING_MIN_INSTALLMENTS = 2;
+export const QUOTE_CLOSING_MAX_INSTALLMENTS = 60;
+export const QUOTE_TERMS_MAX_LENGTH = 4_000;
+
+/**
+ * Página final da proposta. `terms` (condições de pagamento) é escrito no editor junto com o documento, mas fica
+ * gravado na coluna `terms` do orçamento, que a gestão e a Eliza também leem; no JSON do documento ficam só a forma
+ * de mostrar o valor e o número de parcelas.
+ */
+export type QuoteClosingSettings = { value: QuoteClosingValueDisplay; installments: number; terms?: string };
+
+export const defaultQuoteClosing = (): QuoteClosingSettings => ({ value: "total", installments: QUOTE_CLOSING_MIN_INSTALLMENTS });
+
+function parseClosingSettings(value: unknown): QuoteClosingSettings | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const closing = value as Partial<Record<keyof QuoteClosingSettings, unknown>>;
+  const display = closing.value === "installments" || closing.value === "both" ? closing.value : "total";
+  const count = typeof closing.installments === "number" && Number.isFinite(closing.installments) ? Math.round(closing.installments) : QUOTE_CLOSING_MIN_INSTALLMENTS;
+  const installments = Math.min(QUOTE_CLOSING_MAX_INSTALLMENTS, Math.max(QUOTE_CLOSING_MIN_INSTALLMENTS, count));
+  const terms = typeof closing.terms === "string" ? closing.terms.replace(/\r\n?/g, "\n").trim().slice(0, QUOTE_TERMS_MAX_LENGTH) : undefined;
+  return { value: display, installments, ...(terms === undefined ? {} : { terms }) };
+}
+
+/** Parcelas iguais; a diferença dos centavos vai para a última, como no Financeiro. */
+export function splitInstallments(totalCents: number, count: number) {
+  const each = Math.floor(totalCents / count);
+  return { count, each, last: totalCents - each * (count - 1) };
+}
+
+type ClosingRow = { label: string; value: string };
+
+/**
+ * Linhas de valor da página final, iguais na prévia do editor e no PDF. Com pagamentos já recebidos, as parcelas
+ * dividem o saldo a receber. Sem saldo (ou com saldo menor que um centavo por parcela), mostra só o total.
+ */
+export function quoteClosingRows({ totalCents, paidCents, hasPayments, settings, format }: { totalCents: number; paidCents: number; hasPayments: boolean; settings: Pick<QuoteClosingSettings, "value" | "installments"> | undefined; format: (cents: number) => string }) {
+  const balanceCents = Math.max(0, totalCents - paidCents);
+  const base = hasPayments ? balanceCents : totalCents;
+  const wanted = settings?.value ?? "total";
+  const plan = wanted !== "total" && settings && base >= settings.installments ? splitInstallments(base, settings.installments) : null;
+  const display = plan ? wanted : "total";
+  const planText = plan ? `${plan.count} × ${format(plan.each)}` : "";
+  const primary: ClosingRow = display === "installments" && !hasPayments ? { label: `INVESTIMENTO EM ${plan!.count} PARCELAS`, value: planText } : { label: "INVESTIMENTO TOTAL", value: format(totalCents) };
+  const balance: ClosingRow | null = !hasPayments ? null : display === "installments" ? { label: `SALDO EM ${plan!.count} PARCELAS`, value: planText } : { label: "SALDO A RECEBER", value: format(balanceCents) };
+  const alternative: ClosingRow | null = display === "both" ? { label: `OU EM ${plan!.count} PARCELAS`, value: planText } : null;
+  const note = plan && plan.last !== plan.each ? `A última parcela é de ${format(plan.last)}.` : null;
+  return { primary, balance, alternative, note };
+}
 
 /** Capa do documento livre antes da primeira edição: incluída, sem rótulo e com o título do documento. */
 export function defaultFreeCover(title: string): DocumentCoverSettings {
@@ -157,7 +210,7 @@ export function withQuoteServiceBlocks(content: QuoteDocumentContent, services: 
 
 export function parseQuoteDocumentContent(value: unknown, fallback: { title: string; clientName: string }): QuoteDocumentContent {
   if (!value || typeof value !== "object" || Array.isArray(value)) return createDefaultQuoteDocument(fallback);
-  const candidate = value as { version?: unknown; blocks?: unknown; cover?: unknown };
+  const candidate = value as { version?: unknown; blocks?: unknown; cover?: unknown; closing?: unknown };
   if (candidate.version !== 1 || !Array.isArray(candidate.blocks)) return createDefaultQuoteDocument(fallback);
   // Um documento grande demais é limitado, nunca trocado por um documento vazio.
   const blocks = candidate.blocks.slice(0, QUOTE_DOCUMENT_MAX_BLOCKS).flatMap((block, index): QuoteDocumentBlock[] => {
@@ -180,7 +233,29 @@ export function parseQuoteDocumentContent(value: unknown, fallback: { title: str
   const withoutLegacyDefaults = blocks.filter((block) => !(block.id === "intro-title" || (block.id === "intro-client" && block.text === `Olá, ${fallback.clientName}.`) || (block.id === "intro-body" && block.text === "Preparamos esta proposta com os serviços, prazos e investimento apresentados a seguir.")));
   const content = withoutLegacyDefaults.length ? { version: 1 as const, blocks: withoutLegacyDefaults } : createDefaultQuoteDocument(fallback);
   const cover = parseCoverSettings(candidate.cover);
-  return cover ? { ...content, cover } : content;
+  const closing = parseClosingSettings(candidate.closing);
+  return { ...uniqueBlockIds(content), ...(cover ? { cover } : {}), ...(closing ? { closing } : {}) };
+}
+
+/**
+ * Ids repetidos quebram o editor (a tela perde blocos e o texto some). Um documento salvo assim é consertado ao
+ * abrir: a segunda ocorrência ganha um id novo, e um texto livre repetido vira continuação do texto anterior.
+ */
+export function uniqueBlockIds(content: QuoteDocumentContent): QuoteDocumentContent {
+  const seen = new Set<string>();
+  let changed = false;
+  const blocks = content.blocks.map((block, index) => {
+    if (!seen.has(block.id)) {
+      seen.add(block.id);
+      return block;
+    }
+    changed = true;
+    let id = block.type === "rich-text" && (block.id === QUOTE_INTRO_BLOCK_ID || block.id.startsWith("text-")) ? `text-${index}` : `${block.id}-${index}`;
+    for (let suffix = 2; seen.has(id); suffix += 1) id = `${id}-${suffix}`;
+    seen.add(id);
+    return { ...block, id };
+  });
+  return changed ? { ...content, blocks } : content;
 }
 
 export const QUOTE_INTRO_BLOCK_ID = "intro-text";

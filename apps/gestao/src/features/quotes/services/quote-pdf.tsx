@@ -7,7 +7,7 @@ import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TE
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
 import { FreeDocumentCover, TextDocumentCover } from "@/features/quotes/services/pdf-covers";
 import type { ParsedSignature } from "@/features/professional-profile/services/signature";
-import { QUOTE_PAGE_CONTENT_WIDTH, quoteDocumentBlockRole, quoteImageWidthShare, type DocumentCoverSettings, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
+import { QUOTE_PAGE_CONTENT_WIDTH, quoteClosingRows, quoteDocumentBlockRole, quoteImageWidthShare, type DocumentCoverSettings, type QuoteDocumentBlock, type QuoteDocumentContent } from "@/features/quotes/types/document-content";
 
 type Style = Exclude<ComponentProps<typeof View>["style"], unknown[] | undefined>;
 
@@ -351,7 +351,8 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
   const validity = quote.validUntil ? date.format(quote.validUntil) : "Conforme proposta";
   const payments = quote.payments ?? [];
   const paidCents = payments.reduce((total, payment) => total + payment.amountCents, 0);
-  const balanceCents = Math.max(0, totalCents - paidCents);
+  // Valor na página final: total, parcelas ou os dois, como escolhido no editor.
+  const investment = quoteClosingRows({ totalCents, paidCents, hasPayments: payments.length > 0, settings: quote.documentContent?.closing, format: formatMoney });
   const titleLayout = coverTitleLayout(quote.title);
   const contentBlocks = quote.documentContent?.blocks.filter((block) => block.id !== "intro-title") ?? [];
   const signaturePlace = [quote.professional.city, quote.professional.state].filter(Boolean).join(" / ");
@@ -442,13 +443,15 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
               <View style={styles.closingSummaryLine}><Text>Subtotal</Text><Text>{formatMoney(subtotalCents)}</Text></View>
               <View style={styles.closingSummaryLine}><Text>{quote.discountPercentBps ? `Desconto (${(quote.discountPercentBps / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)` : "Desconto"}</Text><Text>- {formatMoney(discountCents)}</Text></View>
             </> : null}
-            <View style={[styles.closingSummaryTotal, discountCents > 0 ? {} : { borderTopWidth: 0, marginTop: 0, paddingTop: 2 }]}><Text style={styles.closingSummaryTotalLabel}>INVESTIMENTO TOTAL</Text><Text style={styles.closingSummaryTotalValue}>{formatMoney(totalCents)}</Text></View>
+            <View style={[styles.closingSummaryTotal, discountCents > 0 ? {} : { borderTopWidth: 0, marginTop: 0, paddingTop: 2 }]}><Text style={styles.closingSummaryTotalLabel}>{investment.primary.label}</Text><Text style={styles.closingSummaryTotalValue}>{investment.primary.value}</Text></View>
             {payments.map((payment, index) => <View style={styles.closingSummaryPayment} key={`${payment.paidAt.toISOString()}-${index}`}><Text>Pago em {shortDate.format(payment.paidAt)}</Text><Text>- {formatMoney(payment.amountCents)}</Text></View>)}
-            {payments.length ? <View style={styles.closingSummaryBalance}><Text style={styles.closingSummaryTotalLabel}>SALDO A RECEBER</Text><Text style={styles.closingSummaryBalanceValue}>{formatMoney(balanceCents)}</Text></View> : null}
+            {investment.balance ? <View style={styles.closingSummaryBalance}><Text style={styles.closingSummaryTotalLabel}>{investment.balance.label}</Text><Text style={styles.closingSummaryBalanceValue}>{investment.balance.value}</Text></View> : null}
+            {investment.alternative ? <View style={styles.closingSummaryBalance}><Text style={styles.closingSummaryTotalLabel}>{investment.alternative.label}</Text><Text style={styles.closingSummaryBalanceValue}>{investment.alternative.value}</Text></View> : null}
+            {investment.note ? <Text style={styles.closingSummaryNote}>{investment.note}</Text> : null}
             {quote.paymentNotes ? <Text style={styles.closingSummaryNote}>{quote.paymentNotes}</Text> : null}
           </View>
 
-          {quote.terms ? <View><SectionHeading compact>Condições comerciais</SectionHeading><Text style={styles.closingTerms}>{quote.terms}</Text></View> : null}
+          {quote.terms?.trim() ? <View><SectionHeading compact>Condições de pagamento</SectionHeading><Text style={styles.closingTerms}>{quote.terms.trim()}</Text></View> : null}
 
           <View style={styles.closingSpacer} />
           <View style={styles.closingAcceptance} wrap={false}>

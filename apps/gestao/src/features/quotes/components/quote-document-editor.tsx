@@ -9,7 +9,7 @@ import type { EditorPart } from "@/features/ai/services/document-markdown";
 import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest, type RichTextListChoice, type RichTextSelectionFormat } from "@/features/services/components/service-proposal-editor";
 import { DocumentSignaturePreview, QuoteClosingPreview, QuoteCoverPreview, type DocumentCoverData, type QuotePreviewData, type SignaturePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
-import { COVER_LABEL_MAX_LENGTH, COVER_TITLE_MAX_LENGTH, defaultFreeCover, type DocumentCoverSettings, hasQuoteServicesComponent, type QuoteDividerStyle, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
+import { COVER_LABEL_MAX_LENGTH, COVER_TITLE_MAX_LENGTH, defaultFreeCover, defaultQuoteClosing, type DocumentCoverSettings, QUOTE_CLOSING_MAX_INSTALLMENTS, QUOTE_CLOSING_MIN_INSTALLMENTS, type QuoteClosingSettings, type QuoteClosingValueDisplay, uniqueBlockIds, hasQuoteServicesComponent, type QuoteDividerStyle, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
 import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, richTextHasContent, RICH_TEXT_COLORS, RICH_TEXT_SIZES, serializeRichText, type RichTextAlign, type RichTextBlock, type RichTextBox, type RichTextColor, type RichTextParagraphStyle } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
@@ -133,8 +133,11 @@ function normalizeFlow(blocks: QuoteDocumentBlock[], stableIds = false) {
     for (let suffix = 2; stableIds && output.some((block) => block.id === id); suffix += 1) id = `${CONTINUATION_TEXT_PREFIX}end-${suffix}`;
     output.push(stableIds ? newTextBlock("", id) : newTextBlock(""));
   }
-  return output;
+  // Dois blocos com o mesmo id fazem a tela perder texto: nunca deixa passar.
+  return uniqueBlockIds({ version: 1, blocks: output }).blocks;
 }
+
+const CLOSING_VALUE_OPTIONS: Array<{ value: QuoteClosingValueDisplay; label: string }> = [{ value: "total", label: "Valor cheio" }, { value: "installments", label: "Parcelado" }, { value: "both", label: "As duas formas" }];
 
 /** Elementos que correspondem, em ordem, aos itens de um texto: parágrafos e itens de lista. */
 function atomElements(editor: Element) {
@@ -519,9 +522,14 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
   const [layout, setLayout] = useState<FlowLayout>(initialLayout);
   const layoutRef = useRef(layout);
-  const [showClosing, setShowClosing] = useState(false);
+  // Na proposta a página final aparece aberta: é nela que se escrevem as condições de pagamento.
+  const [showClosing, setShowClosing] = useState(kind === "proposal");
+  const termsRef = useRef<HTMLTextAreaElement | null>(null);
+  const termsConfirmedRef = useRef(false);
+  const [installmentsDraft, setInstallmentsDraft] = useState(String(initialContent.closing?.installments ?? QUOTE_CLOSING_MIN_INSTALLMENTS));
   const [imageUpload, setImageUpload] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const openAssistant = useCallback(() => setAssistantOpen(true), []);
   const closeAssistant = useCallback(() => setAssistantOpen(false), []);
   const sheetRef = useRef<HTMLElement>(null);
   const flowRef = useRef<HTMLDivElement>(null);
@@ -686,6 +694,17 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
 
   /** SALVAR e CONCLUIR esperam um salvamento automático em andamento, para a versão mais nova ser a última gravada. */
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    // Concluir a proposta com as condições de pagamento em branco pede confirmação e leva até o campo.
+    const intent = ((event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value;
+    if (closing.type === "investment" && intent === "complete" && !isCompleted && !termsConfirmedRef.current && !(contentRef.current.closing?.terms ?? "").trim()) {
+      if (!window.confirm("As condições de pagamento estão em branco. Concluir a proposta sem elas?")) {
+        event.preventDefault();
+        setShowClosing(true);
+        requestAnimationFrame(() => { termsRef.current?.scrollIntoView({ block: "center" }); termsRef.current?.focus({ preventScroll: true }); });
+        return;
+      }
+      termsConfirmedRef.current = true;
+    }
     clearTimeout(autosaveTimerRef.current);
     if (inFlightRef.current) {
       event.preventDefault();
@@ -707,6 +726,19 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     writeContent(next);
     setContent(next);
     if (focus) setFocusRequest(focus);
+  }
+
+  /** Página final da proposta: forma de mostrar o valor, número de parcelas e condições de pagamento. */
+  function updateClosing(patch: Partial<QuoteClosingSettings>) {
+    const next = { ...contentRef.current, closing: { ...(contentRef.current.closing ?? defaultQuoteClosing()), ...patch } };
+    writeContent(next);
+    setContent(next);
+  }
+
+  function changeInstallments(value: string) {
+    setInstallmentsDraft(value);
+    const count = Math.floor(Number(value));
+    if (Number.isFinite(count) && count >= QUOTE_CLOSING_MIN_INSTALLMENTS && count <= QUOTE_CLOSING_MAX_INSTALLMENTS) updateClosing({ installments: count });
   }
 
   function updateCover(patch: Partial<DocumentCoverSettings>) {
@@ -765,13 +797,18 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
       // No fim: os serviços só entram se ainda não estiverem no documento.
       const { blocks } = blocksFromParts(parts, { servicesGroup: currentServices.length ? null : quoteServiceComponentBlocks(services) });
       const last = before.at(-1);
-      applyBlocks([...(isFreeText(last) && !richTextHasContent(last!.text) ? before.slice(0, -1) : before), ...blocks]);
+      const firstText = blocks.find((block) => block.type === "rich-text");
+      applyBlocks([...(isFreeText(last) && !richTextHasContent(last!.text) ? before.slice(0, -1) : before), ...blocks], firstText ? { blockId: firstText.id, edge: "start" } : undefined);
     } else {
       // Substituir: o documento novo toma o lugar dos textos, linhas e quebras de página. Os serviços vão para onde a
-      // Eliza os pôs (ou para depois do texto); imagens continuam, depois dele.
-      const built = blocksFromParts(parts, { firstTextId: QUOTE_INTRO_BLOCK_ID, servicesGroup: currentServices.length ? currentServices : quoteServiceComponentBlocks(services) });
+      // Eliza os pôs (ou para depois do texto); imagens continuam, depois dele. O documento sempre começa pelo texto de
+      // apresentação: se a Eliza abriu com um componente (linha, serviços), entra um texto vazio antes dele. O id da
+      // apresentação só é dado aqui, uma vez, para não haver dois blocos com o mesmo id.
+      const built = blocksFromParts(parts, { servicesGroup: currentServices.length ? currentServices : quoteServiceComponentBlocks(services) });
       const kept = before.filter((block) => !isFreeText(block) && block.type !== "divider" && block.type !== "page-break" && !(built.servicesPlaced && isServiceBlock(block)));
-      applyBlocks([...(built.blocks[0]?.type === "rich-text" ? [] : [newTextBlock("", QUOTE_INTRO_BLOCK_ID)]), ...built.blocks, ...kept]);
+      const [first, ...rest] = built.blocks;
+      const lead = first?.type === "rich-text" ? [{ ...first, id: QUOTE_INTRO_BLOCK_ID }, ...rest] : [newTextBlock("", QUOTE_INTRO_BLOCK_ID), ...built.blocks];
+      applyBlocks([...lead, ...kept], { blockId: QUOTE_INTRO_BLOCK_ID, edge: "start" });
     }
     return () => applyBlocks(before);
   }
@@ -1194,13 +1231,17 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
             <div className="quote-sheet-break-start">{pageHeader(`header-${index}`)}</div>
           </div>)}
         </article>
-        {closing.type === "none" ? null : <><div className="quote-docs-closing-toggle">
-          <div><span>Página final</span><small>{closing.type === "investment" ? "Investimento, condições e aceite. Gerada a partir dos valores do orçamento." : kindInfo.closing?.witnesses ? "Assinaturas das partes e das testemunhas." : "Declaração de recebimento e assinaturas."}</small></div>
+        {closing.type === "none" ? null : <><div className={`quote-docs-closing-toggle${closing.type === "investment" && showClosing ? " has-options" : ""}`}>
+          <div><span>Página final</span><small>{closing.type === "investment" ? "Investimento, condições de pagamento e aceite. Os valores vêm do orçamento." : kindInfo.closing?.witnesses ? "Assinaturas das partes e das testemunhas." : "Declaração de recebimento e assinaturas."}</small></div>
           <button type="button" className="secondary-action" aria-expanded={showClosing} onClick={() => setShowClosing((value) => !value)}>{showClosing ? "Ocultar página final" : "Exibir página final"}</button>
+          {closing.type === "investment" && showClosing ? <div className="quote-docs-closing-options" onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }}>
+            <fieldset className="quote-docs-segmented"><legend>Valor na página final</legend><div>{CLOSING_VALUE_OPTIONS.map((option) => <label key={option.value}><input type="radio" name="closing-value" value={option.value} checked={(content.closing?.value ?? "total") === option.value} onChange={() => updateClosing({ value: option.value })} /><span>{option.label}</span></label>)}</div></fieldset>
+            {(content.closing?.value ?? "total") === "total" ? null : <label className="quote-docs-installments"><span>Parcelas</span><input type="number" inputMode="numeric" min={QUOTE_CLOSING_MIN_INSTALLMENTS} max={QUOTE_CLOSING_MAX_INSTALLMENTS} value={installmentsDraft} onChange={(event) => changeInstallments(event.target.value)} onBlur={() => setInstallmentsDraft(String(contentRef.current.closing?.installments ?? QUOTE_CLOSING_MIN_INSTALLMENTS))} /></label>}
+          </div> : null}
         </div>
-        {showClosing ? closing.type === "investment" ? <QuoteClosingPreview quote={closing.quote} professional={professional} pageNumber={totalPages} /> : <DocumentSignaturePreview document={closing.document} professional={professional} kind={kind} pageNumber={totalPages} /> : null}</>}
+        {showClosing ? closing.type === "investment" ? <QuoteClosingPreview quote={closing.quote} professional={professional} pageNumber={totalPages} settings={content.closing ?? defaultQuoteClosing()} onTermsChange={(terms) => updateClosing({ terms })} termsRef={termsRef} /> : <DocumentSignaturePreview document={closing.document} professional={professional} kind={kind} pageNumber={totalPages} /> : null}</>}
       </div>
     </section>
-    <DocumentAssistant open={assistantOpen} onClose={closeAssistant} target={{ alvo: kind === "proposal" ? "proposta" : "documento", id: documentId }} kindName={kindInfo.shortName} readBlocks={assistantBlocks} hasText={documentHasText} onWrite={applyAssistantWrite} onImprove={applyAssistantImprove} />
+    <DocumentAssistant open={assistantOpen} onOpen={openAssistant} onClose={closeAssistant} target={{ alvo: kind === "proposal" ? "proposta" : "documento", id: documentId }} kindLabel={kindInfo.withArticle} readBlocks={assistantBlocks} hasText={documentHasText} onWrite={applyAssistantWrite} onImprove={applyAssistantImprove} />
   </form>;
 }

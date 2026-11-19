@@ -14,7 +14,8 @@ export async function saveClientDocument(documentId: string, rawDocument: unknow
   if (!document) return { ok: false, status: 404, error: "Documento não encontrado." };
   const parsed = parseQuoteDocumentContent(rawDocument, { title: document.title, clientName: document.client?.name ?? "" });
   // Só o documento livre tem capa configurável; o título da capa passa a ser o título do documento.
-  const { cover, ...withoutCover } = parsed;
+  // A página final de investimento é só da proposta.
+  const { cover, closing: _closing, ...withoutCover } = parsed;
   const documentContent = document.kind === "FREE" ? { ...withoutCover, cover: cover ?? defaultFreeCover(document.title) } : withoutCover;
   const title = document.kind === "FREE" && cover?.title ? cover.title : document.title;
   const completing = Boolean(options.complete && !document.completedAt);

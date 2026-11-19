@@ -5,7 +5,7 @@ import { SidebarToggle } from "@/components/sidebar-toggle";
 import { QuoteDocumentEditor } from "@/features/quotes/components/quote-document-editor";
 import { getQuoteForPdf } from "@/features/quotes/queries/quote-queries";
 import type { QuotePreviewData } from "@/features/quotes/components/quote-document-previews";
-import { parseQuoteDocumentContent, QUOTE_TEXT_MAX_CHARACTERS, withQuoteIntroBlock, withQuoteServiceBlocks } from "@/features/quotes/types/document-content";
+import { defaultQuoteClosing, parseQuoteDocumentContent, QUOTE_TEXT_MAX_CHARACTERS, withQuoteIntroBlock, withQuoteServiceBlocks } from "@/features/quotes/types/document-content";
 import { getProfessionalProfileForDocuments } from "@/features/professional-profile/queries/professional-profile-queries";
 import { getQuoteTextTemplate } from "@/features/quotes/queries/quote-text-template-queries";
 import { richTextForStorage } from "@/lib/rich-text";
@@ -19,7 +19,8 @@ export default async function QuoteDocumentEditorPage({ params, searchParams }: 
   if (!quote) notFound();
   // Serviços incluídos é um componente inserido pelo editor. Só documentos antigos, nunca salvos, recebem a seção automaticamente.
   const parsed = parseQuoteDocumentContent(quote.documentContent, { title: quote.title, clientName: quote.client.name });
-  const content = withQuoteIntroBlock(quote.documentContent == null ? withQuoteServiceBlocks(parsed, quote.items) : parsed);
+  // Página final: a forma de mostrar o valor vem do documento; as condições de pagamento, da coluna do orçamento.
+  const content = { ...withQuoteIntroBlock(quote.documentContent == null ? withQuoteServiceBlocks(parsed, quote.items) : parsed), closing: { ...(parsed.closing ?? defaultQuoteClosing()), terms: quote.terms ?? "" } };
   const preview: QuotePreviewData = {
     id: quote.id,
     code: quote.code,

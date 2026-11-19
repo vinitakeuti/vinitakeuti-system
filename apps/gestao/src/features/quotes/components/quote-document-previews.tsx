@@ -1,9 +1,9 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import type { CSSProperties } from "react";
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { ASSIGNMENT_COVER_COLORS, BRAND_MARK_PATHS, BRAND_MARK_TRANSFORM, BRAND_MARK_VIEWBOX, CONTRACT_COVER_COLORS, coverTitleLayout, coverTitleSize, FREE_COVER_COLORS, FREE_COVER_LAYOUT, freeCoverTitleSize, MEMORIAL_COVER_COLORS, MEMORIAL_GRID, pointsToCoverCqw } from "@/features/quotes/types/brand-mark";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
 import type { ParsedSignature } from "@/features/professional-profile/services/signature";
+import { quoteClosingRows, QUOTE_TERMS_MAX_LENGTH, type QuoteClosingSettings } from "@/features/quotes/types/document-content";
 
 function BrandMark({ className }: { className: string }) {
   return <svg className={className} viewBox={BRAND_MARK_VIEWBOX} aria-hidden="true" focusable="false"><g transform={BRAND_MARK_TRANSFORM}>{BRAND_MARK_PATHS.map((d) => <path key={d} d={d} />)}</g></svg>;
@@ -235,19 +235,43 @@ export function QuoteCoverPreview({ quote, professional, kind = "proposal", labe
   </div>;
 }
 
-/** Réplica somente leitura da folha final do PDF (faixa de investimento, composição, pagamentos, condições e aceite). */
-export function QuoteClosingPreview({ quote, professional, pageNumber }: { quote: QuotePreviewData; professional: QuotePreviewProfessional; pageNumber: number }) {
+/** Condições de pagamento na própria folha: cresce com o texto, como o parágrafo que sai no PDF. */
+function TermsTextarea({ value, onChange, textareaRef }: { value: string; onChange: (value: string) => void; textareaRef?: RefObject<HTMLTextAreaElement | null> }) {
+  const ownRef = useRef<HTMLTextAreaElement | null>(null);
+  useLayoutEffect(() => {
+    const fit = () => {
+      const field = ownRef.current;
+      if (!field) return;
+      field.style.height = "auto";
+      field.style.height = `${field.scrollHeight}px`;
+    };
+    fit();
+    // A folha acompanha a largura da tela: a fonte muda e a altura precisa ser refeita.
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [value]);
+  return <textarea ref={(node) => { ownRef.current = node; if (textareaRef) textareaRef.current = node; }} className="quote-closing-terms" aria-label="Condições de pagamento" value={value} maxLength={QUOTE_TERMS_MAX_LENGTH} rows={2} placeholder="Escreva aqui as condições de pagamento: forma (Pix, boleto, cartão), entrada, datas das parcelas, multa por atraso. Em branco, a seção não sai no PDF." onChange={(event) => onChange(event.target.value)} />;
+}
+
+/**
+ * Folha final do PDF (faixa de investimento, composição, pagamentos, condições e aceite). Os valores vêm do orçamento
+ * e aparecem como escolhido em `settings` (total, parcelas ou os dois); as condições de pagamento são escritas aqui
+ * mesmo, na folha, quando `onTermsChange` é informado.
+ */
+export function QuoteClosingPreview({ quote, professional, pageNumber, settings, onTermsChange, termsRef }: { quote: QuotePreviewData; professional: QuotePreviewProfessional; pageNumber: number; settings?: QuoteClosingSettings; onTermsChange?: (terms: string) => void; termsRef?: RefObject<HTMLTextAreaElement | null> }) {
   const items = quote.items;
   const subtotalCents = items.reduce((total, item) => total + item.totalAmountCents, 0);
   const discountCents = Math.max(0, Math.min(quote.discountCents, subtotalCents));
   const totalCents = subtotalCents - discountCents;
   const paidCents = quote.payments.reduce((total, payment) => total + payment.amountCents, 0);
+  const investment = quoteClosingRows({ totalCents, paidCents, hasPayments: quote.payments.length > 0, settings, format: (cents) => money.format(cents / 100) });
+  const terms = settings?.terms ?? quote.terms ?? "";
   const place = [professional.city, professional.state].filter(Boolean).join(" / ");
   const footer = [professional.name, professional.document, websiteForDisplay(professional.website)].filter(Boolean).join(" · ").toUpperCase();
   const clientDetail = [quote.client.company, quote.client.document].filter(Boolean).join(" · ");
 
   return <div className="quote-docs-preview" id="quote-preview-closing">
-    <PreviewLabel title="FOLHA FINAL" detail="Gerada a partir dos valores salvos. Pode ocupar mais de uma página no PDF." action={<Link className="quote-docs-preview-action" href={`/orcamentos/${quote.id}/editar`}>AJUSTAR VALORES</Link>} />
+    <PreviewLabel title="FOLHA FINAL" detail={onTermsChange ? "Valores do orçamento. As condições de pagamento você escreve direto na folha." : "Gerada a partir dos valores salvos. Pode ocupar mais de uma página no PDF."} action={<Link className="quote-docs-preview-action" href={`/orcamentos/${quote.id}/editar`}>AJUSTAR VALORES</Link>} />
     <article className="quote-docs-page quote-docs-closing" aria-label="Folha final da proposta">
       <div className="quote-closing-sheet">
         <div className="quote-closing-header">
@@ -270,12 +294,17 @@ export function QuoteClosingPreview({ quote, professional, pageNumber }: { quote
               <div><span>Subtotal</span><span>{money.format(subtotalCents / 100)}</span></div>
               <div><span>{quote.discountPercentBps ? `Desconto (${(quote.discountPercentBps / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)` : "Desconto"}</span><span>- {money.format(discountCents / 100)}</span></div>
             </> : null}
-            <div className={discountCents > 0 ? "is-total" : "is-total is-alone"}><span>INVESTIMENTO TOTAL</span><strong>{money.format(totalCents / 100)}</strong></div>
+            <div className={discountCents > 0 ? "is-total" : "is-total is-alone"}><span>{investment.primary.label}</span><strong>{investment.primary.value}</strong></div>
             {quote.payments.map((payment) => <div className="is-payment" key={payment.id}><span>Pago em {shortDate.format(new Date(payment.paidAt))}</span><span>- {money.format(payment.amountCents / 100)}</span></div>)}
-            {quote.payments.length ? <div className="is-balance"><span>SALDO A RECEBER</span><strong>{money.format(Math.max(0, totalCents - paidCents) / 100)}</strong></div> : null}
+            {investment.balance ? <div className="is-balance"><span>{investment.balance.label}</span><strong>{investment.balance.value}</strong></div> : null}
+            {investment.alternative ? <div className="is-balance"><span>{investment.alternative.label}</span><strong>{investment.alternative.value}</strong></div> : null}
+            {investment.note ? <p className="quote-closing-summary-note">{investment.note}</p> : null}
             {quote.paymentNotes ? <p className="quote-closing-summary-note">{quote.paymentNotes}</p> : null}
           </div>
-          {quote.terms ? <><SectionHeading>Condições comerciais</SectionHeading><p className="quote-closing-terms">{quote.terms}</p></> : null}
+          {onTermsChange ? <div className={`quote-closing-terms-field${terms.trim() ? "" : " is-empty"}`}>
+            <SectionHeading>Condições de pagamento</SectionHeading>
+            <TermsTextarea value={terms} onChange={onTermsChange} textareaRef={termsRef} />
+          </div> : terms.trim() ? <><SectionHeading>Condições de pagamento</SectionHeading><p className="quote-closing-terms">{terms.trim()}</p></> : null}
           <div className="quote-closing-spacer" />
           <div className="quote-closing-acceptance">
             <strong>Aceite da proposta</strong>
