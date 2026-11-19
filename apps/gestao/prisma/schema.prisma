@@ -173,6 +173,7 @@ model User {
   updatedAt    DateTime      @updatedAt
   client       Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   sessions     AuthSession[]
+  passwordResets PasswordResetToken[]
 
   @@index([role, isActive])
   @@index([clientId, isActive])
@@ -189,6 +190,21 @@ model AuthSession {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+/// Pedidos de "Esqueci minha senha". O link enviado por e-mail leva o token; aqui fica só o hash SHA-256 dele.
+/// Vale 30 minutos e uma única vez; ao redefinir, os outros pedidos do usuário e as sessões abertas são apagados.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
   @@index([expiresAt])
 }
 

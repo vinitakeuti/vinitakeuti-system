@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { AuthFrame } from "@/features/auth/components/auth-frame";
 import { loginAction } from "@/features/auth/services/auth-actions";
 import type { SessionAudience } from "@/features/auth/types/auth";
 
@@ -14,19 +16,15 @@ export function LoginForm({ portal, error }: { portal: SessionAudience; error?: 
     : { title: "Bem-vindo de volta.", description: "Um espaço para transformar ideias em soluções digitais com clareza e intenção." };
   const message = error && error in messages ? messages[error as keyof typeof messages] : null;
 
-  return <main className="auth-shell">
-    <section className="auth-surface" aria-labelledby="login-title">
-      <header className="auth-header">
-        <div className="auth-brand" aria-label="Vinicius Riudi"><img src="/assets/images/logo-vr.svg" alt="" aria-hidden="true" /><span className="auth-brand-copy"><strong>Vinicius Riudi</strong><small>Desenvolvedor de Software</small></span></div>
-        <p className="auth-portal">{client ? "Área do cliente" : "Gestão"}</p>
-      </header>
-      <div className="auth-copy"><h1 id="login-title">{greeting.title}</h1><p>{greeting.description}</p></div>
-      <form className="auth-form" action={loginAction}>
-        <label>E-mail<input name="email" type="email" autoComplete="username" inputMode="email" maxLength={254} required /></label>
-        <label>Senha<input name="password" type="password" autoComplete="current-password" maxLength={512} required /></label>
-        {message ? <p className="auth-error" role="alert">{message}</p> : null}
-        <button className="primary-action" type="submit">Entrar</button>
-      </form>
-    </section>
-  </main>;
+  return <AuthFrame portal={portal} title={greeting.title} description={greeting.description}>
+    <form className="auth-form" action={loginAction}>
+      <label>E-mail<input name="email" type="email" autoComplete="username" inputMode="email" maxLength={254} required /></label>
+      <div className="auth-field">
+        <div className="auth-field-head"><label htmlFor="login-password">Senha</label><Link className="auth-link" href="/esqueci-senha">Esqueci minha senha</Link></div>
+        <input id="login-password" name="password" type="password" autoComplete="current-password" maxLength={512} required />
+      </div>
+      {message ? <p className="auth-error" role="alert">{message}</p> : null}
+      <button className="primary-action" type="submit">Entrar</button>
+    </form>
+  </AuthFrame>;
 }

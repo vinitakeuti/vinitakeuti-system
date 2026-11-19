@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { changeOwnPasswordAction, type PasswordChangeState } from "@/features/auth/services/password-actions";
 
@@ -13,5 +14,6 @@ export function PasswordChangeForm({ className = "client-portal-password", provi
     <label>Nova senha<input name="next" type="password" autoComplete="new-password" minLength={8} required /></label>
     <label>Confirmar nova senha<input name="confirm" type="password" autoComplete="new-password" minLength={8} required /></label>
     <button className="primary-action" type="submit" disabled={pending}>{pending ? "Salvando..." : provisional ? "Criar senha e continuar" : "Alterar senha"}</button>
+    {provisional ? null : <p className="settings-password-forgot">Esqueceu a senha atual? <Link href="/esqueci-senha">Receba um link por e-mail</Link> para criar uma nova.</p>}
   </form>;
 }

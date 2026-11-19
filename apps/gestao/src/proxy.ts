@@ -8,6 +8,8 @@ import { isForgedServerAction } from "@/lib/server-action-guard";
 const publicApiPaths = new Set(["/api/health", "/api/webhooks/asaas", "/api/ia/site", "/api/ia/site/inicio", "/api/ia/mcp", "/api/ia/mensagens", "/widget/atendimento.js"]);
 /** Páginas do portal do cliente: no domínio de clientes, "/pagamentos" é servido por "/portal/pagamentos". */
 const clientPortalPages = new Set(["/", "/projetos", "/servicos", "/pagamentos", "/documentos", "/configuracoes"]);
+/** Telas de acesso, abertas sem sessão nos dois portais. "Esqueci minha senha" e a nova senha continuam abertas com sessão. */
+const authPages = new Set(["/entrar", "/esqueci-senha", "/redefinir-senha"]);
 
 function isPortalRoute(path: string) {
   return path === "/portal" || path.startsWith("/portal/") || path === "/api/portal" || path.startsWith("/api/portal/");
@@ -44,15 +46,16 @@ export async function proxy(request: NextRequest) {
   }
 
   const isLogin = path === "/entrar";
+  const isAuthPage = authPages.has(path);
   const isPublicApi = publicApiPaths.has(path);
   if (isPublicApi) return NextResponse.next();
 
-  // O domínio de clientes só serve o login, as páginas do portal e a API do portal; o restante da aplicação (gestão
+  // O domínio de clientes só serve as telas de acesso, as páginas do portal e a API do portal; o restante da aplicação (gestão
   // e suas APIs) não existe para ele. Na gestão, as rotas do portal não existem.
   let portalPage: string | null = null;
   if (portal === "client") {
     // Arquivos internos do Next.js (recarga no desenvolvimento, sobreposição de erros) seguem sem regra de portal.
-    if (!isLogin && !path.startsWith("/api/portal/") && !path.startsWith("/_next/") && !path.startsWith("/__nextjs")) {
+    if (!isAuthPage && !path.startsWith("/api/portal/") && !path.startsWith("/_next/") && !path.startsWith("/__nextjs")) {
       const page = path.length > 1 ? path.replace(/\/+$/, "") : path;
       if (!clientPortalPages.has(page)) return path.startsWith("/api/") ? NextResponse.json({ error: "Não encontrado." }, { status: 404 }) : NextResponse.redirect(new URL("/", request.url));
       portalPage = page === "/" ? "/portal" : `/portal${page}`;
@@ -68,6 +71,7 @@ export async function proxy(request: NextRequest) {
     if (session?.audience === portal) return NextResponse.redirect(new URL("/", request.url));
     return NextResponse.next();
   }
+  if (isAuthPage) return NextResponse.next();
 
   if (!session) return loginResponse(request, path.startsWith("/api/"), true);
   if (session.audience !== portal) return loginResponse(request, path.startsWith("/api/"), true);

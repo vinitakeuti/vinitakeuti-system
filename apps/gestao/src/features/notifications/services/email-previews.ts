@@ -1,11 +1,13 @@
 import { managementUrl } from "@/features/auth/services/auth-host";
 import { renderBrandEmail, type EmailProfessional } from "@/features/notifications/templates/brand-email";
+import { passwordResetEmail } from "@/features/notifications/services/account-emails";
 import { accessEmail, documentAvailableEmail, paymentDueEmail, paymentOverdueEmail, paymentReceiptEmail, signatureReviewedEmail, systemStatusEmail } from "@/features/notifications/services/client-emails";
 
 /** Modelos de e-mail com dados de exemplo, para a pré-visualização e o envio de teste em Configurações. */
 export const EMAIL_MODELS = [
   { id: "acesso", group: "Cliente", name: "Acesso ao portal", when: "Ao criar o acesso do cliente no perfil dele." },
   { id: "nova-senha", group: "Cliente", name: "Nova senha", when: "Ao gerar uma nova senha no perfil do cliente." },
+  { id: "redefinir-senha", group: "Cliente", name: "Redefinição de senha", when: "Ao pedir \"Esqueci minha senha\" no login. O seu acesso à gestão usa o mesmo modelo." },
   { id: "documento-assinar", group: "Cliente", name: "Documento para assinar", when: "Ao concluir proposta, contrato, cessão ou memorial." },
   { id: "documento-livre", group: "Cliente", name: "Novo documento", when: "Ao concluir um documento livre vinculado ao cliente." },
   { id: "assinatura-aprovada", group: "Cliente", name: "Assinatura confirmada", when: "Ao aprovar a via assinada enviada pelo cliente." },
@@ -32,6 +34,7 @@ export function buildEmailPreview(id: EmailModelId, professional: EmailProfessio
   switch (id) {
     case "acesso": return accessEmail({ name, email: "maria@empresa.com.br", password: "Kp7m-Qx3a-Wd9r", created: true, professional });
     case "nova-senha": return accessEmail({ name, email: "maria@empresa.com.br", password: "Kp7m-Qx3a-Wd9r", created: false, professional });
+    case "redefinir-senha": return passwordResetEmail({ name, email: "maria@empresa.com.br", link: "https://clientes.viniciusriudi.com/redefinir-senha?token=exemplo", minutes: 30, client: true, professional });
     case "documento-assinar": return documentAvailableEmail({ name, kindName: "Contrato de prestação de serviço", title: "Site institucional", code: "CTR-261016-7F2A91", signable: true, professional });
     case "documento-livre": return documentAvailableEmail({ name, kindName: "Documento livre", title: "Relatório mensal de outubro", code: "DOC-261030-C03927", signable: false, professional });
     case "assinatura-aprovada": return signatureReviewedEmail({ name, title: "Site institucional", code: "CTR-261016-7F2A91", approved: true, reason: null, professional });
