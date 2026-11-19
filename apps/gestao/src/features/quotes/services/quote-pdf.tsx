@@ -120,6 +120,8 @@ const styles = StyleSheet.create({
   closingSummaryPayment: { color: colors.muted, flexDirection: "row", fontSize: 8.5, justifyContent: "space-between", marginTop: 6 },
   closingSummaryBalance: { alignItems: "baseline", borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", marginTop: 8, paddingTop: 8 },
   closingSummaryBalanceValue: { color: colors.black, fontSize: 11, fontWeight: 700 },
+  // Continuação da linha de cima (entrada e saldo da mesma condição): sem traço e mais próxima.
+  closingSummaryJoined: { borderTopWidth: 0, marginTop: 5, paddingTop: 0 },
   closingSummaryNote: { color: colors.muted, fontSize: 7.8, lineHeight: 1.45, marginTop: 8 },
   closingTerms: { color: colors.charcoal, fontSize: 9, lineHeight: 1.6 },
   closingSpacer: { flexGrow: 1, minHeight: 22 },
@@ -443,10 +445,9 @@ function QuotePdfDocument({ quote, logoSvg }: { quote: QuotePdfInput; logoSvg: B
               <View style={styles.closingSummaryLine}><Text>Subtotal</Text><Text>{formatMoney(subtotalCents)}</Text></View>
               <View style={styles.closingSummaryLine}><Text>{quote.discountPercentBps ? `Desconto (${(quote.discountPercentBps / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)` : "Desconto"}</Text><Text>- {formatMoney(discountCents)}</Text></View>
             </> : null}
-            <View style={[styles.closingSummaryTotal, discountCents > 0 ? {} : { borderTopWidth: 0, marginTop: 0, paddingTop: 2 }]}><Text style={styles.closingSummaryTotalLabel}>{investment.primary.label}</Text><Text style={styles.closingSummaryTotalValue}>{investment.primary.value}</Text></View>
+            {investment.lead.map((row, index) => <View key={row.label} style={[styles.closingSummaryTotal, index > 0 ? styles.closingSummaryJoined : discountCents > 0 ? {} : { borderTopWidth: 0, marginTop: 0, paddingTop: 2 }]}><Text style={styles.closingSummaryTotalLabel}>{row.label}</Text><Text style={styles.closingSummaryTotalValue}>{row.value}</Text></View>)}
             {payments.map((payment, index) => <View style={styles.closingSummaryPayment} key={`${payment.paidAt.toISOString()}-${index}`}><Text>Pago em {shortDate.format(payment.paidAt)}</Text><Text>- {formatMoney(payment.amountCents)}</Text></View>)}
-            {investment.balance ? <View style={styles.closingSummaryBalance}><Text style={styles.closingSummaryTotalLabel}>{investment.balance.label}</Text><Text style={styles.closingSummaryBalanceValue}>{investment.balance.value}</Text></View> : null}
-            {investment.alternative ? <View style={styles.closingSummaryBalance}><Text style={styles.closingSummaryTotalLabel}>{investment.alternative.label}</Text><Text style={styles.closingSummaryBalanceValue}>{investment.alternative.value}</Text></View> : null}
+            {investment.rest.map((row) => <View key={row.label} style={[styles.closingSummaryBalance, row.joined ? styles.closingSummaryJoined : {}]}><Text style={styles.closingSummaryTotalLabel}>{row.label}</Text><Text style={styles.closingSummaryBalanceValue}>{row.value}</Text></View>)}
             {investment.note ? <Text style={styles.closingSummaryNote}>{investment.note}</Text> : null}
             {quote.paymentNotes ? <Text style={styles.closingSummaryNote}>{quote.paymentNotes}</Text> : null}
           </View>

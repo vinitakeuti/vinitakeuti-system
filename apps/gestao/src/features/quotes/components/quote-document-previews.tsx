@@ -294,10 +294,9 @@ export function QuoteClosingPreview({ quote, professional, pageNumber, settings,
               <div><span>Subtotal</span><span>{money.format(subtotalCents / 100)}</span></div>
               <div><span>{quote.discountPercentBps ? `Desconto (${(quote.discountPercentBps / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)` : "Desconto"}</span><span>- {money.format(discountCents / 100)}</span></div>
             </> : null}
-            <div className={discountCents > 0 ? "is-total" : "is-total is-alone"}><span>{investment.primary.label}</span><strong>{investment.primary.value}</strong></div>
+            {investment.lead.map((row, index) => <div className={index > 0 ? "is-total is-joined" : discountCents > 0 ? "is-total" : "is-total is-alone"} key={row.label}><span>{row.label}</span><strong>{row.value}</strong></div>)}
             {quote.payments.map((payment) => <div className="is-payment" key={payment.id}><span>Pago em {shortDate.format(new Date(payment.paidAt))}</span><span>- {money.format(payment.amountCents / 100)}</span></div>)}
-            {investment.balance ? <div className="is-balance"><span>{investment.balance.label}</span><strong>{investment.balance.value}</strong></div> : null}
-            {investment.alternative ? <div className="is-balance"><span>{investment.alternative.label}</span><strong>{investment.alternative.value}</strong></div> : null}
+            {investment.rest.map((row) => <div className={row.joined ? "is-balance is-joined" : "is-balance"} key={row.label}><span>{row.label}</span><strong>{row.value}</strong></div>)}
             {investment.note ? <p className="quote-closing-summary-note">{investment.note}</p> : null}
             {quote.paymentNotes ? <p className="quote-closing-summary-note">{quote.paymentNotes}</p> : null}
           </div>

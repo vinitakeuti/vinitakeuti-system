@@ -77,25 +77,38 @@ export type QuoteDocumentContent = {
 export type QuoteClosingValueDisplay = "total" | "installments" | "both";
 export const QUOTE_CLOSING_MIN_INSTALLMENTS = 2;
 export const QUOTE_CLOSING_MAX_INSTALLMENTS = 60;
+export const QUOTE_CLOSING_MAX_DOWN_PAYMENT_PERCENT = 90;
 export const QUOTE_TERMS_MAX_LENGTH = 4_000;
 
 /**
  * Página final da proposta. `terms` (condições de pagamento) é escrito no editor junto com o documento, mas fica
  * gravado na coluna `terms` do orçamento, que a gestão e a Eliza também leem; no JSON do documento ficam só a forma
- * de mostrar o valor e o número de parcelas.
+ * de mostrar o valor, a entrada e o número de parcelas.
+ * `downPaymentPercent` é a entrada em % do valor total (0 = sem entrada); as parcelas dividem o que sobra.
  */
-export type QuoteClosingSettings = { value: QuoteClosingValueDisplay; installments: number; terms?: string };
+export type QuoteClosingSettings = { value: QuoteClosingValueDisplay; installments: number; downPaymentPercent: number; terms?: string };
 
-export const defaultQuoteClosing = (): QuoteClosingSettings => ({ value: "total", installments: QUOTE_CLOSING_MIN_INSTALLMENTS });
+export const defaultQuoteClosing = (): QuoteClosingSettings => ({ value: "total", installments: QUOTE_CLOSING_MIN_INSTALLMENTS, downPaymentPercent: 0 });
+
+/** Com entrada, o restante pode ir numa parcela só ("50% de entrada e 50% na entrega"); sem ela, são pelo menos duas. */
+export const minClosingInstallments = (downPaymentPercent: number) => downPaymentPercent > 0 ? 1 : QUOTE_CLOSING_MIN_INSTALLMENTS;
+
+const wholeNumber = (value: unknown, fallback: number) => typeof value === "number" && Number.isFinite(value) ? Math.round(value) : fallback;
+
+/** Entrada e parcelas dentro dos limites: a entrada entre 0 e 90% e as parcelas no mínimo que a entrada permite. */
+export function normalizeClosing<T extends Pick<QuoteClosingSettings, "installments" | "downPaymentPercent">>(closing: T): T {
+  const downPaymentPercent = Math.min(QUOTE_CLOSING_MAX_DOWN_PAYMENT_PERCENT, Math.max(0, wholeNumber(closing.downPaymentPercent, 0)));
+  const installments = Math.min(QUOTE_CLOSING_MAX_INSTALLMENTS, Math.max(minClosingInstallments(downPaymentPercent), wholeNumber(closing.installments, QUOTE_CLOSING_MIN_INSTALLMENTS)));
+  return { ...closing, downPaymentPercent, installments };
+}
 
 function parseClosingSettings(value: unknown): QuoteClosingSettings | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const closing = value as Partial<Record<keyof QuoteClosingSettings, unknown>>;
   const display = closing.value === "installments" || closing.value === "both" ? closing.value : "total";
-  const count = typeof closing.installments === "number" && Number.isFinite(closing.installments) ? Math.round(closing.installments) : QUOTE_CLOSING_MIN_INSTALLMENTS;
-  const installments = Math.min(QUOTE_CLOSING_MAX_INSTALLMENTS, Math.max(QUOTE_CLOSING_MIN_INSTALLMENTS, count));
+  const { installments, downPaymentPercent } = normalizeClosing({ installments: wholeNumber(closing.installments, QUOTE_CLOSING_MIN_INSTALLMENTS), downPaymentPercent: wholeNumber(closing.downPaymentPercent, 0) });
   const terms = typeof closing.terms === "string" ? closing.terms.replace(/\r\n?/g, "\n").trim().slice(0, QUOTE_TERMS_MAX_LENGTH) : undefined;
-  return { value: display, installments, ...(terms === undefined ? {} : { terms }) };
+  return { value: display, installments, downPaymentPercent, ...(terms === undefined ? {} : { terms }) };
 }
 
 /** Parcelas iguais; a diferença dos centavos vai para a última, como no Financeiro. */
@@ -104,24 +117,54 @@ export function splitInstallments(totalCents: number, count: number) {
   return { count, each, last: totalCents - each * (count - 1) };
 }
 
-type ClosingRow = { label: string; value: string };
+/** `joined`: continua a linha de cima (entrada e saldo da mesma condição), sem o traço que separa as linhas. */
+export type QuoteClosingRow = { label: string; value: string; joined?: boolean };
 
 /**
- * Linhas de valor da página final, iguais na prévia do editor e no PDF. Com pagamentos já recebidos, as parcelas
- * dividem o saldo a receber. Sem saldo (ou com saldo menor que um centavo por parcela), mostra só o total.
+ * Linhas de valor da página final, iguais na prévia do editor e no PDF.
+ * - `lead`: o bloco principal, logo abaixo dos serviços (o total; ou, no parcelado, a entrada e as parcelas).
+ * - `rest`: depois dos pagamentos já recebidos (saldo e a alternativa parcelada).
+ * Com entrada, as parcelas dividem o que sobra dela. Com pagamentos já recebidos, eles abatem primeiro a entrada:
+ * enquanto não a cobrem, aparece o que falta dela; depois, as parcelas dividem o saldo a receber. Sem saldo (ou com
+ * menos de um centavo por parcela), fica só o total.
  */
-export function quoteClosingRows({ totalCents, paidCents, hasPayments, settings, format }: { totalCents: number; paidCents: number; hasPayments: boolean; settings: Pick<QuoteClosingSettings, "value" | "installments"> | undefined; format: (cents: number) => string }) {
+export function quoteClosingRows({ totalCents, paidCents, hasPayments, settings, format }: { totalCents: number; paidCents: number; hasPayments: boolean; settings: Pick<QuoteClosingSettings, "value" | "installments" | "downPaymentPercent"> | undefined; format: (cents: number) => string }) {
   const balanceCents = Math.max(0, totalCents - paidCents);
-  const base = hasPayments ? balanceCents : totalCents;
   const wanted = settings?.value ?? "total";
-  const plan = wanted !== "total" && settings && base >= settings.installments ? splitInstallments(base, settings.installments) : null;
+  const percent = wanted === "total" ? 0 : settings?.downPaymentPercent ?? 0;
+  const downCents = Math.round(totalCents * percent / 100);
+  const downDueCents = hasPayments ? Math.max(0, downCents - paidCents) : downCents;
+  // O que as parcelas dividem: o total sem a entrada; com pagamentos que já cobrem a entrada, o saldo a receber.
+  const financedCents = downDueCents > 0 ? totalCents - downCents : hasPayments ? balanceCents : totalCents - downCents;
+  const count = settings ? normalizeClosing(settings).installments : QUOTE_CLOSING_MIN_INSTALLMENTS;
+  const plan = wanted !== "total" && financedCents >= count ? splitInstallments(financedCents, count) : null;
   const display = plan ? wanted : "total";
-  const planText = plan ? `${plan.count} × ${format(plan.each)}` : "";
-  const primary: ClosingRow = display === "installments" && !hasPayments ? { label: `INVESTIMENTO EM ${plan!.count} PARCELAS`, value: planText } : { label: "INVESTIMENTO TOTAL", value: format(totalCents) };
-  const balance: ClosingRow | null = !hasPayments ? null : display === "installments" ? { label: `SALDO EM ${plan!.count} PARCELAS`, value: planText } : { label: "SALDO A RECEBER", value: format(balanceCents) };
-  const alternative: ClosingRow | null = display === "both" ? { label: `OU EM ${plan!.count} PARCELAS`, value: planText } : null;
+  const planText = plan ? plan.count === 1 ? format(plan.each) : `${plan.count} × ${format(plan.each)}` : "";
+  const parcels = plan ? `${plan.count} ${plan.count === 1 ? "PARCELA" : "PARCELAS"}` : "";
+  const percentText = percent.toLocaleString("pt-BR");
+  const total: QuoteClosingRow = { label: "INVESTIMENTO TOTAL", value: format(totalCents) };
+  const balance: QuoteClosingRow = { label: "SALDO A RECEBER", value: format(balanceCents) };
+
+  // A condição parcelada: com entrada a pagar, a entrada e o saldo em parcelas; sem ela, só as parcelas.
+  const condition = (prefix: "" | "OU "): QuoteClosingRow[] => {
+    if (!plan) return [];
+    if (downDueCents > 0) return [
+      { label: `${prefix}${hasPayments ? "RESTANTE DA ENTRADA" : `ENTRADA DE ${percentText}%`}`, value: format(downDueCents) },
+      { label: `${prefix ? "E " : ""}SALDO EM ${parcels}`, value: planText, joined: true },
+    ];
+    return [{ label: prefix ? `OU EM ${parcels}` : `${hasPayments ? "SALDO" : "INVESTIMENTO"} EM ${parcels}`, value: planText }];
+  };
+
+  let lead: QuoteClosingRow[] = [total];
+  let rest: QuoteClosingRow[] = hasPayments ? [balance] : [];
+  if (display === "installments") {
+    if (hasPayments) rest = condition("");
+    else lead = condition("");
+  } else if (display === "both") {
+    rest = [...rest, ...condition("OU ")];
+  }
   const note = plan && plan.last !== plan.each ? `A última parcela é de ${format(plan.last)}.` : null;
-  return { primary, balance, alternative, note };
+  return { lead, rest, note };
 }
 
 /** Capa do documento livre antes da primeira edição: incluída, sem rótulo e com o título do documento. */

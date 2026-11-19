@@ -9,7 +9,7 @@ import type { EditorPart } from "@/features/ai/services/document-markdown";
 import { InlineRichTextEditor, type RichTextEditorCommand, type RichTextEditorCommandRequest, type RichTextListChoice, type RichTextSelectionFormat } from "@/features/services/components/service-proposal-editor";
 import { DocumentSignaturePreview, QuoteClosingPreview, QuoteCoverPreview, type DocumentCoverData, type QuotePreviewData, type SignaturePreviewData } from "@/features/quotes/components/quote-document-previews";
 import { documentKindInfo, type DocumentKind } from "@/features/documents/types/document-kinds";
-import { COVER_LABEL_MAX_LENGTH, COVER_TITLE_MAX_LENGTH, defaultFreeCover, defaultQuoteClosing, type DocumentCoverSettings, QUOTE_CLOSING_MAX_INSTALLMENTS, QUOTE_CLOSING_MIN_INSTALLMENTS, type QuoteClosingSettings, type QuoteClosingValueDisplay, uniqueBlockIds, hasQuoteServicesComponent, type QuoteDividerStyle, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
+import { COVER_LABEL_MAX_LENGTH, COVER_TITLE_MAX_LENGTH, defaultFreeCover, defaultQuoteClosing, type DocumentCoverSettings, minClosingInstallments, normalizeClosing, QUOTE_CLOSING_MAX_DOWN_PAYMENT_PERCENT, QUOTE_CLOSING_MAX_INSTALLMENTS, QUOTE_CLOSING_MIN_INSTALLMENTS, type QuoteClosingSettings, type QuoteClosingValueDisplay, uniqueBlockIds, hasQuoteServicesComponent, type QuoteDividerStyle, QUOTE_INTRO_BLOCK_ID, QUOTE_TEXT_MAX_CHARACTERS, quoteDocumentBlockRole, quoteImageWidthShare, quoteServiceComponentBlocks, type QuoteDocumentAlign, type QuoteDocumentBlock, type QuoteDocumentContent, type QuoteDocumentFontSize, type QuoteDocumentImage } from "@/features/quotes/types/document-content";
 import { isBlankRichTextRuns, mergeAdjacentRichTextLists, parseRichText, RICH_TEXT_BASE_SIZE, richTextHasContent, RICH_TEXT_COLORS, RICH_TEXT_SIZES, serializeRichText, type RichTextAlign, type RichTextBlock, type RichTextBox, type RichTextColor, type RichTextParagraphStyle } from "@/lib/rich-text";
 
 type ProfessionalProfile = {
@@ -527,6 +527,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
   const termsRef = useRef<HTMLTextAreaElement | null>(null);
   const termsConfirmedRef = useRef(false);
   const [installmentsDraft, setInstallmentsDraft] = useState(String(initialContent.closing?.installments ?? QUOTE_CLOSING_MIN_INSTALLMENTS));
+  const [downPaymentDraft, setDownPaymentDraft] = useState(initialContent.closing?.downPaymentPercent ? String(initialContent.closing.downPaymentPercent) : "");
   const [imageUpload, setImageUpload] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const [assistantOpen, setAssistantOpen] = useState(false);
   const openAssistant = useCallback(() => setAssistantOpen(true), []);
@@ -545,6 +546,7 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
   const coverSettings = kind === "free" ? content.cover ?? defaultFreeCover(documentTitle) : null;
   const coverPages = coverSettings && !coverSettings.enabled ? 0 : 1;
   const closingPages = closing.type === "none" ? 0 : 1;
+  const downPaymentPercent = content.closing?.downPaymentPercent ?? 0;
   const totalPages = coverPages + layout.breaks.length + 1 + closingPages;
 
   const measure = useCallback(() => {
@@ -728,17 +730,29 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
     if (focus) setFocusRequest(focus);
   }
 
-  /** Página final da proposta: forma de mostrar o valor, número de parcelas e condições de pagamento. */
+  /** Página final da proposta: forma de mostrar o valor, entrada, número de parcelas e condições de pagamento. */
   function updateClosing(patch: Partial<QuoteClosingSettings>) {
-    const next = { ...contentRef.current, closing: { ...(contentRef.current.closing ?? defaultQuoteClosing()), ...patch } };
+    const previous = contentRef.current.closing ?? defaultQuoteClosing();
+    const closing = normalizeClosing({ ...previous, ...patch });
+    const next = { ...contentRef.current, closing };
     writeContent(next);
     setContent(next);
+    // Sem entrada, uma parcela só volta para o mínimo de duas: o campo mostra o número que vale.
+    if (patch.installments === undefined && closing.installments !== previous.installments) setInstallmentsDraft(String(closing.installments));
   }
 
   function changeInstallments(value: string) {
     setInstallmentsDraft(value);
     const count = Math.floor(Number(value));
-    if (Number.isFinite(count) && count >= QUOTE_CLOSING_MIN_INSTALLMENTS && count <= QUOTE_CLOSING_MAX_INSTALLMENTS) updateClosing({ installments: count });
+    const min = minClosingInstallments(contentRef.current.closing?.downPaymentPercent ?? 0);
+    if (value.trim() && Number.isFinite(count) && count >= min && count <= QUOTE_CLOSING_MAX_INSTALLMENTS) updateClosing({ installments: count });
+  }
+
+  /** Entrada em % do total; em branco ou zero, sem entrada. */
+  function changeDownPayment(value: string) {
+    setDownPaymentDraft(value);
+    const percent = value.trim() ? Math.floor(Number(value)) : 0;
+    if (Number.isFinite(percent) && percent >= 0 && percent <= QUOTE_CLOSING_MAX_DOWN_PAYMENT_PERCENT) updateClosing({ downPaymentPercent: percent });
   }
 
   function updateCover(patch: Partial<DocumentCoverSettings>) {
@@ -1236,7 +1250,11 @@ export function QuoteDocumentEditor({ kind, documentId, documentCode, documentTi
           <button type="button" className="secondary-action" aria-expanded={showClosing} onClick={() => setShowClosing((value) => !value)}>{showClosing ? "Ocultar página final" : "Exibir página final"}</button>
           {closing.type === "investment" && showClosing ? <div className="quote-docs-closing-options" onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }}>
             <fieldset className="quote-docs-segmented"><legend>Valor na página final</legend><div>{CLOSING_VALUE_OPTIONS.map((option) => <label key={option.value}><input type="radio" name="closing-value" value={option.value} checked={(content.closing?.value ?? "total") === option.value} onChange={() => updateClosing({ value: option.value })} /><span>{option.label}</span></label>)}</div></fieldset>
-            {(content.closing?.value ?? "total") === "total" ? null : <label className="quote-docs-installments"><span>Parcelas</span><input type="number" inputMode="numeric" min={QUOTE_CLOSING_MIN_INSTALLMENTS} max={QUOTE_CLOSING_MAX_INSTALLMENTS} value={installmentsDraft} onChange={(event) => changeInstallments(event.target.value)} onBlur={() => setInstallmentsDraft(String(contentRef.current.closing?.installments ?? QUOTE_CLOSING_MIN_INSTALLMENTS))} /></label>}
+            {(content.closing?.value ?? "total") === "total" ? null : <>
+              <label className="quote-docs-installments"><span>Entrada</span><span className="quote-docs-percent"><input type="number" inputMode="numeric" min={0} max={QUOTE_CLOSING_MAX_DOWN_PAYMENT_PERCENT} step={1} placeholder="0" value={downPaymentDraft} onChange={(event) => changeDownPayment(event.target.value)} onBlur={() => setDownPaymentDraft(contentRef.current.closing?.downPaymentPercent ? String(contentRef.current.closing.downPaymentPercent) : "")} /><i aria-hidden="true">%</i></span></label>
+              <label className="quote-docs-installments"><span>{downPaymentPercent > 0 ? "Parcelas do saldo" : "Parcelas"}</span><input type="number" inputMode="numeric" min={minClosingInstallments(downPaymentPercent)} max={QUOTE_CLOSING_MAX_INSTALLMENTS} step={1} value={installmentsDraft} onChange={(event) => changeInstallments(event.target.value)} onBlur={() => setInstallmentsDraft(String(contentRef.current.closing?.installments ?? QUOTE_CLOSING_MIN_INSTALLMENTS))} /></label>
+              {downPaymentPercent > 0 && closing.quote.payments.length > 0 ? <p className="quote-docs-closing-hint">Os pagamentos já registrados no orçamento abatem primeiro a entrada.</p> : null}
+            </>}
           </div> : null}
         </div>
         {showClosing ? closing.type === "investment" ? <QuoteClosingPreview quote={closing.quote} professional={professional} pageNumber={totalPages} settings={content.closing ?? defaultQuoteClosing()} onTermsChange={(terms) => updateClosing({ terms })} termsRef={termsRef} /> : <DocumentSignaturePreview document={closing.document} professional={professional} kind={kind} pageNumber={totalPages} /> : null}</>}

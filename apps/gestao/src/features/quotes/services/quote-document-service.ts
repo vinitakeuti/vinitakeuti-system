@@ -18,7 +18,7 @@ export async function saveQuoteDocument(quoteId: string, rawDocument: unknown, o
   // As condições de pagamento, escritas na página final do editor, ficam na coluna do orçamento. Um editor aberto
   // antes desta mudança não manda a página final e não apaga as condições.
   const { closing, ...withoutClosing } = parsed;
-  const documentContent = closing ? { ...withoutClosing, closing: { value: closing.value, installments: closing.installments } } : withoutClosing;
+  const documentContent = closing ? { ...withoutClosing, closing: { value: closing.value, installments: closing.installments, downPaymentPercent: closing.downPaymentPercent } } : withoutClosing;
   const terms = closing?.terms === undefined ? {} : { terms: closing.terms || null };
   const completing = Boolean(options.complete && !quote.completedAt);
   const updated = await prisma.quote.update({ where: { id: quote.id }, data: { documentContent, ...terms, ...(completing ? { completedAt: new Date() } : {}) }, select: { updatedAt: true } });

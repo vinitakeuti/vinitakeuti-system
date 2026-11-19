@@ -20880,7 +20880,8 @@ a.attendance-row:hover {
 .quote-docs-closing-toggle.has-options {
   flex-wrap: wrap;
 }
-.quote-docs-closing-options {
+/* A barra trata os blocos dela como grade; as opções ficam numa linha (forma do valor, entrada e parcelas), quebrando no estreito. */
+.quote-docs-closing-toggle > .quote-docs-closing-options {
   display: flex;
   flex: 1 1 100%;
   flex-wrap: wrap;
@@ -20896,7 +20897,7 @@ a.attendance-row:hover {
   border: 0;
 }
 .quote-docs-segmented legend,
-.quote-docs-installments > span {
+.quote-docs-installments > span:first-child {
   margin-bottom: 7px;
   padding: 0;
   color: var(--muted);
@@ -20956,6 +20957,7 @@ a.attendance-row:hover {
   display: grid;
 }
 .quote-docs-installments input {
+  box-sizing: border-box;
   width: 96px;
   height: 38px;
   padding: 0 10px;
@@ -20967,6 +20969,30 @@ a.attendance-row:hover {
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   outline-color: var(--accent);
+}
+.quote-docs-percent {
+  position: relative;
+  display: block;
+}
+.quote-docs-percent input {
+  padding-right: 28px;
+}
+.quote-docs-percent i {
+  position: absolute;
+  font-family: var(--font-ui);
+  top: 50%;
+  right: 11px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-style: normal;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.quote-docs-closing-hint {
+  flex: 1 1 100%;
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
 }
 @media (max-width: 760px) {
   .quote-docs-segmented,
@@ -21079,4 +21105,11 @@ a.attendance-row:hover {
   body.doc-ai-open .quote-docs-toolbar-actions .quote-docs-eliza {
     margin-right: auto;
   }
+}
+
+/* Folha final: a linha que continua a de cima (entrada e saldo da mesma condição) não leva traço nem respiro extra. */
+.quote-closing-summary div.is-joined {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
